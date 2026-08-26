@@ -12,11 +12,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* 전체적으로 글자가 작다는 피드백에 따라 기준 폰트 크기를 키운다.
+   Tailwind 유틸리티(text, px, py 등)는 rem 기반이라 이 한 줄로 전체 화면이 함께 커진다. */
+html {
+  font-size: 18px;
 }
 
 body {

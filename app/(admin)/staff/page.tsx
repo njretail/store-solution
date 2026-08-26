@@ -28,7 +28,7 @@ export default async function StaffPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-lg font-semibold text-zinc-900">직원관리</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">직원관리</h1>
         <p className="text-sm text-zinc-500">
           관리자/직원 계정을 생성하고 매장을 배정합니다.
         </p>
@@ -37,7 +37,7 @@ export default async function StaffPage() {
       <StaffForm stores={stores} />
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-        <table className="w-full text-sm">
+        <table className="w-full text-base">
           <thead className="bg-zinc-50 text-left text-zinc-500">
             <tr>
               <th className="px-3 py-2">이메일</th>

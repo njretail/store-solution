@@ -95,7 +95,7 @@ export default async function SalesPage({
     return (
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-lg font-semibold text-zinc-900">매출조회</h1>
+          <h1 className="text-2xl font-semibold text-zinc-900">매출조회</h1>
           <p className="text-sm text-zinc-500">전체 매장 합산</p>
         </div>
 
@@ -104,20 +104,20 @@ export default async function SalesPage({
         <div className="flex gap-4">
           <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
             <p className="text-xs text-zinc-500">전체 매출 합계</p>
-            <p className="text-lg font-semibold text-zinc-900">
+            <p className="text-2xl font-semibold text-zinc-900">
               {grandTotal.toLocaleString()}원
             </p>
           </div>
           <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
             <p className="text-xs text-zinc-500">전체 거래 건수</p>
-            <p className="text-lg font-semibold text-zinc-900">
+            <p className="text-2xl font-semibold text-zinc-900">
               {sales.length}건
             </p>
           </div>
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-          <table className="w-full text-sm">
+          <table className="w-full text-base">
             <thead className="bg-zinc-50 text-left text-zinc-500">
               <tr>
                 <th className="px-3 py-2">매장</th>
@@ -166,7 +166,7 @@ export default async function SalesPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-lg font-semibold text-zinc-900">매출조회</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">매출조회</h1>
         <p className="text-sm text-zinc-500">{store.name}</p>
       </div>
 
@@ -175,18 +175,18 @@ export default async function SalesPage({
       <div className="flex gap-4">
         <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
           <p className="text-xs text-zinc-500">매출 합계</p>
-          <p className="text-lg font-semibold text-zinc-900">
+          <p className="text-2xl font-semibold text-zinc-900">
             {totalAmount.toLocaleString()}원
           </p>
         </div>
         <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
           <p className="text-xs text-zinc-500">거래 건수</p>
-          <p className="text-lg font-semibold text-zinc-900">{sales.length}건</p>
+          <p className="text-2xl font-semibold text-zinc-900">{sales.length}건</p>
         </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-        <table className="w-full text-sm">
+        <table className="w-full text-base">
           <thead className="bg-zinc-50 text-left text-zinc-500">
             <tr>
               <th className="px-3 py-2">일시</th>

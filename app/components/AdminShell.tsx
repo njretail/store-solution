@@ -8,7 +8,7 @@ import StoreSwitcher from "@/app/components/StoreSwitcher";
 import type { Store, UserRole } from "@/lib/types";
 
 const ADMIN_LINKS = [
-  { href: "/dashboard", label: "대시보드" },
+  { href: "/dashboard", label: "홈" },
   { href: "/products", label: "상품관리" },
   { href: "/stock-in", label: "입고" },
   { href: "/sell", label: "판매" },
@@ -53,7 +53,7 @@ export default function AdminShell({
             <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
           </svg>
         </button>
-        <span className="text-sm font-semibold text-zinc-900">
+        <span className="text-base font-semibold text-zinc-900">
           {storeName ?? "무인편의점 관리"}
         </span>
         <div className="w-6" />
@@ -69,17 +69,17 @@ export default function AdminShell({
 
       {/* 사이드바 */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 transform flex-col border-r border-zinc-200 bg-white transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 shrink-0 transform flex-col border-r border-zinc-200 bg-white transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="border-b border-zinc-200 px-4 py-4">
-          <p className="text-sm font-semibold text-zinc-900">
+        <div className="border-b border-zinc-200 px-4 py-5">
+          <p className="text-lg font-semibold text-zinc-900">
             {storeName ?? "무인편의점 관리"}
           </p>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3">
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
           {links.map((l) => {
             const active = pathname === l.href;
             return (
@@ -87,7 +87,7 @@ export default function AdminShell({
                 key={l.href}
                 href={l.href}
                 onClick={() => setOpen(false)}
-                className={`rounded-md px-3 py-2 text-sm ${
+                className={`rounded-md px-3 py-2.5 text-base ${
                   active
                     ? "bg-zinc-900 text-white"
                     : "text-zinc-600 hover:bg-zinc-100"
@@ -100,16 +100,16 @@ export default function AdminShell({
         </nav>
 
         {role === "admin" && (
-          <div className="border-t border-zinc-200 px-2 py-3">
+          <div className="border-t border-zinc-200 px-3 py-4">
             <StoreSwitcher stores={stores} currentStoreId={currentStoreId} />
           </div>
         )}
 
-        <div className="border-t border-zinc-200 px-2 py-3">
+        <div className="border-t border-zinc-200 px-3 py-4">
           <form action={signOut}>
             <button
               type="submit"
-              className="w-full rounded-md px-3 py-2 text-left text-sm text-zinc-500 hover:bg-zinc-100"
+              className="w-full rounded-md px-3 py-2.5 text-left text-base text-zinc-500 hover:bg-zinc-100"
             >
               로그아웃
             </button>
@@ -117,7 +117,7 @@ export default function AdminShell({
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 px-4 py-6 lg:px-8">{children}</main>
+      <main className="min-w-0 flex-1 px-4 py-6 lg:px-10 lg:py-8">{children}</main>
     </div>
   );
 }

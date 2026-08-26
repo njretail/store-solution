@@ -27,7 +27,7 @@ export default async function StockInPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-lg font-semibold text-zinc-900">입고</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">입고</h1>
         <p className="text-sm text-zinc-500">{store.name}</p>
       </div>
 
@@ -36,7 +36,7 @@ export default async function StockInPage() {
       <div>
         <h2 className="mb-2 text-sm font-medium text-zinc-700">최근 입고 내역</h2>
         <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-          <table className="w-full text-sm">
+          <table className="w-full text-base">
             <thead className="bg-zinc-50 text-left text-zinc-500">
               <tr>
                 <th className="px-3 py-2">일시</th>
