@@ -19,30 +19,51 @@ export default async function DashboardPage() {
 
   const today = dayRangeIso(0);
   const yesterday = dayRangeIso(-1);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const weekAhead = new Date();
+  weekAhead.setDate(weekAhead.getDate() + 7);
+  const weekAheadStr = weekAhead.toISOString().slice(0, 10);
 
-  const [{ data: productsData }, { data: todayData }, { data: yesterdayData }] =
-    await Promise.all([
-      supabase
-        .from("products")
-        .select("*")
-        .eq("store_id", store.id)
-        .order("stock_qty", { ascending: true }),
-      supabase
-        .from("sales")
-        .select("total_amount, payment_method")
-        .eq("store_id", store.id)
-        .gte("created_at", today.fromIso)
-        .lt("created_at", today.toIso),
-      supabase
-        .from("sales")
-        .select("total_amount")
-        .eq("store_id", store.id)
-        .gte("created_at", yesterday.fromIso)
-        .lt("created_at", yesterday.toIso),
-    ]);
+  const [
+    { data: productsData },
+    { data: todayData },
+    { data: yesterdayData },
+    { data: expiryData },
+  ] = await Promise.all([
+    supabase
+      .from("products")
+      .select("*")
+      .eq("store_id", store.id)
+      .order("stock_qty", { ascending: true }),
+    supabase
+      .from("sales")
+      .select("total_amount, payment_method")
+      .eq("store_id", store.id)
+      .gte("created_at", today.fromIso)
+      .lt("created_at", today.toIso),
+    supabase
+      .from("sales")
+      .select("total_amount")
+      .eq("store_id", store.id)
+      .gte("created_at", yesterday.fromIso)
+      .lt("created_at", yesterday.toIso),
+    supabase
+      .from("product_expiries")
+      .select("id, expiry_date, quantity, products(name, barcode)")
+      .eq("store_id", store.id)
+      .lte("expiry_date", weekAheadStr)
+      .order("expiry_date", { ascending: true }),
+  ]);
 
   const products = (productsData ?? []) as Product[];
   const lowStock = products.filter((p) => p.stock_qty <= p.low_stock_threshold);
+
+  const expiringSoon = (expiryData ?? []) as unknown as Array<{
+    id: string;
+    expiry_date: string;
+    quantity: number;
+    products: { name: string; barcode: string } | null;
+  }>;
 
   const todaySales = todayData ?? [];
   const todayRevenue = todaySales.reduce((sum, s) => sum + s.total_amount, 0);
@@ -80,7 +101,6 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900">홈</h1>
-        <p className="text-base text-zinc-500">{store.name}</p>
       </div>
 
       <div>
@@ -206,6 +226,58 @@ export default async function DashboardPage() {
             상품관리
           </Link>
           에서 상품별로 조정할 수 있습니다.
+        </p>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-base font-medium text-zinc-700">
+          소비기한 임박 상품 ({expiringSoon.length}개)
+        </h2>
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+          <table className="w-full text-base">
+            <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
+              <tr>
+                <th className="px-4 py-3">소비기한</th>
+                <th className="px-4 py-3">상품명</th>
+                <th className="px-4 py-3">바코드</th>
+                <th className="px-4 py-3">수량</th>
+              </tr>
+            </thead>
+            <tbody>
+              {expiringSoon.map((e) => {
+                const overdue = e.expiry_date <= todayStr;
+                return (
+                  <tr key={e.id} className="border-t border-zinc-100">
+                    <td
+                      className={`px-4 py-3 font-medium ${overdue ? "text-red-600" : "text-amber-600"}`}
+                    >
+                      {e.expiry_date}
+                      {overdue ? " (경과)" : ""}
+                    </td>
+                    <td className="px-4 py-3">{e.products?.name ?? "-"}</td>
+                    <td className="px-4 py-3 text-zinc-500">
+                      {e.products?.barcode ?? "-"}
+                    </td>
+                    <td className="px-4 py-3">{e.quantity}</td>
+                  </tr>
+                );
+              })}
+              {expiringSoon.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-zinc-400">
+                    일주일 내 소비기한 임박 상품이 없습니다.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-sm text-zinc-400">
+          소비기한은{" "}
+          <Link href="/expiry" className="text-[#C8075F] underline">
+            소비기한 등록
+          </Link>
+          에서 상품을 스캔하거나 바코드로 조회해 등록할 수 있습니다.
         </p>
       </div>
 

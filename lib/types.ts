@@ -70,6 +70,16 @@ export type StockIn = {
   created_at: string;
 };
 
+export type ProductExpiry = {
+  id: string;
+  store_id: string;
+  product_id: string;
+  expiry_date: string;
+  quantity: number;
+  created_by: string | null;
+  created_at: string;
+};
+
 export type Sale = {
   id: string;
   store_id: string;
