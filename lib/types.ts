@@ -18,6 +18,7 @@ export type Store = {
   name: string;
   address: string | null;
   cash_alert_threshold: number | null;
+  default_margin_percent: number;
   created_at: string;
 };
 

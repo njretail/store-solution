@@ -11,6 +11,7 @@ import type { Store, UserRole } from "@/lib/types";
 const ADMIN_LINKS = [
   { href: "/dashboard", label: "홈" },
   { href: "/products", label: "상품관리" },
+  { href: "/purchase-import", label: "매입 등록(쿠팡)" },
   { href: "/stock-in", label: "입고" },
   { href: "/expiry", label: "소비기한 등록" },
   { href: "/sell", label: "판매" },

@@ -1,0 +1,280 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import BarcodeScanner from "@/app/components/BarcodeScanner";
+import {
+  parsePurchasePdf,
+  confirmPurchaseImport,
+  type ParseState,
+  type ConfirmState,
+  type ConfirmItem,
+} from "./actions";
+import type { Product } from "@/lib/types";
+
+const parseInitial: ParseState = { error: null, rows: [] };
+const confirmInitial: ConfirmState = { error: null, success: null };
+
+type EditableRow = {
+  key: string;
+  name: string;
+  quantity: number;
+  cost_price: number;
+  sell_price: number;
+  mode: "new" | "existing";
+  product_id: string;
+  barcode: string;
+};
+
+export default function PurchaseImportForm({
+  marginPercent,
+  products,
+}: {
+  marginPercent: number;
+  products: Product[];
+}) {
+  const [parseState, parseAction, parsing] = useActionState(
+    parsePurchasePdf,
+    parseInitial
+  );
+  const [confirmState, confirmAction, confirming] = useActionState(
+    confirmPurchaseImport,
+    confirmInitial
+  );
+  const [rows, setRows] = useState<EditableRow[]>([]);
+  const [scanningKey, setScanningKey] = useState<string | null>(null);
+
+  // 새로 파싱된 결과가 도착하면(액션 state가 바뀌면) 렌더 중에 검토용 편집 상태를 채운다.
+  const [handledParse, setHandledParse] = useState(parseState);
+  if (parseState !== handledParse) {
+    setHandledParse(parseState);
+    if (parseState.rows.length > 0) {
+      setRows(
+        parseState.rows.map((r, i) => ({
+          key: `${i}-${r.name}`,
+          name: r.name,
+          quantity: r.pieceQty,
+          cost_price: r.unitCost,
+          sell_price: r.suggestedSellPrice,
+          mode: "new" as const,
+          product_id: "",
+          barcode: "",
+        }))
+      );
+    }
+  }
+
+  // 등록이 성공하면(액션 state가 바뀌면) 렌더 중에 검토 목록을 비운다.
+  const [handledConfirmSuccess, setHandledConfirmSuccess] = useState(
+    confirmState.success
+  );
+  if (confirmState.success !== handledConfirmSuccess) {
+    setHandledConfirmSuccess(confirmState.success);
+    if (confirmState.success) {
+      setRows([]);
+    }
+  }
+
+  function updateRow(key: string, patch: Partial<EditableRow>) {
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+
+  function removeRow(key: string) {
+    setRows((prev) => prev.filter((r) => r.key !== key));
+  }
+
+  const itemsJson = JSON.stringify(
+    rows.map(
+      (r): ConfirmItem => ({
+        mode: r.mode,
+        product_id: r.mode === "existing" ? r.product_id : undefined,
+        barcode: r.mode === "new" ? r.barcode : undefined,
+        name: r.name,
+        cost_price: r.cost_price,
+        sell_price: r.sell_price,
+        quantity: r.quantity,
+      })
+    )
+  );
+
+  return (
+    <div className="flex flex-col gap-6">
+      <form
+        action={parseAction}
+        className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-4"
+      >
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-zinc-500">쿠팡 거래명세표 PDF</label>
+          <input
+            name="file"
+            type="file"
+            accept="application/pdf"
+            required
+            className="text-sm"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-zinc-500">마진율(%)</label>
+          <input
+            name="margin_percent"
+            type="number"
+            defaultValue={marginPercent}
+            className="w-24 rounded border border-zinc-300 px-2 py-1.5 text-sm"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={parsing}
+          className="rounded bg-[#C8075F] px-4 py-1.5 text-sm text-white hover:bg-[#a80650] disabled:opacity-50"
+        >
+          {parsing ? "분석 중..." : "분석하기"}
+        </button>
+        {parseState.error && (
+          <p className="w-full text-sm text-red-600">{parseState.error}</p>
+        )}
+      </form>
+
+      {rows.length > 0 && (
+        <form action={confirmAction} className="flex flex-col gap-4">
+          <input type="hidden" name="items" value={itemsJson} />
+          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50 text-left text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2">상품명(쿠팡)</th>
+                  <th className="px-3 py-2">낱개수량</th>
+                  <th className="px-3 py-2">매입단가</th>
+                  <th className="px-3 py-2">판매단가</th>
+                  <th className="px-3 py-2">등록 방식</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.key} className="border-t border-zinc-100 align-top">
+                    <td className="max-w-xs px-3 py-2">{r.name}</td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="number"
+                        value={r.quantity}
+                        onChange={(e) =>
+                          updateRow(r.key, { quantity: Number(e.target.value) || 0 })
+                        }
+                        className="w-20 rounded border border-zinc-200 px-2 py-1"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="number"
+                        value={r.cost_price}
+                        onChange={(e) =>
+                          updateRow(r.key, { cost_price: Number(e.target.value) || 0 })
+                        }
+                        className="w-24 rounded border border-zinc-200 px-2 py-1"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="number"
+                        value={r.sell_price}
+                        onChange={(e) =>
+                          updateRow(r.key, { sell_price: Number(e.target.value) || 0 })
+                        }
+                        className="w-24 rounded border border-zinc-200 px-2 py-1"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <div className="flex flex-col gap-1">
+                        <select
+                          value={r.mode}
+                          onChange={(e) =>
+                            updateRow(r.key, {
+                              mode: e.target.value as "new" | "existing",
+                            })
+                          }
+                          className="rounded border border-zinc-200 px-2 py-1"
+                        >
+                          <option value="new">신규 등록</option>
+                          <option value="existing">기존 상품 매칭</option>
+                        </select>
+                        {r.mode === "new" ? (
+                          <div className="flex gap-1">
+                            <input
+                              placeholder="바코드"
+                              value={r.barcode}
+                              onChange={(e) =>
+                                updateRow(r.key, { barcode: e.target.value })
+                              }
+                              className="w-28 rounded border border-zinc-200 px-2 py-1"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setScanningKey(scanningKey === r.key ? null : r.key)
+                              }
+                              className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-600"
+                            >
+                              스캔
+                            </button>
+                          </div>
+                        ) : (
+                          <select
+                            value={r.product_id}
+                            onChange={(e) =>
+                              updateRow(r.key, { product_id: e.target.value })
+                            }
+                            className="w-40 rounded border border-zinc-200 px-2 py-1"
+                          >
+                            <option value="">상품 선택</option>
+                            {products.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {scanningKey === r.key && (
+                          <div className="w-48">
+                            <BarcodeScanner
+                              onDetect={(code) => {
+                                updateRow(r.key, { barcode: code });
+                                setScanningKey(null);
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => removeRow(r.key)}
+                        className="text-sm text-red-500 hover:text-red-700"
+                      >
+                        삭제
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {confirmState.error && (
+            <p className="text-sm text-red-600">{confirmState.error}</p>
+          )}
+          {confirmState.success && (
+            <p className="text-sm text-green-600">{confirmState.success}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={confirming}
+            className="self-start rounded bg-[#C8075F] px-4 py-2 text-sm font-medium text-white hover:bg-[#a80650] disabled:opacity-50"
+          >
+            {confirming ? "등록 중..." : `매입 등록 확정 (${rows.length}건)`}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
