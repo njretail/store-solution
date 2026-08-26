@@ -96,7 +96,7 @@ export default async function SalesPage({
     return (
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">매출조회</h1>
+          <h1 className="text-2xl font-semibold text-zinc-900">판매내역</h1>
           <p className="text-sm text-zinc-500">전체 매장 합산</p>
         </div>
 
@@ -167,7 +167,7 @@ export default async function SalesPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">매출조회</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">판매내역</h1>
         <p className="text-sm text-zinc-500">{store.name}</p>
       </div>
 

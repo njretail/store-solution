@@ -177,7 +177,7 @@ export default async function DashboardPage() {
         <p className="mt-2 text-sm text-zinc-400">
           더 자세한 기간별 매출은{" "}
           <Link href="/sales" className="text-[#C8075F] underline">
-            매출조회
+            판매내역
           </Link>
           에서 확인할 수 있습니다.
         </p>

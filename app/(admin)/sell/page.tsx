@@ -9,7 +9,7 @@ export default async function SellPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">판매</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">실시간 장바구니</h1>
         <p className="text-sm text-zinc-500">{store.name}</p>
       </div>
       <SellPos storeId={store.id} />

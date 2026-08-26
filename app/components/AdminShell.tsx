@@ -22,8 +22,13 @@ const ADMIN_LINKS: NavItem[] = [
       { href: "/expiry", label: "소비기한 등록" },
     ],
   },
-  { href: "/sell", label: "판매" },
-  { href: "/sales", label: "매출조회" },
+  {
+    label: "판매관리",
+    children: [
+      { href: "/sell", label: "실시간 장바구니" },
+      { href: "/sales", label: "판매내역" },
+    ],
+  },
   { href: "/coupons", label: "쿠폰관리" },
   { href: "/cash", label: "현금관리" },
   { href: "/kiosks", label: "키오스크 관리" },
