@@ -52,7 +52,7 @@ export default async function CouponsPage() {
           />
           <button
             type="submit"
-            className="rounded bg-zinc-900 px-3 py-1.5 text-sm text-white"
+            className="rounded bg-[#C8075F] px-3 py-1.5 text-sm text-white hover:bg-[#a80650]"
           >
             등록
           </button>

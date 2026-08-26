@@ -26,7 +26,7 @@ export default function LoginPage() {
           type="email"
           required
           autoComplete="email"
-          className="mb-4 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-[#C8075F] focus:outline-none"
         />
 
         <label className="mb-1 block text-sm font-medium text-zinc-700">
@@ -37,7 +37,7 @@ export default function LoginPage() {
           type="password"
           required
           autoComplete="current-password"
-          className="mb-4 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-[#C8075F] focus:outline-none"
         />
 
         {state.error && (
@@ -47,7 +47,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={pending}
-          className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+          className="w-full rounded-md bg-[#C8075F] px-3 py-2 text-sm font-medium text-white hover:bg-[#a80650] disabled:opacity-50"
         >
           {pending ? "로그인 중..." : "로그인"}
         </button>

@@ -57,7 +57,7 @@ export default function StoreSwitcher({
           />
           <button
             type="submit"
-            className="rounded bg-zinc-900 px-2 py-1 text-white"
+            className="rounded bg-[#C8075F] px-2 py-1 text-white hover:bg-[#a80650]"
           >
             추가
           </button>

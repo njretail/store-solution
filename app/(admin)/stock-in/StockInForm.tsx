@@ -112,7 +112,7 @@ export default function StockInForm({ storeId }: { storeId: string }) {
           <button
             type="submit"
             disabled={pending}
-            className="self-start rounded bg-zinc-900 px-4 py-1.5 text-sm text-white disabled:opacity-50"
+            className="self-start rounded bg-[#C8075F] px-4 py-1.5 text-sm text-white hover:bg-[#a80650] disabled:opacity-50"
           >
             {pending ? "처리 중..." : "입고 등록"}
           </button>

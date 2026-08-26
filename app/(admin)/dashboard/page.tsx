@@ -53,7 +53,7 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
             <p className="text-sm text-zinc-500">오늘 매출</p>
-            <p className="text-3xl font-semibold text-zinc-900">
+            <p className="text-3xl font-semibold text-[#C8075F]">
               {todayRevenue.toLocaleString()}원
             </p>
           </div>
@@ -72,7 +72,7 @@ export default async function DashboardPage() {
         </div>
         <p className="mt-2 text-sm text-zinc-400">
           더 자세한 기간별 매출은{" "}
-          <Link href="/sales" className="underline">
+          <Link href="/sales" className="text-[#C8075F] underline">
             매출조회
           </Link>
           에서 확인할 수 있습니다.
@@ -118,7 +118,7 @@ export default async function DashboardPage() {
         </div>
         <p className="mt-2 text-sm text-zinc-400">
           재고 기준치는{" "}
-          <Link href="/products" className="underline">
+          <Link href="/products" className="text-[#C8075F] underline">
             상품관리
           </Link>
           에서 상품별로 조정할 수 있습니다.

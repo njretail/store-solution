@@ -53,7 +53,7 @@ export default function AdminShell({
             <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
           </svg>
         </button>
-        <span className="text-base font-semibold text-zinc-900">
+        <span className="text-xl font-semibold text-zinc-900">
           {storeName ?? "무인편의점 관리"}
         </span>
         <div className="w-6" />
@@ -73,8 +73,8 @@ export default function AdminShell({
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="border-b border-zinc-200 px-4 py-5">
-          <p className="text-lg font-semibold text-zinc-900">
+        <div className="border-b border-zinc-200 px-4 py-6">
+          <p className="text-2xl font-semibold text-zinc-900">
             {storeName ?? "무인편의점 관리"}
           </p>
         </div>
@@ -89,7 +89,7 @@ export default function AdminShell({
                 onClick={() => setOpen(false)}
                 className={`rounded-md px-3 py-2.5 text-base ${
                   active
-                    ? "bg-zinc-900 text-white"
+                    ? "bg-[#C8075F] text-white"
                     : "text-zinc-600 hover:bg-zinc-100"
                 }`}
               >

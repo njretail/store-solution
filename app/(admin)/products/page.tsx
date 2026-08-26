@@ -77,7 +77,7 @@ export default async function ProductsPage() {
           />
           <button
             type="submit"
-            className="col-span-2 rounded bg-zinc-900 px-3 py-1.5 text-sm text-white sm:col-span-3"
+            className="col-span-2 rounded bg-[#C8075F] px-3 py-1.5 text-sm text-white hover:bg-[#a80650] sm:col-span-3"
           >
             등록
           </button>

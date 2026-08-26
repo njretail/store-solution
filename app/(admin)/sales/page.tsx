@@ -46,7 +46,7 @@ function FilterBar({
 
       <Link
         href={`/sales?from=${from}&to=${to}&scope=${scope === "all" ? "store" : "all"}`}
-        className="text-sm text-zinc-600 underline"
+        className="text-sm text-[#C8075F] underline"
       >
         {scope === "all" ? "매장별로 보기" : "전체 매장 합산 보기"}
       </Link>

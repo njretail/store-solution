@@ -57,7 +57,7 @@ export default function StaffForm({ stores }: { stores: Store[] }) {
         <button
           type="submit"
           disabled={pending}
-          className="rounded bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          className="rounded bg-[#C8075F] px-3 py-1.5 text-sm text-white hover:bg-[#a80650] disabled:opacity-50"
         >
           {pending ? "생성 중..." : "계정 생성"}
         </button>
