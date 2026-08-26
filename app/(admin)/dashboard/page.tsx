@@ -221,7 +221,7 @@ export default async function DashboardPage() {
           재고부족 상품 ({lowStock.length}개)
         </h2>
         <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-          <table className="w-full text-base">
+          <table className="w-full whitespace-nowrap text-base">
             <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
               <tr>
                 <th className="px-4 py-3">상품명</th>
@@ -267,7 +267,7 @@ export default async function DashboardPage() {
           소비기한 임박 상품 ({expiringSoon.length}개)
         </h2>
         <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-          <table className="w-full text-base">
+          <table className="w-full whitespace-nowrap text-base">
             <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
               <tr>
                 <th className="px-4 py-3">소비기한</th>

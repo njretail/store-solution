@@ -60,7 +60,7 @@ export default async function CouponsPage() {
       </details>
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-        <table className="w-full text-base">
+        <table className="w-full whitespace-nowrap text-base">
           <thead className="bg-zinc-50 text-left text-zinc-500">
             <tr>
               <th className="px-3 py-2">코드</th>

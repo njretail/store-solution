@@ -137,7 +137,7 @@ export default function PurchaseImportForm({
         <form action={confirmAction} className="flex flex-col gap-4">
           <input type="hidden" name="items" value={itemsJson} />
           <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-            <table className="w-full text-sm">
+            <table className="w-full whitespace-nowrap text-sm">
               <thead className="bg-zinc-50 text-left text-zinc-500">
                 <tr>
                   <th className="px-3 py-2">상품명(쿠팡)</th>
@@ -151,7 +151,7 @@ export default function PurchaseImportForm({
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.key} className="border-t border-zinc-100 align-top">
-                    <td className="max-w-xs px-3 py-2">{r.name}</td>
+                    <td className="max-w-xs whitespace-normal px-3 py-2">{r.name}</td>
                     <td className="px-2 py-2">
                       <input
                         type="number"
