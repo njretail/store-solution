@@ -12,6 +12,7 @@ export type Profile = {
   role: UserRole;
   store_id: string | null;
   name: string | null;
+  email: string | null;
   created_at: string;
 };
 
@@ -24,8 +25,18 @@ export type Product = {
   cost_price: number;
   sell_price: number;
   stock_qty: number;
+  low_stock_threshold: number;
   created_at: string;
   updated_at: string;
+};
+
+export type Coupon = {
+  id: string;
+  code: string;
+  discount_type: "amount" | "percent";
+  discount_value: number;
+  active: boolean;
+  created_at: string;
 };
 
 export type StockIn = {
@@ -44,6 +55,7 @@ export type Sale = {
   store_id: string;
   total_amount: number;
   payment_method: string;
+  discount_amount: number;
   created_by: string | null;
   created_at: string;
 };

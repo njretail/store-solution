@@ -16,6 +16,7 @@ export async function createProduct(formData: FormData) {
   const cost_price = Number(formData.get("cost_price") ?? 0) || 0;
   const sell_price = Number(formData.get("sell_price") ?? 0) || 0;
   const stock_qty = Number(formData.get("stock_qty") ?? 0) || 0;
+  const low_stock_threshold = Number(formData.get("low_stock_threshold") ?? 5) || 0;
 
   await supabase.from("products").insert({
     store_id: store.id,
@@ -25,6 +26,7 @@ export async function createProduct(formData: FormData) {
     cost_price,
     sell_price,
     stock_qty,
+    low_stock_threshold,
   });
 
   revalidatePath("/products");
@@ -39,6 +41,7 @@ export async function updateProduct(formData: FormData) {
   const category = String(formData.get("category") ?? "").trim() || null;
   const cost_price = Number(formData.get("cost_price") ?? 0) || 0;
   const sell_price = Number(formData.get("sell_price") ?? 0) || 0;
+  const low_stock_threshold = Number(formData.get("low_stock_threshold") ?? 0) || 0;
   if (!name) return;
 
   await supabase
@@ -48,6 +51,7 @@ export async function updateProduct(formData: FormData) {
       category,
       cost_price,
       sell_price,
+      low_stock_threshold,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);

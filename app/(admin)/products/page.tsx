@@ -68,6 +68,13 @@ export default async function ProductsPage() {
             defaultValue={0}
             className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
           />
+          <input
+            name="low_stock_threshold"
+            type="number"
+            placeholder="재고부족 기준"
+            defaultValue={5}
+            className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
+          />
           <button
             type="submit"
             className="col-span-2 rounded bg-zinc-900 px-3 py-1.5 text-sm text-white sm:col-span-3"
@@ -87,12 +94,14 @@ export default async function ProductsPage() {
               <th className="px-3 py-2">원가</th>
               <th className="px-3 py-2">판매가</th>
               <th className="px-3 py-2">재고</th>
+              <th className="px-3 py-2">재고부족 기준</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {products.map((p) => {
               const formId = `edit-${p.id}`;
+              const lowStock = p.stock_qty <= p.low_stock_threshold;
               return (
                 <tr key={p.id} className="border-t border-zinc-100">
                   <td className="px-3 py-2 text-zinc-500">{p.barcode}</td>
@@ -130,7 +139,21 @@ export default async function ProductsPage() {
                       className="w-24 rounded border border-zinc-200 px-2 py-1"
                     />
                   </td>
-                  <td className="px-3 py-2 text-zinc-700">{p.stock_qty}</td>
+                  <td
+                    className={`px-3 py-2 ${lowStock ? "font-medium text-red-600" : "text-zinc-700"}`}
+                  >
+                    {p.stock_qty}
+                    {lowStock && " ⚠"}
+                  </td>
+                  <td className="px-2 py-1">
+                    <input
+                      form={formId}
+                      name="low_stock_threshold"
+                      type="number"
+                      defaultValue={p.low_stock_threshold}
+                      className="w-20 rounded border border-zinc-200 px-2 py-1"
+                    />
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex gap-3">
                       <input type="hidden" form={formId} name="id" value={p.id} />
@@ -157,7 +180,7 @@ export default async function ProductsPage() {
             })}
             {products.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-zinc-400">
+                <td colSpan={8} className="px-3 py-6 text-center text-zinc-400">
                   등록된 상품이 없습니다.
                 </td>
               </tr>

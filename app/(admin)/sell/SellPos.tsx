@@ -13,6 +13,8 @@ export default function SellPos({ storeId }: { storeId: string }) {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [manualBarcode, setManualBarcode] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [couponCode, setCouponCode] = useState("");
+  const [discountAmount, setDiscountAmount] = useState(0);
   const [state, formAction, pending] = useActionState(checkout, initialState);
 
   // 결제가 성공하면(액션 state가 바뀌면) 렌더 중에 장바구니를 비운다.
@@ -22,6 +24,8 @@ export default function SellPos({ storeId }: { storeId: string }) {
     setHandledSuccess(state.success);
     if (state.success) {
       setCart([]);
+      setCouponCode("");
+      setDiscountAmount(0);
     }
   }
 
@@ -166,13 +170,37 @@ export default function SellPos({ storeId }: { storeId: string }) {
           </ul>
         )}
 
-        <div className="flex items-center justify-between border-t border-zinc-200 pt-3 text-sm font-medium text-zinc-900">
-          <span>합계</span>
+        <div className="flex flex-col gap-2 border-t border-zinc-200 pt-3">
+          <div className="flex items-center gap-2">
+            <input
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value)}
+              placeholder="쿠폰 코드 (선택)"
+              className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm uppercase"
+            />
+            <input
+              value={discountAmount || ""}
+              onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)}
+              type="number"
+              min={0}
+              placeholder="추가 할인(원)"
+              className="w-32 rounded border border-zinc-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <p className="text-xs text-zinc-400">
+            쿠폰 유효성/정률 할인은 결제 시 서버에서 계산돼 최종 금액에 반영됩니다.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between text-sm font-medium text-zinc-900">
+          <span>상품 합계</span>
           <span>{total.toLocaleString()}원</span>
         </div>
 
         <form action={formAction} className="flex flex-col gap-2">
           <input type="hidden" name="items" value={itemsJson} />
+          <input type="hidden" name="coupon_code" value={couponCode} />
+          <input type="hidden" name="discount_amount" value={discountAmount} />
           <select
             name="payment_method"
             value={paymentMethod}

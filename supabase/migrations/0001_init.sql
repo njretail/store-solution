@@ -130,7 +130,7 @@ security definer
 set search_path = public
 as $$
 declare
-  v_caller public.current_profile%rowtype;
+  v_caller record;
   v_store_id uuid;
   v_row public.stock_ins;
 begin
@@ -175,7 +175,7 @@ security definer
 set search_path = public
 as $$
 declare
-  v_caller public.current_profile%rowtype;
+  v_caller record;
   v_store_id uuid;
   v_item jsonb;
   v_product public.products%rowtype;
