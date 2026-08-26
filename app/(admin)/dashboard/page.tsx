@@ -100,10 +100,6 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">홈</h1>
-      </div>
-
-      <div>
         <h2 className="mb-3 text-base font-medium text-zinc-700">오늘 매출</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
