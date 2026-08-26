@@ -1,6 +1,6 @@
+import Link from "next/link";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { updateProduct, deleteProduct } from "./actions";
-import ProductForm from "./ProductForm";
 import type { Category, Product } from "@/lib/types";
 
 export default async function ProductsPage() {
@@ -22,12 +22,18 @@ export default async function ProductsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">상품관리</h1>
-        <p className="text-sm text-zinc-500">{store.name}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-zinc-900">상품 조회</h1>
+          <p className="text-sm text-zinc-500">{store.name}</p>
+        </div>
+        <Link
+          href="/products/new"
+          className="rounded bg-[#C8075F] px-4 py-2 text-sm font-medium text-white hover:bg-[#a80650]"
+        >
+          + 상품 추가
+        </Link>
       </div>
-
-      <ProductForm categories={categories} />
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
         <table className="w-full text-base">

@@ -42,12 +42,8 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
     "w-full rounded border border-zinc-300 px-3 py-2 text-base";
 
   return (
-    <details className="rounded-lg border border-zinc-200 bg-white p-4">
-      <summary className="cursor-pointer text-sm font-medium text-zinc-700">
-        + 상품 추가
-      </summary>
-
-      <div className="mt-4 flex max-w-md flex-col gap-4">
+    <div className="rounded-lg border border-zinc-200 bg-white p-4">
+      <div className="flex max-w-md flex-col gap-4">
         {/* 1. 바코드: 스캔 또는 직접 입력 */}
         <Field label="① 바코드">
           <div className="flex items-center gap-2">
@@ -185,6 +181,6 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
           </form>
         </details>
       </div>
-    </details>
+    </div>
   );
 }

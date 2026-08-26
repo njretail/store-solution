@@ -8,9 +8,18 @@ import StoreSwitcher from "@/app/components/StoreSwitcher";
 import Logo from "@/app/components/Logo";
 import type { Store, UserRole } from "@/lib/types";
 
-const ADMIN_LINKS = [
+type NavLink = { href: string; label: string };
+type NavItem = NavLink | { label: string; children: NavLink[] };
+
+const ADMIN_LINKS: NavItem[] = [
   { href: "/dashboard", label: "홈" },
-  { href: "/products", label: "상품관리" },
+  {
+    label: "상품관리",
+    children: [
+      { href: "/products/new", label: "상품 추가" },
+      { href: "/products", label: "상품 조회" },
+    ],
+  },
   { href: "/purchase-import", label: "매입 등록(쿠팡)" },
   { href: "/stock-in", label: "입고" },
   { href: "/expiry", label: "소비기한 등록" },
@@ -22,13 +31,64 @@ const ADMIN_LINKS = [
   { href: "/staff", label: "직원관리" },
 ];
 
-const STAFF_LINKS = [
+const STAFF_LINKS: NavItem[] = [
   { href: "/sell", label: "판매" },
   { href: "/stock-in", label: "입고" },
   { href: "/expiry", label: "소비기한 등록" },
   { href: "/cash", label: "현금관리" },
   { href: "/kiosks", label: "키오스크 관리" },
 ];
+
+function isGroup(item: NavItem): item is { label: string; children: NavLink[] } {
+  return "children" in item;
+}
+
+function NavGroup({
+  item,
+  pathname,
+  onNavigate,
+}: {
+  item: { label: string; children: NavLink[] };
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  const containsActive = item.children.some((c) => c.href === pathname);
+  const [open, setOpen] = useState(containsActive);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-base text-zinc-600 hover:bg-zinc-100"
+      >
+        {item.label}
+        <span className="text-zinc-400">{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <div className="mt-1 flex flex-col gap-1 pl-4">
+          {item.children.map((c) => {
+            const active = pathname === c.href;
+            return (
+              <Link
+                key={c.href}
+                href={c.href}
+                onClick={onNavigate}
+                className={`rounded-md px-3 py-2 text-sm ${
+                  active
+                    ? "bg-[#C8075F] text-white"
+                    : "text-zinc-500 hover:bg-zinc-100"
+                }`}
+              >
+                {c.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminShell({
   role,
@@ -92,12 +152,22 @@ export default function AdminShell({
         </div>
 
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
-          {links.map((l) => {
-            const active = pathname === l.href;
+          {links.map((item) => {
+            if (isGroup(item)) {
+              return (
+                <NavGroup
+                  key={item.label}
+                  item={item}
+                  pathname={pathname}
+                  onNavigate={() => setOpen(false)}
+                />
+              );
+            }
+            const active = pathname === item.href;
             return (
               <Link
-                key={l.href}
-                href={l.href}
+                key={item.href}
+                href={item.href}
                 onClick={() => setOpen(false)}
                 className={`rounded-md px-3 py-2.5 text-base ${
                   active
@@ -105,7 +175,7 @@ export default function AdminShell({
                     : "text-zinc-600 hover:bg-zinc-100"
                 }`}
               >
-                {l.label}
+                {item.label}
               </Link>
             );
           })}
