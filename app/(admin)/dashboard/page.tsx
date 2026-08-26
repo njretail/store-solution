@@ -29,6 +29,8 @@ export default async function DashboardPage() {
     { data: todayData },
     { data: yesterdayData },
     { data: expiryData },
+    { data: cashSalesData },
+    { data: cashTxData },
   ] = await Promise.all([
     supabase
       .from("products")
@@ -53,6 +55,15 @@ export default async function DashboardPage() {
       .eq("store_id", store.id)
       .lte("expiry_date", weekAheadStr)
       .order("expiry_date", { ascending: true }),
+    supabase
+      .from("sales")
+      .select("total_amount")
+      .eq("store_id", store.id)
+      .eq("payment_method", "cash"),
+    supabase
+      .from("cash_transactions")
+      .select("type, amount")
+      .eq("store_id", store.id),
   ]);
 
   const products = (productsData ?? []) as Product[];
@@ -64,6 +75,20 @@ export default async function DashboardPage() {
     quantity: number;
     products: { name: string; barcode: string } | null;
   }>;
+
+  const cashSalesTotal = (cashSalesData ?? []).reduce(
+    (sum, s) => sum + s.total_amount,
+    0
+  );
+  const cashDeposits = (cashTxData ?? [])
+    .filter((t) => t.type === "deposit")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const cashWithdrawals = (cashTxData ?? [])
+    .filter((t) => t.type === "withdrawal")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const cashBalance = cashSalesTotal + cashDeposits - cashWithdrawals;
+  const cashLow =
+    store.cash_alert_threshold != null && cashBalance < store.cash_alert_threshold;
 
   const todaySales = todayData ?? [];
   const todayRevenue = todaySales.reduce((sum, s) => sum + s.total_amount, 0);
@@ -99,6 +124,18 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      {cashLow && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span>
+            ⚠️ 현금 잔액이 알림 기준({store.cash_alert_threshold!.toLocaleString()}
+            원) 아래로 떨어졌습니다. (현재 {cashBalance.toLocaleString()}원)
+          </span>
+          <Link href="/cash" className="shrink-0 font-medium underline">
+            현금관리로 이동
+          </Link>
+        </div>
+      )}
+
       <div>
         <h2 className="mb-3 text-base font-medium text-zinc-700">오늘 매출</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

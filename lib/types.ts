@@ -17,6 +17,35 @@ export type Store = {
   id: string;
   name: string;
   address: string | null;
+  cash_alert_threshold: number | null;
+  created_at: string;
+};
+
+export type CashTransaction = {
+  id: string;
+  store_id: string;
+  type: "deposit" | "withdrawal";
+  amount: number;
+  memo: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type KioskStatus = "online" | "offline" | "maintenance";
+
+export const KIOSK_STATUS_LABELS: Record<KioskStatus, string> = {
+  online: "정상",
+  offline: "오프라인",
+  maintenance: "점검중",
+};
+
+export type Kiosk = {
+  id: string;
+  store_id: string;
+  name: string;
+  status: KioskStatus;
+  memo: string | null;
+  updated_at: string;
   created_at: string;
 };
 

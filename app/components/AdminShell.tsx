@@ -16,6 +16,8 @@ const ADMIN_LINKS = [
   { href: "/sell", label: "판매" },
   { href: "/sales", label: "매출조회" },
   { href: "/coupons", label: "쿠폰관리" },
+  { href: "/cash", label: "현금관리" },
+  { href: "/kiosks", label: "키오스크 관리" },
   { href: "/staff", label: "직원관리" },
 ];
 
@@ -23,6 +25,8 @@ const STAFF_LINKS = [
   { href: "/sell", label: "판매" },
   { href: "/stock-in", label: "입고" },
   { href: "/expiry", label: "소비기한 등록" },
+  { href: "/cash", label: "현금관리" },
+  { href: "/kiosks", label: "키오스크 관리" },
 ];
 
 export default function AdminShell({
