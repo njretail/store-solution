@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAdmin, getCurrentStore, getAccessibleStores } from "@/lib/session";
+import { paymentMethodLabel } from "@/lib/types";
 
 function toDateInputValue(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -202,7 +203,7 @@ export default async function SalesPage({
                   {new Date(s.created_at).toLocaleString("ko-KR")}
                 </td>
                 <td className="px-3 py-2">
-                  {s.payment_method === "card" ? "카드" : "현금"}
+                  {paymentMethodLabel(s.payment_method)}
                 </td>
                 <td className="px-3 py-2 text-zinc-500">
                   {s.discount_amount > 0

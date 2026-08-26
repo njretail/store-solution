@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "무인편의점 관리자",
-  description: "무인편의점 재고/판매 관리자페이지",
+  title: "무인편의점 관리자 | NJ RETAIL",
+  description: "NJ RETAIL이 제공하는 무인편의점 재고/판매 관리자페이지 솔루션",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

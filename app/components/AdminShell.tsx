@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/actions";
 import StoreSwitcher from "@/app/components/StoreSwitcher";
+import Logo from "@/app/components/Logo";
 import type { Store, UserRole } from "@/lib/types";
 
 const ADMIN_LINKS = [
@@ -53,9 +54,12 @@ export default function AdminShell({
             <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
           </svg>
         </button>
-        <span className="text-xl font-semibold text-zinc-900">
-          {storeName ?? "무인편의점 관리"}
-        </span>
+        <div className="flex flex-col items-center">
+          <Logo className="text-xs" />
+          <span className="text-lg font-semibold text-zinc-900">
+            {storeName ?? "무인편의점 관리"}
+          </span>
+        </div>
         <div className="w-6" />
       </div>
 
@@ -74,7 +78,8 @@ export default function AdminShell({
         }`}
       >
         <div className="border-b border-zinc-200 px-4 py-6">
-          <p className="text-2xl font-semibold text-zinc-900">
+          <Logo className="text-sm" />
+          <p className="mt-1 text-2xl font-semibold text-zinc-900">
             {storeName ?? "무인편의점 관리"}
           </p>
         </div>

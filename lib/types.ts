@@ -1,5 +1,18 @@
 export type UserRole = "admin" | "staff";
 
+export const PAYMENT_METHODS = [
+  { value: "cash", label: "현금" },
+  { value: "card", label: "카드" },
+  { value: "easy_pay", label: "간편결제" },
+  { value: "bank_transfer", label: "계좌이체" },
+  { value: "points", label: "포인트" },
+  { value: "coupon", label: "쿠폰" },
+] as const;
+
+export function paymentMethodLabel(value: string): string {
+  return PAYMENT_METHODS.find((m) => m.value === value)?.label ?? value;
+}
+
 export type Store = {
   id: string;
   name: string;

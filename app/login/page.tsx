@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Logo from "@/app/components/Logo";
 import { signIn, type SignInState } from "./actions";
 
 const initialState: SignInState = { error: null };
@@ -14,9 +15,12 @@ export default function LoginPage() {
         action={formAction}
         className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-8 shadow-sm"
       >
-        <h1 className="mb-6 text-xl font-semibold text-zinc-900">
-          무인편의점 관리자 로그인
-        </h1>
+        <div className="mb-6 flex flex-col gap-4">
+          <Logo className="text-xl" />
+          <h1 className="text-xl font-semibold text-zinc-900">
+            무인편의점 관리자 로그인
+          </h1>
+        </div>
 
         <label className="mb-1 block text-sm font-medium text-zinc-700">
           이메일

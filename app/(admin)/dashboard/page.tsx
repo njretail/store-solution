@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
+import { PAYMENT_METHODS, paymentMethodLabel } from "@/lib/types";
 import type { Product } from "@/lib/types";
 
-function todayRangeIso() {
+function dayRangeIso(offsetDays: number) {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  start.setDate(start.getDate() + offsetDays);
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
   return { fromIso: start.toISOString(), toIso: end.toISOString() };
@@ -15,29 +17,64 @@ export default async function DashboardPage() {
   const store = await getCurrentStore(supabase, profile);
   if (!store) return null;
 
-  const { fromIso, toIso } = todayRangeIso();
+  const today = dayRangeIso(0);
+  const yesterday = dayRangeIso(-1);
 
-  const [{ data: productsData }, { data: salesData }] = await Promise.all([
-    supabase
-      .from("products")
-      .select("*")
-      .eq("store_id", store.id)
-      .order("stock_qty", { ascending: true }),
-    supabase
-      .from("sales")
-      .select("total_amount")
-      .eq("store_id", store.id)
-      .gte("created_at", fromIso)
-      .lt("created_at", toIso),
-  ]);
+  const [{ data: productsData }, { data: todayData }, { data: yesterdayData }] =
+    await Promise.all([
+      supabase
+        .from("products")
+        .select("*")
+        .eq("store_id", store.id)
+        .order("stock_qty", { ascending: true }),
+      supabase
+        .from("sales")
+        .select("total_amount, payment_method")
+        .eq("store_id", store.id)
+        .gte("created_at", today.fromIso)
+        .lt("created_at", today.toIso),
+      supabase
+        .from("sales")
+        .select("total_amount")
+        .eq("store_id", store.id)
+        .gte("created_at", yesterday.fromIso)
+        .lt("created_at", yesterday.toIso),
+    ]);
 
   const products = (productsData ?? []) as Product[];
   const lowStock = products.filter((p) => p.stock_qty <= p.low_stock_threshold);
 
-  const todaySales = salesData ?? [];
+  const todaySales = todayData ?? [];
   const todayRevenue = todaySales.reduce((sum, s) => sum + s.total_amount, 0);
   const todayCount = todaySales.length;
   const todayAvg = todayCount > 0 ? Math.round(todayRevenue / todayCount) : 0;
+
+  const yesterdayRevenue = (yesterdayData ?? []).reduce(
+    (sum, s) => sum + s.total_amount,
+    0
+  );
+  const changePercent =
+    yesterdayRevenue > 0
+      ? Math.round(((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100)
+      : null;
+
+  const byMethod = new Map<string, number>();
+  for (const s of todaySales) {
+    byMethod.set(s.payment_method, (byMethod.get(s.payment_method) ?? 0) + s.total_amount);
+  }
+  const methodBreakdown: { label: string; amount: number }[] = PAYMENT_METHODS.map(
+    (m) => ({
+      label: m.label as string,
+      amount: byMethod.get(m.value) ?? 0,
+    })
+  )
+    // 정의되지 않은(과거 데이터 등) 결제수단 값도 놓치지 않도록 포함
+    .concat(
+      Array.from(byMethod.keys())
+        .filter((k) => !PAYMENT_METHODS.some((m) => m.value === k))
+        .map((k) => ({ label: paymentMethodLabel(k), amount: byMethod.get(k)! }))
+    )
+    .sort((a, b) => b.amount - a.amount);
 
   return (
     <div className="flex flex-col gap-8">
@@ -47,14 +84,28 @@ export default async function DashboardPage() {
       </div>
 
       <div>
-        <h2 className="mb-3 text-base font-medium text-zinc-700">
-          오늘 매출
-        </h2>
+        <h2 className="mb-3 text-base font-medium text-zinc-700">오늘 매출</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
             <p className="text-sm text-zinc-500">오늘 매출</p>
-            <p className="text-3xl font-semibold text-[#C8075F]">
-              {todayRevenue.toLocaleString()}원
+            <div className="flex items-baseline gap-2">
+              <p className="text-3xl font-semibold text-[#C8075F]">
+                {todayRevenue.toLocaleString()}원
+              </p>
+              {changePercent !== null && (
+                <span
+                  className={`text-sm font-medium ${
+                    changePercent >= 0 ? "text-green-600" : "text-red-500"
+                  }`}
+                >
+                  {changePercent >= 0 ? "▲" : "▼"} {Math.abs(changePercent)}%
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-zinc-400">
+              {changePercent === null
+                ? "전일 매출 없음"
+                : "전일 대비"}
             </p>
           </div>
           <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
@@ -77,6 +128,39 @@ export default async function DashboardPage() {
           </Link>
           에서 확인할 수 있습니다.
         </p>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-base font-medium text-zinc-700">
+          결제수단별 오늘 매출
+        </h2>
+        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white px-5 py-4">
+          {todayRevenue === 0 ? (
+            <p className="text-sm text-zinc-400">오늘 판매 내역이 없습니다.</p>
+          ) : (
+            methodBreakdown
+              .filter((m) => m.amount > 0)
+              .map((m) => {
+                const pct = Math.round((m.amount / todayRevenue) * 100);
+                return (
+                  <div key={m.label} className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-zinc-700">{m.label}</span>
+                      <span className="text-zinc-500">
+                        {m.amount.toLocaleString()}원 ({pct}%)
+                      </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100">
+                      <div
+                        className="h-full rounded-full bg-[#C8075F]"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })
+          )}
+        </div>
       </div>
 
       <div>
@@ -123,6 +207,28 @@ export default async function DashboardPage() {
           </Link>
           에서 상품별로 조정할 수 있습니다.
         </p>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-base font-medium text-zinc-700">매장 카메라</h2>
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 bg-white px-5 py-12 text-center">
+          <svg
+            width="32"
+            height="32"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="text-zinc-300"
+          >
+            <path d="M15 10l4.55-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.45.894L15 14M4 6h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" />
+          </svg>
+          <p className="text-sm text-zinc-500">아직 연결된 카메라가 없습니다.</p>
+          <p className="text-xs text-zinc-400">
+            매장에서 쓰시는 CCTV/카메라 시스템 정보를 알려주시면 실시간 화면을
+            연동해드릴게요.
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
 import { checkout, type SellState } from "./actions";
-import type { CartItem, Product } from "@/lib/types";
+import { PAYMENT_METHODS, type CartItem, type Product } from "@/lib/types";
 
 const initialState: SellState = { error: null, success: null };
 
@@ -207,8 +207,11 @@ export default function SellPos({ storeId }: { storeId: string }) {
             onChange={(e) => setPaymentMethod(e.target.value)}
             className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
           >
-            <option value="cash">현금</option>
-            <option value="card">카드</option>
+            {PAYMENT_METHODS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
           </select>
 
           {state.error && (
