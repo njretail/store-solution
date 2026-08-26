@@ -26,6 +26,7 @@ export async function createProduct(
   const low_stock_threshold =
     Number(formData.get("low_stock_threshold") ?? 5) || 0;
   const initialQuantity = Number(formData.get("initial_quantity") ?? 0) || 0;
+  const expiryDate = String(formData.get("expiry_date") ?? "").trim() || null;
 
   const { data: created, error: insertError } = await supabase
     .from("products")
@@ -63,10 +64,28 @@ export async function createProduct(
         success: null,
       };
     }
+
+    if (expiryDate) {
+      const { error: expiryError } = await supabase
+        .from("product_expiries")
+        .insert({
+          store_id: store.id,
+          product_id: created.id,
+          expiry_date: expiryDate,
+          quantity: initialQuantity,
+        });
+      if (expiryError) {
+        return {
+          error: `상품/입고는 등록됐지만 소비기한 등록에 실패했습니다: ${expiryError.message}`,
+          success: null,
+        };
+      }
+    }
   }
 
   revalidatePath("/products");
   revalidatePath("/stock-in");
+  revalidatePath("/expiry");
   revalidatePath("/dashboard");
   return { error: null, success: `${name} 상품이 등록되었습니다.` };
 }
