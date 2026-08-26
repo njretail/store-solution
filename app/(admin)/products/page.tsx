@@ -1,19 +1,24 @@
 import { requireAdmin, getCurrentStore } from "@/lib/session";
-import { createProduct, updateProduct, deleteProduct } from "./actions";
-import type { Product } from "@/lib/types";
+import { updateProduct, deleteProduct } from "./actions";
+import ProductForm from "./ProductForm";
+import type { Category, Product } from "@/lib/types";
 
 export default async function ProductsPage() {
   const { supabase, profile } = await requireAdmin();
   const store = await getCurrentStore(supabase, profile);
   if (!store) return null;
 
-  const { data } = await supabase
-    .from("products")
-    .select("*")
-    .eq("store_id", store.id)
-    .order("name");
+  const [{ data: productsData }, { data: categoriesData }] = await Promise.all([
+    supabase
+      .from("products")
+      .select("*")
+      .eq("store_id", store.id)
+      .order("name"),
+    supabase.from("categories").select("*").order("name"),
+  ]);
 
-  const products = (data ?? []) as Product[];
+  const products = (productsData ?? []) as Product[];
+  const categories = (categoriesData ?? []) as Category[];
 
   return (
     <div className="flex flex-col gap-6">
@@ -22,75 +27,16 @@ export default async function ProductsPage() {
         <p className="text-sm text-zinc-500">{store.name}</p>
       </div>
 
-      <details className="rounded-lg border border-zinc-200 bg-white p-4">
-        <summary className="cursor-pointer text-sm font-medium text-zinc-700">
-          + 상품 추가
-        </summary>
-        <form
-          action={createProduct}
-          className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3"
-        >
-          <input
-            name="barcode"
-            placeholder="바코드"
-            required
-            className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
-          />
-          <input
-            name="name"
-            placeholder="상품명"
-            required
-            className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
-          />
-          <input
-            name="category"
-            placeholder="분류 (선택)"
-            className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
-          />
-          <input
-            name="cost_price"
-            type="number"
-            placeholder="원가"
-            defaultValue={0}
-            className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
-          />
-          <input
-            name="sell_price"
-            type="number"
-            placeholder="판매가"
-            defaultValue={0}
-            className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
-          />
-          <input
-            name="stock_qty"
-            type="number"
-            placeholder="초기 재고"
-            defaultValue={0}
-            className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
-          />
-          <input
-            name="low_stock_threshold"
-            type="number"
-            placeholder="재고부족 기준"
-            defaultValue={5}
-            className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
-          />
-          <button
-            type="submit"
-            className="col-span-2 rounded bg-[#C8075F] px-3 py-1.5 text-sm text-white hover:bg-[#a80650] sm:col-span-3"
-          >
-            등록
-          </button>
-        </form>
-      </details>
+      <ProductForm categories={categories} />
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
         <table className="w-full text-base">
-          <thead className="bg-zinc-50 text-left text-zinc-500">
+          <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
             <tr>
               <th className="px-3 py-2">바코드</th>
               <th className="px-3 py-2">상품명</th>
               <th className="px-3 py-2">분류</th>
+              <th className="px-3 py-2">과세</th>
               <th className="px-3 py-2">원가</th>
               <th className="px-3 py-2">판매가</th>
               <th className="px-3 py-2">재고</th>
@@ -114,12 +60,30 @@ export default async function ProductsPage() {
                     />
                   </td>
                   <td className="px-2 py-1">
-                    <input
+                    <select
                       form={formId}
-                      name="category"
-                      defaultValue={p.category ?? ""}
-                      className="w-full rounded border border-zinc-200 px-2 py-1"
-                    />
+                      name="category_id"
+                      defaultValue={p.category_id ?? ""}
+                      className="rounded border border-zinc-200 px-2 py-1"
+                    >
+                      <option value="">분류 없음</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-2 py-1">
+                    <select
+                      form={formId}
+                      name="is_tax_exempt"
+                      defaultValue={String(p.is_tax_exempt)}
+                      className="rounded border border-zinc-200 px-2 py-1"
+                    >
+                      <option value="false">과세</option>
+                      <option value="true">면세</option>
+                    </select>
                   </td>
                   <td className="px-2 py-1">
                     <input
@@ -180,7 +144,7 @@ export default async function ProductsPage() {
             })}
             {products.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-zinc-400">
+                <td colSpan={9} className="px-3 py-6 text-center text-zinc-400">
                   등록된 상품이 없습니다.
                 </td>
               </tr>

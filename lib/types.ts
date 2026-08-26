@@ -34,13 +34,20 @@ export type Product = {
   store_id: string;
   barcode: string;
   name: string;
-  category: string | null;
+  category_id: string | null;
+  is_tax_exempt: boolean;
   cost_price: number;
   sell_price: number;
   stock_qty: number;
   low_stock_threshold: number;
   created_at: string;
   updated_at: string;
+};
+
+export type Category = {
+  id: string;
+  name: string;
+  created_at: string;
 };
 
 export type Coupon = {
