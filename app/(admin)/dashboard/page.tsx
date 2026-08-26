@@ -12,10 +12,56 @@ function dayRangeIso(offsetDays: number) {
   return { fromIso: start.toISOString(), toIso: end.toISOString() };
 }
 
-export default async function DashboardPage() {
+type RankPeriod = "day" | "month" | "year";
+
+const RANK_PERIOD_LABELS: Record<RankPeriod, string> = {
+  day: "일별",
+  month: "월별",
+  year: "연별",
+};
+
+function rankPeriodDefault(period: RankPeriod): string {
+  const now = new Date();
+  if (period === "day") return now.toISOString().slice(0, 10);
+  if (period === "month") return now.toISOString().slice(0, 7);
+  return String(now.getFullYear());
+}
+
+function rankPeriodRange(period: RankPeriod, value: string) {
+  if (period === "month") {
+    const [y, m] = value.split("-").map(Number);
+    const start = new Date(y, (m || 1) - 1, 1);
+    const end = new Date(y, m || 1, 1);
+    return { fromIso: start.toISOString(), toIso: end.toISOString() };
+  }
+  if (period === "year") {
+    const y = Number(value) || new Date().getFullYear();
+    const start = new Date(y, 0, 1);
+    const end = new Date(y + 1, 0, 1);
+    return { fromIso: start.toISOString(), toIso: end.toISOString() };
+  }
+  const start = new Date(`${value}T00:00:00`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { fromIso: start.toISOString(), toIso: end.toISOString() };
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ rank_period?: string; rank_value?: string }>;
+}) {
   const { supabase, profile } = await requireAdmin();
   const store = await getCurrentStore(supabase, profile);
   if (!store) return null;
+
+  const params = await searchParams;
+  const rankPeriod: RankPeriod =
+    params.rank_period === "month" || params.rank_period === "year"
+      ? params.rank_period
+      : "day";
+  const rankValue = params.rank_value || rankPeriodDefault(rankPeriod);
+  const rankRange = rankPeriodRange(rankPeriod, rankValue);
 
   const today = dayRangeIso(0);
   const yesterday = dayRangeIso(-1);
@@ -31,6 +77,7 @@ export default async function DashboardPage() {
     { data: expiryData },
     { data: cashSalesData },
     { data: cashTxData },
+    { data: rankData },
   ] = await Promise.all([
     supabase
       .from("products")
@@ -64,7 +111,20 @@ export default async function DashboardPage() {
       .from("cash_transactions")
       .select("type, amount")
       .eq("store_id", store.id),
+    supabase.rpc("top_products", {
+      p_store_id: store.id,
+      p_from: rankRange.fromIso,
+      p_to: rankRange.toIso,
+      p_limit: 10,
+    }),
   ]);
+
+  const topProducts = (rankData ?? []) as Array<{
+    product_id: string;
+    name: string;
+    quantity: number;
+    revenue: number;
+  }>;
 
   const products = (productsData ?? []) as Product[];
   const lowStock = products.filter((p) => p.stock_qty <= p.low_stock_threshold);
@@ -213,6 +273,91 @@ export default async function DashboardPage() {
                 );
               })
           )}
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-base font-medium text-zinc-700">잘나가는 상품</h2>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-md border border-zinc-300 text-sm">
+              {(Object.keys(RANK_PERIOD_LABELS) as RankPeriod[]).map((p, i) => (
+                <Link
+                  key={p}
+                  href={`/dashboard?rank_period=${p}&rank_value=${rankPeriodDefault(p)}`}
+                  className={`px-3 py-1.5 ${i > 0 ? "border-l border-zinc-300" : ""} ${
+                    p === rankPeriod
+                      ? "bg-[#C8075F] text-white"
+                      : "text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  {RANK_PERIOD_LABELS[p]}
+                </Link>
+              ))}
+            </div>
+            <form className="flex items-center gap-2">
+              <input type="hidden" name="rank_period" value={rankPeriod} />
+              {rankPeriod === "day" && (
+                <input
+                  type="date"
+                  name="rank_value"
+                  defaultValue={rankValue}
+                  className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
+                />
+              )}
+              {rankPeriod === "month" && (
+                <input
+                  type="month"
+                  name="rank_value"
+                  defaultValue={rankValue}
+                  className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
+                />
+              )}
+              {rankPeriod === "year" && (
+                <input
+                  type="number"
+                  name="rank_value"
+                  defaultValue={rankValue}
+                  className="w-24 rounded border border-zinc-300 px-2 py-1.5 text-sm"
+                />
+              )}
+              <button
+                type="submit"
+                className="rounded border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
+              >
+                조회
+              </button>
+            </form>
+          </div>
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+          <table className="w-full whitespace-nowrap text-base">
+            <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
+              <tr>
+                <th className="px-4 py-3">순위</th>
+                <th className="px-4 py-3">상품명</th>
+                <th className="px-4 py-3">판매수량</th>
+                <th className="px-4 py-3">매출액</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topProducts.map((p, i) => (
+                <tr key={p.product_id} className="border-t border-zinc-100">
+                  <td className="px-4 py-3 font-medium text-zinc-900">{i + 1}</td>
+                  <td className="px-4 py-3">{p.name}</td>
+                  <td className="px-4 py-3">{p.quantity.toLocaleString()}개</td>
+                  <td className="px-4 py-3">{p.revenue.toLocaleString()}원</td>
+                </tr>
+              ))}
+              {topProducts.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-zinc-400">
+                    해당 기간 판매 내역이 없습니다.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
