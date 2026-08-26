@@ -23,5 +23,6 @@ export async function signIn(
     return { error: "로그인에 실패했습니다. 이메일/비밀번호를 확인하세요." };
   }
 
-  redirect("/sell");
+  // admin은 홈(매출 요약)으로, staff는 홈 접근 권한이 없어 requireAdmin이 자동으로 /sell로 보낸다.
+  redirect("/dashboard");
 }
