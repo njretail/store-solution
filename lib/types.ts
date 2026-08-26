@@ -50,6 +50,14 @@ export type Kiosk = {
   created_at: string;
 };
 
+export type Camera = {
+  id: string;
+  store_id: string;
+  name: string;
+  stream_url: string | null;
+  created_at: string;
+};
+
 export type Profile = {
   id: string;
   role: UserRole;

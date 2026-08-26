@@ -32,6 +32,7 @@ const ADMIN_LINKS: NavItem[] = [
   { href: "/coupons", label: "쿠폰관리" },
   { href: "/cash", label: "현금관리" },
   { href: "/kiosks", label: "키오스크 관리" },
+  { href: "/cameras", label: "카메라보기" },
   { href: "/staff", label: "직원관리" },
 ];
 
@@ -41,6 +42,7 @@ const STAFF_LINKS: NavItem[] = [
   { href: "/expiry", label: "소비기한 등록" },
   { href: "/cash", label: "현금관리" },
   { href: "/kiosks", label: "키오스크 관리" },
+  { href: "/cameras", label: "카메라보기" },
 ];
 
 function isGroup(item: NavItem): item is { label: string; children: NavLink[] } {

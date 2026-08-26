@@ -78,6 +78,7 @@ export default async function DashboardPage({
     { data: cashSalesData },
     { data: cashTxData },
     { data: rankData },
+    { data: cameraData },
   ] = await Promise.all([
     supabase
       .from("products")
@@ -117,7 +118,10 @@ export default async function DashboardPage({
       p_to: rankRange.toIso,
       p_limit: 10,
     }),
+    supabase.from("cameras").select("id").eq("store_id", store.id),
   ]);
+
+  const cameraCount = (cameraData ?? []).length;
 
   const topProducts = (rankData ?? []) as Array<{
     product_id: string;
@@ -461,24 +465,32 @@ export default async function DashboardPage({
 
       <div>
         <h2 className="mb-3 text-base font-medium text-zinc-700">매장 카메라</h2>
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 bg-white px-5 py-12 text-center">
-          <svg
-            width="32"
-            height="32"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className="text-zinc-300"
-          >
-            <path d="M15 10l4.55-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.45.894L15 14M4 6h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" />
-          </svg>
-          <p className="text-sm text-zinc-500">아직 연결된 카메라가 없습니다.</p>
-          <p className="text-xs text-zinc-400">
-            매장에서 쓰시는 CCTV/카메라 시스템 정보를 알려주시면 실시간 화면을
-            연동해드릴게요.
-          </p>
-        </div>
+        <Link
+          href="/cameras"
+          className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-5 py-4 hover:bg-zinc-50"
+        >
+          <div className="flex items-center gap-3">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="shrink-0 text-zinc-400"
+            >
+              <path d="M15 10l4.55-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.45.894L15 14M4 6h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" />
+            </svg>
+            <p className="text-sm text-zinc-700">
+              {cameraCount > 0
+                ? `등록된 카메라 ${cameraCount}대`
+                : "아직 등록된 카메라가 없습니다."}
+            </p>
+          </div>
+          <span className="shrink-0 text-sm text-[#C8075F] underline">
+            카메라보기로 이동
+          </span>
+        </Link>
       </div>
     </div>
   );
