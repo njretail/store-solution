@@ -1,7 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+async function uploadProductImage(productId: string, file: File): Promise<string> {
+  const admin = createAdminClient();
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${productId}-${Date.now()}.${ext}`;
+  const { error } = await admin.storage
+    .from("product-images")
+    .upload(path, file, { upsert: true, contentType: file.type || undefined });
+  if (error) throw new Error(`이미지 업로드 실패: ${error.message}`);
+
+  const { data } = admin.storage.from("product-images").getPublicUrl(path);
+  return data.publicUrl;
+}
 
 export type ProductFormState = { error: string | null; success: string | null };
 
@@ -49,6 +64,19 @@ export async function createProduct(
       ? "이미 등록된 바코드입니다."
       : (insertError?.message ?? "상품 등록에 실패했습니다.");
     return { error: message, success: null };
+  }
+
+  const imageFile = formData.get("image");
+  if (imageFile instanceof File && imageFile.size > 0) {
+    try {
+      const image_url = await uploadProductImage(created.id, imageFile);
+      await supabase.from("products").update({ image_url }).eq("id", created.id);
+    } catch (e) {
+      return {
+        error: `상품은 등록됐지만 ${e instanceof Error ? e.message : "이미지 업로드에 실패했습니다."}`,
+        success: null,
+      };
+    }
   }
 
   if (initialQuantity > 0) {
@@ -99,10 +127,13 @@ export async function createCategory(formData: FormData) {
   revalidatePath("/products");
 }
 
-export async function updateProduct(formData: FormData) {
+export async function updateProduct(
+  _prevState: ProductFormState,
+  formData: FormData
+): Promise<ProductFormState> {
   const { supabase } = await requireAdmin();
   const id = String(formData.get("id") ?? "");
-  if (!id) return;
+  if (!id) return { error: "잘못된 요청입니다.", success: null };
 
   const name = String(formData.get("name") ?? "").trim();
   const category_id = String(formData.get("category_id") ?? "") || null;
@@ -111,22 +142,40 @@ export async function updateProduct(formData: FormData) {
   const sell_price = Number(formData.get("sell_price") ?? 0) || 0;
   const low_stock_threshold =
     Number(formData.get("low_stock_threshold") ?? 0) || 0;
-  if (!name) return;
+  if (!name) return { error: "상품명을 입력하세요.", success: null };
 
-  await supabase
+  const updatePayload: Record<string, unknown> = {
+    name,
+    category_id,
+    is_tax_exempt,
+    cost_price,
+    sell_price,
+    low_stock_threshold,
+    updated_at: new Date().toISOString(),
+  };
+
+  const imageFile = formData.get("image");
+  if (imageFile instanceof File && imageFile.size > 0) {
+    try {
+      updatePayload.image_url = await uploadProductImage(id, imageFile);
+    } catch (e) {
+      return {
+        error: e instanceof Error ? e.message : "이미지 업로드에 실패했습니다.",
+        success: null,
+      };
+    }
+  }
+
+  const { error } = await supabase
     .from("products")
-    .update({
-      name,
-      category_id,
-      is_tax_exempt,
-      cost_price,
-      sell_price,
-      low_stock_threshold,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq("id", id);
+  if (error) return { error: error.message, success: null };
 
   revalidatePath("/products");
+  revalidatePath(`/products/${id}`);
+  revalidatePath("/products/low-stock");
+  return { error: null, success: "저장되었습니다." };
 }
 
 export async function deleteProduct(formData: FormData) {
@@ -136,4 +185,6 @@ export async function deleteProduct(formData: FormData) {
 
   await supabase.from("products").delete().eq("id", id);
   revalidatePath("/products");
+  revalidatePath("/products/low-stock");
+  redirect("/products");
 }

@@ -141,6 +141,15 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
             />
           </Field>
 
+          <Field label="⑩ 상품 이미지 (선택)">
+            <input
+              name="image"
+              type="file"
+              accept="image/*"
+              className="text-sm text-zinc-600"
+            />
+          </Field>
+
           <button
             type="submit"
             disabled={pending || !barcode}

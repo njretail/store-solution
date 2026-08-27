@@ -78,6 +78,7 @@ export type Product = {
   sell_price: number;
   stock_qty: number;
   low_stock_threshold: number;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
 };

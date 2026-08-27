@@ -1,14 +1,61 @@
 import Link from "next/link";
+import Image from "next/image";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
-import { updateProduct, deleteProduct } from "./actions";
-import type { Category, Product } from "@/lib/types";
 
-const PAGE_SIZE = 50;
+const SEARCH_LIMIT = 200;
+
+type Row = {
+  id: string;
+  barcode: string;
+  name: string;
+  sell_price: number;
+  cost_price: number;
+  stock_qty: number;
+  low_stock_threshold: number;
+  image_url: string | null;
+  category: string | null;
+};
+
+function ProductCard({ p }: { p: Row }) {
+  const lowStock = p.stock_qty <= p.low_stock_threshold;
+  return (
+    <Link
+      href={`/products/${p.id}`}
+      className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-3 hover:border-[#C8075F]"
+    >
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded bg-zinc-100">
+        {p.image_url ? (
+          <Image
+            src={p.image_url}
+            alt={p.name}
+            width={56}
+            height={56}
+            className="h-full w-full object-cover"
+            unoptimized
+          />
+        ) : (
+          <span className="text-xs text-zinc-300">사진 없음</span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-zinc-900">{p.name}</p>
+        <p className="truncate text-xs text-zinc-400">{p.barcode}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+          <span className="text-zinc-700">판매가 {p.sell_price.toLocaleString()}원</span>
+          <span className="text-zinc-500">입고가 {p.cost_price.toLocaleString()}원</span>
+          <span className={lowStock ? "font-medium text-red-600" : "text-zinc-500"}>
+            재고 {p.stock_qty}개{lowStock && " ⚠"}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const { supabase, profile } = await requireAdmin();
   const store = await getCurrentStore(supabase, profile);
@@ -16,29 +63,46 @@ export default async function ProductsPage({
 
   const params = await searchParams;
   const q = (params.q ?? "").trim();
-  const page = Math.max(1, Number(params.page) || 1);
-  const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
 
   let query = supabase
     .from("products")
-    .select("*", { count: "exact" })
+    .select(
+      "id, barcode, name, sell_price, cost_price, stock_qty, low_stock_threshold, image_url, categories(name)",
+      { count: "exact" }
+    )
     .eq("store_id", store.id);
   if (q) {
-    query = query.or(`name.ilike.%${q}%,barcode.ilike.%${q}%`);
+    query = query.or(`name.ilike.%${q}%,barcode.ilike.%${q}%`).limit(SEARCH_LIMIT);
   }
 
-  const [{ data: productsData, count }, { data: categoriesData }] =
-    await Promise.all([
-      query.order("name").range(from, to),
-      supabase.from("categories").select("*").order("name"),
-    ]);
+  const { data, count } = await query.order("name");
 
-  const products = (productsData ?? []) as Product[];
-  const categories = (categoriesData ?? []) as Category[];
-  const total = count ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const qParam = q ? `&q=${encodeURIComponent(q)}` : "";
+  const rows: Row[] = (data ?? []).map((p) => ({
+    id: p.id,
+    barcode: p.barcode,
+    name: p.name,
+    sell_price: p.sell_price,
+    cost_price: p.cost_price,
+    stock_qty: p.stock_qty,
+    low_stock_threshold: p.low_stock_threshold,
+    image_url: p.image_url,
+    category: (p.categories as unknown as { name: string } | null)?.name ?? null,
+  }));
+
+  const total = count ?? rows.length;
+
+  // 카테고리별로 묶는다 (검색 중이 아닐 때만 — 검색 결과는 평평한 목록으로 보여준다).
+  const grouped = new Map<string, Row[]>();
+  if (!q) {
+    for (const r of rows) {
+      const key = r.category ?? "미분류";
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(r);
+    }
+  }
+  const groupEntries = [...grouped.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0], "ko")
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -80,168 +144,47 @@ export default async function ProductsPage({
         )}
       </form>
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-        <table className="w-full whitespace-nowrap text-base">
-          <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
-            <tr>
-              <th className="px-3 py-2">바코드</th>
-              <th className="px-3 py-2">상품명</th>
-              <th className="px-3 py-2">분류</th>
-              <th className="px-3 py-2">과세</th>
-              <th className="px-3 py-2">원가</th>
-              <th className="px-3 py-2">판매가</th>
-              <th className="px-3 py-2">재고</th>
-              <th className="px-3 py-2">재고부족 기준</th>
-              <th className="px-3 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => {
-              const formId = `edit-${p.id}`;
-              const lowStock = p.stock_qty <= p.low_stock_threshold;
-              return (
-                <tr key={p.id} className="border-t border-zinc-100">
-                  <td className="px-3 py-2 text-zinc-500">{p.barcode}</td>
-                  <td className="px-2 py-1">
-                    <input
-                      form={formId}
-                      name="name"
-                      defaultValue={p.name}
-                      className="w-full rounded border border-zinc-200 px-2 py-1"
-                    />
-                  </td>
-                  <td className="px-2 py-1">
-                    <select
-                      form={formId}
-                      name="category_id"
-                      defaultValue={p.category_id ?? ""}
-                      className="rounded border border-zinc-200 px-2 py-1"
-                    >
-                      <option value="">분류 없음</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-1">
-                    <select
-                      form={formId}
-                      name="is_tax_exempt"
-                      defaultValue={String(p.is_tax_exempt)}
-                      className="rounded border border-zinc-200 px-2 py-1"
-                    >
-                      <option value="false">과세</option>
-                      <option value="true">면세</option>
-                    </select>
-                  </td>
-                  <td className="px-2 py-1">
-                    <input
-                      form={formId}
-                      name="cost_price"
-                      type="number"
-                      defaultValue={p.cost_price}
-                      className="w-24 rounded border border-zinc-200 px-2 py-1"
-                    />
-                  </td>
-                  <td className="px-2 py-1">
-                    <input
-                      form={formId}
-                      name="sell_price"
-                      type="number"
-                      defaultValue={p.sell_price}
-                      className="w-24 rounded border border-zinc-200 px-2 py-1"
-                    />
-                  </td>
-                  <td
-                    className={`px-3 py-2 ${lowStock ? "font-medium text-red-600" : "text-zinc-700"}`}
-                  >
-                    {p.stock_qty}
-                    {lowStock && " ⚠"}
-                  </td>
-                  <td className="px-2 py-1">
-                    <input
-                      form={formId}
-                      name="low_stock_threshold"
-                      type="number"
-                      defaultValue={p.low_stock_threshold}
-                      className="w-20 rounded border border-zinc-200 px-2 py-1"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex gap-3">
-                      <input type="hidden" form={formId} name="id" value={p.id} />
-                      <button
-                        type="submit"
-                        form={formId}
-                        className="text-zinc-600 hover:text-zinc-900"
-                      >
-                        저장
-                      </button>
-                      <form action={deleteProduct}>
-                        <input type="hidden" name="id" value={p.id} />
-                        <button
-                          type="submit"
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          삭제
-                        </button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-            {products.length === 0 && (
-              <tr>
-                <td colSpan={9} className="px-3 py-6 text-center text-zinc-400">
-                  {q ? "검색 결과가 없습니다." : "등록된 상품이 없습니다."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 text-sm">
-          <Link
-            href={`/products?page=${Math.max(1, page - 1)}${qParam}`}
-            aria-disabled={page <= 1}
-            className={`rounded border border-zinc-300 px-3 py-1.5 ${
-              page <= 1
-                ? "pointer-events-none text-zinc-300"
-                : "text-zinc-600 hover:bg-zinc-50"
-            }`}
-          >
-            이전
-          </Link>
-          <span className="text-zinc-500">
-            {page} / {totalPages} 페이지
-          </span>
-          <Link
-            href={`/products?page=${Math.min(totalPages, page + 1)}${qParam}`}
-            aria-disabled={page >= totalPages}
-            className={`rounded border border-zinc-300 px-3 py-1.5 ${
-              page >= totalPages
-                ? "pointer-events-none text-zinc-300"
-                : "text-zinc-600 hover:bg-zinc-50"
-            }`}
-          >
-            다음
-          </Link>
+      {q ? (
+        <div className="flex flex-col gap-2">
+          {rows.length === SEARCH_LIMIT && (
+            <p className="text-sm text-amber-600">
+              검색 결과가 많아 상위 {SEARCH_LIMIT}개만 표시했어요. 검색어를 더
+              구체적으로 입력해주세요.
+            </p>
+          )}
+          {rows.map((p) => (
+            <ProductCard key={p.id} p={p} />
+          ))}
+          {rows.length === 0 && (
+            <p className="rounded-lg border border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-400">
+              검색 결과가 없습니다.
+            </p>
+          )}
+        </div>
+      ) : groupEntries.length === 0 ? (
+        <p className="rounded-lg border border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-400">
+          등록된 상품이 없습니다.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {groupEntries.map(([category, items]) => (
+            <details
+              key={category}
+              className="rounded-lg border border-zinc-200 bg-white"
+            >
+              <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium text-zinc-700">
+                <span>{category}</span>
+                <span className="text-zinc-400">{items.length}개</span>
+              </summary>
+              <div className="flex flex-col gap-2 border-t border-zinc-100 p-3">
+                {items.map((p) => (
+                  <ProductCard key={p.id} p={p} />
+                ))}
+              </div>
+            </details>
+          ))}
         </div>
       )}
-
-      {products.map((p) => (
-        <form
-          key={p.id}
-          id={`edit-${p.id}`}
-          action={updateProduct}
-          className="hidden"
-        />
-      ))}
     </div>
   );
 }
