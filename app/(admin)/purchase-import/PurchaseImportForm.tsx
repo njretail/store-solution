@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
 import {
   parsePurchasePdf,
@@ -42,6 +42,8 @@ export default function PurchaseImportForm({
   );
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [scanningKey, setScanningKey] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
 
   // 새로 파싱된 결과가 도착하면(액션 state가 바뀌면) 렌더 중에 검토용 편집 상태를 채운다.
   const [handledParse, setHandledParse] = useState(parseState);
@@ -105,12 +107,38 @@ export default function PurchaseImportForm({
         <div className="flex flex-col gap-1">
           <label className="text-xs text-zinc-500">쿠팡 거래명세표 PDF</label>
           <input
+            ref={fileInputRef}
             name="file"
             type="file"
             accept="application/pdf"
             required
-            className="text-sm"
+            className="sr-only"
+            onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
           />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 rounded border border-zinc-300 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="shrink-0 text-zinc-400"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"
+              />
+            </svg>
+            <span className={fileName ? "text-zinc-900" : "text-zinc-400"}>
+              {fileName ?? "PDF 파일 선택"}
+            </span>
+          </button>
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-zinc-500">마진율(%)</label>
