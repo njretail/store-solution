@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { PAYMENT_METHODS, paymentMethodLabel } from "@/lib/types";
-import type { Product } from "@/lib/types";
 
 function dayRangeIso(offsetDays: number) {
   const now = new Date();
@@ -71,7 +70,6 @@ export default async function DashboardPage({
   const weekAheadStr = weekAhead.toISOString().slice(0, 10);
 
   const [
-    { data: productsData },
     { data: todayData },
     { data: yesterdayData },
     { data: expiryData },
@@ -80,11 +78,6 @@ export default async function DashboardPage({
     { data: rankData },
     { data: cameraData },
   ] = await Promise.all([
-    supabase
-      .from("products")
-      .select("*")
-      .eq("store_id", store.id)
-      .order("stock_qty", { ascending: true }),
     supabase
       .from("sales")
       .select("total_amount, payment_method")
@@ -129,9 +122,6 @@ export default async function DashboardPage({
     quantity: number;
     revenue: number;
   }>;
-
-  const products = (productsData ?? []) as Product[];
-  const lowStock = products.filter((p) => p.stock_qty <= p.low_stock_threshold);
 
   const expiringSoon = (expiryData ?? []) as unknown as Array<{
     id: string;
@@ -363,52 +353,6 @@ export default async function DashboardPage({
             </tbody>
           </table>
         </div>
-      </div>
-
-      <div>
-        <h2 className="mb-3 text-base font-medium text-zinc-700">
-          재고부족 상품 ({lowStock.length}개)
-        </h2>
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-          <table className="w-full whitespace-nowrap text-base">
-            <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
-              <tr>
-                <th className="px-4 py-3">상품명</th>
-                <th className="px-4 py-3">바코드</th>
-                <th className="px-4 py-3">현재 재고</th>
-                <th className="px-4 py-3">기준</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lowStock.map((p) => (
-                <tr key={p.id} className="border-t border-zinc-100">
-                  <td className="px-4 py-3">{p.name}</td>
-                  <td className="px-4 py-3 text-zinc-500">{p.barcode}</td>
-                  <td className="px-4 py-3 font-medium text-red-600">
-                    {p.stock_qty}
-                  </td>
-                  <td className="px-4 py-3 text-zinc-500">
-                    {p.low_stock_threshold}
-                  </td>
-                </tr>
-              ))}
-              {lowStock.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-zinc-400">
-                    재고 부족 상품이 없습니다.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-2 text-sm text-zinc-400">
-          재고 기준치는{" "}
-          <Link href="/products" className="text-[#C8075F] underline">
-            상품관리
-          </Link>
-          에서 상품별로 조정할 수 있습니다.
-        </p>
       </div>
 
       <div>

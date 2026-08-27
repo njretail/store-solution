@@ -18,6 +18,7 @@ const ADMIN_LINKS: NavItem[] = [
     children: [
       { href: "/products/new", label: "상품 추가" },
       { href: "/products", label: "상품 조회" },
+      { href: "/products/low-stock", label: "재고소진상품" },
       { href: "/purchase-import", label: "매입 등록(쿠팡)" },
       { href: "/expiry", label: "소비기한 등록" },
     ],
