@@ -273,13 +273,13 @@ export default async function DashboardPage({
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-medium text-zinc-700">잘나가는 상품</h2>
-          <div className="flex items-center gap-2">
-            <div className="flex rounded-md border border-zinc-300 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 rounded-md border border-zinc-300 text-sm">
               {(Object.keys(RANK_PERIOD_LABELS) as RankPeriod[]).map((p, i) => (
                 <Link
                   key={p}
                   href={`/dashboard?rank_period=${p}&rank_value=${rankPeriodDefault(p)}`}
-                  className={`px-3 py-1.5 ${i > 0 ? "border-l border-zinc-300" : ""} ${
+                  className={`whitespace-nowrap px-3 py-1.5 ${i > 0 ? "border-l border-zinc-300" : ""} ${
                     p === rankPeriod
                       ? "bg-[#C8075F] text-white"
                       : "text-zinc-600 hover:bg-zinc-50"
@@ -289,7 +289,7 @@ export default async function DashboardPage({
                 </Link>
               ))}
             </div>
-            <form className="flex items-center gap-2">
+            <form className="flex flex-wrap items-center gap-2">
               <input type="hidden" name="rank_period" value={rankPeriod} />
               {rankPeriod === "day" && (
                 <input
@@ -317,7 +317,7 @@ export default async function DashboardPage({
               )}
               <button
                 type="submit"
-                className="rounded border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                className="shrink-0 whitespace-nowrap rounded border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
               >
                 조회
               </button>
