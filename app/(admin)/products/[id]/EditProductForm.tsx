@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import ImageUploadButton from "@/app/components/ImageUploadButton";
 import { updateProduct, deleteProduct, type ProductFormState } from "../actions";
 import type { Category, Product } from "@/lib/types";
 
@@ -81,15 +82,10 @@ export default function EditProductForm({
                 <span className="text-xs text-zinc-300">사진 없음</span>
               )}
             </div>
-            <input
+            <ImageUploadButton
               name="image"
-              type="file"
-              accept="image/*"
-              className="text-sm text-zinc-600"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) setPreview(URL.createObjectURL(file));
-              }}
+              placeholder="사진 변경"
+              onFileSelected={(file) => setPreview(URL.createObjectURL(file))}
             />
           </div>
         </Field>

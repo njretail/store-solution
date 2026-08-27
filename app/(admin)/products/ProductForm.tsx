@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useState } from "react";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
+import ImageUploadButton from "@/app/components/ImageUploadButton";
 import { createProduct, createCategory, type ProductFormState } from "./actions";
 import type { Category } from "@/lib/types";
 
@@ -142,12 +143,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
           </Field>
 
           <Field label="⑩ 상품 이미지 (선택, 5MB 이하)">
-            <input
-              name="image"
-              type="file"
-              accept="image/*"
-              className="text-sm text-zinc-600"
-            />
+            <ImageUploadButton name="image" placeholder="사진 선택" />
           </Field>
 
           <button
