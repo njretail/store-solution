@@ -147,6 +147,7 @@ export async function updateProduct(
   const sell_price = Number(formData.get("sell_price") ?? 0) || 0;
   const low_stock_threshold =
     Number(formData.get("low_stock_threshold") ?? 0) || 0;
+  const stockInput = formData.get("stock_qty");
   if (!name) return { error: "상품명을 입력하세요.", success: null };
 
   const updatePayload: Record<string, unknown> = {
@@ -168,6 +169,35 @@ export async function updateProduct(
         error: e instanceof Error ? e.message : "이미지 업로드에 실패했습니다.",
         success: null,
       };
+    }
+  }
+
+  // 실재고 입력값이 기존 재고보다 늘었으면 입고(record_stock_in)로 처리해서
+  // 입고내역 감사로그가 남고, 재고소진상품의 "취급 중" 판정에도 반영되게 한다.
+  // 줄었을 경우(실사 후 하향 조정)만 직접 수정한다.
+  if (stockInput !== null) {
+    const newStock = Number(stockInput);
+    if (!Number.isNaN(newStock) && newStock >= 0) {
+      const { data: current } = await supabase
+        .from("products")
+        .select("stock_qty")
+        .eq("id", id)
+        .single();
+      const currentStock = current?.stock_qty ?? 0;
+      const delta = newStock - currentStock;
+
+      if (delta > 0) {
+        const { error: stockInError } = await supabase.rpc("record_stock_in", {
+          p_product_id: id,
+          p_quantity: delta,
+          p_memo: "실재고 반영",
+        });
+        if (stockInError) {
+          return { error: stockInError.message, success: null };
+        }
+      } else if (delta < 0) {
+        updatePayload.stock_qty = newStock;
+      }
     }
   }
 

@@ -151,9 +151,17 @@ export default function EditProductForm({
           />
         </Field>
 
-        <Field label="현재 재고">
-          <p className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-base text-zinc-500">
-            {product.stock_qty}개 — 재고 수량은 입고/판매 화면에서 반영됩니다.
+        <Field label="실재고">
+          <input
+            name="stock_qty"
+            type="number"
+            min={0}
+            defaultValue={product.stock_qty}
+            className={inputClass}
+          />
+          <p className="text-xs text-zinc-400">
+            지금 실제로 매장에 있는 수량으로 맞춰주세요. 이후 입고 등록을 하면
+            여기서 자동으로 더해집니다.
           </p>
         </Field>
 
