@@ -9,10 +9,10 @@ import {
   type ConfirmState,
   type ConfirmItem,
 } from "./actions";
-import type { Product } from "@/lib/types";
-
 const parseInitial: ParseState = { error: null, rows: [] };
 const confirmInitial: ConfirmState = { error: null, success: null };
+
+type ProductOption = { id: string; name: string; barcode: string };
 
 type EditableRow = {
   key: string;
@@ -31,7 +31,7 @@ export default function PurchaseImportForm({
   products,
 }: {
   marginPercent: number;
-  products: Product[];
+  products: ProductOption[];
 }) {
   const [parseState, parseAction, parsing] = useActionState(
     parsePurchasePdf,

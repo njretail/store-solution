@@ -113,6 +113,7 @@ export default function AdminShell({
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const links = role === "admin" ? ADMIN_LINKS : STAFF_LINKS;
+  const homeHref = role === "admin" ? "/dashboard" : "/sell";
 
   return (
     <div className="lg:flex lg:min-h-screen">
@@ -128,12 +129,16 @@ export default function AdminShell({
             <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
           </svg>
         </button>
-        <div className="flex flex-col items-center">
+        <Link
+          href={homeHref}
+          className="flex flex-col items-center"
+          onClick={() => setOpen(false)}
+        >
           <Logo className="text-xs" />
           <span className="text-lg font-semibold text-zinc-900">
             {storeName ?? "무인편의점 관리"}
           </span>
-        </div>
+        </Link>
         <div className="w-6" />
       </div>
 
@@ -151,12 +156,16 @@ export default function AdminShell({
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="border-b border-zinc-200 px-4 py-6">
+        <Link
+          href={homeHref}
+          onClick={() => setOpen(false)}
+          className="block border-b border-zinc-200 px-4 py-6 hover:bg-zinc-50"
+        >
           <Logo className="text-sm" />
           <p className="mt-1 text-2xl font-semibold text-zinc-900">
             {storeName ?? "무인편의점 관리"}
           </p>
-        </div>
+        </Link>
 
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
           {links.map((item) => {

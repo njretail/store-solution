@@ -3,28 +3,50 @@ import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { updateProduct, deleteProduct } from "./actions";
 import type { Category, Product } from "@/lib/types";
 
-export default async function ProductsPage() {
+const PAGE_SIZE = 50;
+
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
   const { supabase, profile } = await requireAdmin();
   const store = await getCurrentStore(supabase, profile);
   if (!store) return null;
 
-  const [{ data: productsData }, { data: categoriesData }] = await Promise.all([
-    supabase
-      .from("products")
-      .select("*")
-      .eq("store_id", store.id)
-      .order("name"),
-    supabase.from("categories").select("*").order("name"),
-  ]);
+  const params = await searchParams;
+  const q = (params.q ?? "").trim();
+  const page = Math.max(1, Number(params.page) || 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  let query = supabase
+    .from("products")
+    .select("*", { count: "exact" })
+    .eq("store_id", store.id);
+  if (q) {
+    query = query.or(`name.ilike.%${q}%,barcode.ilike.%${q}%`);
+  }
+
+  const [{ data: productsData, count }, { data: categoriesData }] =
+    await Promise.all([
+      query.order("name").range(from, to),
+      supabase.from("categories").select("*").order("name"),
+    ]);
 
   const products = (productsData ?? []) as Product[];
   const categories = (categoriesData ?? []) as Category[];
+  const total = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const qParam = q ? `&q=${encodeURIComponent(q)}` : "";
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">상품 조회</h1>
+          <h1 className="text-2xl font-semibold text-zinc-900">
+            상품 조회 ({total.toLocaleString()}개)
+          </h1>
           <p className="text-sm text-zinc-500">{store.name}</p>
         </div>
         <Link
@@ -34,6 +56,29 @@ export default async function ProductsPage() {
           + 상품 추가
         </Link>
       </div>
+
+      <form className="flex gap-2">
+        <input
+          name="q"
+          defaultValue={q}
+          placeholder="상품명 또는 바코드로 검색"
+          className="w-full max-w-sm rounded border border-zinc-300 px-3 py-1.5 text-sm"
+        />
+        <button
+          type="submit"
+          className="rounded border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
+        >
+          검색
+        </button>
+        {q && (
+          <Link
+            href="/products"
+            className="rounded border border-zinc-300 px-3 py-1.5 text-sm text-zinc-500 hover:bg-zinc-50"
+          >
+            초기화
+          </Link>
+        )}
+      </form>
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
         <table className="w-full whitespace-nowrap text-base">
@@ -151,13 +196,43 @@ export default async function ProductsPage() {
             {products.length === 0 && (
               <tr>
                 <td colSpan={9} className="px-3 py-6 text-center text-zinc-400">
-                  등록된 상품이 없습니다.
+                  {q ? "검색 결과가 없습니다." : "등록된 상품이 없습니다."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 text-sm">
+          <Link
+            href={`/products?page=${Math.max(1, page - 1)}${qParam}`}
+            aria-disabled={page <= 1}
+            className={`rounded border border-zinc-300 px-3 py-1.5 ${
+              page <= 1
+                ? "pointer-events-none text-zinc-300"
+                : "text-zinc-600 hover:bg-zinc-50"
+            }`}
+          >
+            이전
+          </Link>
+          <span className="text-zinc-500">
+            {page} / {totalPages} 페이지
+          </span>
+          <Link
+            href={`/products?page=${Math.min(totalPages, page + 1)}${qParam}`}
+            aria-disabled={page >= totalPages}
+            className={`rounded border border-zinc-300 px-3 py-1.5 ${
+              page >= totalPages
+                ? "pointer-events-none text-zinc-300"
+                : "text-zinc-600 hover:bg-zinc-50"
+            }`}
+          >
+            다음
+          </Link>
+        </div>
+      )}
 
       {products.map((p) => (
         <form
