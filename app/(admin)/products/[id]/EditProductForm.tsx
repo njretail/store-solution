@@ -65,7 +65,7 @@ export default function EditProductForm({
           </p>
         </Field>
 
-        <Field label="상품 이미지">
+        <Field label="상품 이미지 (5MB 이하)">
           <div className="flex items-center gap-3">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded bg-zinc-100">
               {preview ? (

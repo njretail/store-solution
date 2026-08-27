@@ -141,7 +141,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
             />
           </Field>
 
-          <Field label="⑩ 상품 이미지 (선택)">
+          <Field label="⑩ 상품 이미지 (선택, 5MB 이하)">
             <input
               name="image"
               type="file"

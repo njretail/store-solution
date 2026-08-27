@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
 async function uploadProductImage(productId: string, file: File): Promise<string> {
+  if (file.size > MAX_IMAGE_BYTES) {
+    throw new Error("이미지 용량은 5MB 이하로 올려주세요.");
+  }
   const admin = createAdminClient();
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const path = `${productId}-${Date.now()}.${ext}`;
