@@ -23,6 +23,7 @@ type EditableRow = {
   mode: "new" | "existing";
   product_id: string;
   barcode: string;
+  matchedProductName?: string;
 };
 
 export default function PurchaseImportForm({
@@ -57,9 +58,10 @@ export default function PurchaseImportForm({
           quantity: r.pieceQty,
           cost_price: r.unitCost,
           sell_price: r.suggestedSellPrice,
-          mode: "new" as const,
-          product_id: "",
+          mode: r.matchedProductId ? ("existing" as const) : ("new" as const),
+          product_id: r.matchedProductId ?? "",
           barcode: "",
+          matchedProductName: r.matchedProductName,
         }))
       );
     }
@@ -179,7 +181,14 @@ export default function PurchaseImportForm({
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.key} className="border-t border-zinc-100 align-top">
-                    <td className="max-w-xs whitespace-normal px-3 py-2">{r.name}</td>
+                    <td className="max-w-xs whitespace-normal px-3 py-2">
+                      {r.name}
+                      {r.matchedProductName && (
+                        <p className="mt-1 text-xs text-green-600">
+                          ✓ 자동 매칭: {r.matchedProductName}
+                        </p>
+                      )}
+                    </td>
                     <td className="px-2 py-2">
                       <input
                         type="number"

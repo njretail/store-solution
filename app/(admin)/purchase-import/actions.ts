@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { extractText } from "unpdf";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
-import { parseCoupangText, type ParsedRow } from "@/lib/coupang-parser";
+import {
+  parseCoupangText,
+  matchProductByName,
+  type ParsedRow,
+} from "@/lib/coupang-parser";
 
 export type ParseState = { error: string | null; rows: ParsedRow[] };
 
@@ -40,7 +44,23 @@ export async function parsePurchasePdf(
     };
   }
 
-  return { error: null, rows };
+  const { data: productsData } = await supabase
+    .from("products")
+    .select("id, name, barcode")
+    .eq("store_id", store.id);
+  const products = productsData ?? [];
+
+  const matchedRows: ParsedRow[] = rows.map((r) => {
+    const matched = matchProductByName(r.name, products);
+    if (!matched) return r;
+    return {
+      ...r,
+      matchedProductId: matched.id,
+      matchedProductName: matched.name,
+    };
+  });
+
+  return { error: null, rows: matchedRows };
 }
 
 export type ConfirmItem = {
