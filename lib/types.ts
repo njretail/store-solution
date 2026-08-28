@@ -119,12 +119,20 @@ export type ProductExpiry = {
   created_at: string;
 };
 
+export type SaleStatus = "completed" | "cancelled";
+
+export const SALE_STATUS_LABELS: Record<SaleStatus, string> = {
+  completed: "정상",
+  cancelled: "취소",
+};
+
 export type Sale = {
   id: string;
   store_id: string;
   total_amount: number;
   payment_method: string;
   discount_amount: number;
+  status: SaleStatus;
   created_by: string | null;
   created_at: string;
 };
