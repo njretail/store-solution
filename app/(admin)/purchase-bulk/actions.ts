@@ -3,6 +3,7 @@
 import * as XLSX from "xlsx";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { parseBulkRows, type ParsedRow } from "@/lib/coupang-parser";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 import type { ParseState } from "../purchase-import/actions";
 
 export async function parseBulkExcel(
@@ -39,11 +40,14 @@ export async function parseBulkExcel(
     };
   }
 
-  const { data: productsData } = await supabase
-    .from("products")
-    .select("id, name, barcode")
-    .eq("store_id", store.id);
-  const products = productsData ?? [];
+  const products = await fetchAllPages<{ id: string; name: string; barcode: string }>(
+    (from, to) =>
+      supabase
+        .from("products")
+        .select("id, name, barcode")
+        .eq("store_id", store.id)
+        .range(from, to)
+  );
   const byBarcode = new Map(products.map((p) => [p.barcode.trim(), p]));
 
   const matchedRows: ParsedRow[] = rows.map((r) => {

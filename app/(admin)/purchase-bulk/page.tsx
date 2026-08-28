@@ -1,4 +1,5 @@
 import { requireAdmin, getCurrentStore } from "@/lib/session";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 import PurchaseImportForm from "@/app/components/PurchaseImportForm";
 import { parseBulkExcel } from "./actions";
 
@@ -8,13 +9,15 @@ export default async function PurchaseBulkPage() {
   if (!store) return null;
 
   // 매칭 드롭다운에는 이름/바코드만 필요하므로 전체 컬럼을 보내지 않는다.
-  const { data } = await supabase
-    .from("products")
-    .select("id, name, barcode")
-    .eq("store_id", store.id)
-    .order("name");
-
-  const products = data ?? [];
+  const products = await fetchAllPages<{ id: string; name: string; barcode: string }>(
+    (from, to) =>
+      supabase
+        .from("products")
+        .select("id, name, barcode")
+        .eq("store_id", store.id)
+        .order("name")
+        .range(from, to)
+  );
 
   return (
     <div className="flex flex-col gap-6">

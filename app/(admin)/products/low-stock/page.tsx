@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 type Grade = "A" | "B" | "C";
 
@@ -18,12 +19,26 @@ export default async function LowStockProductsPage() {
   const from = new Date(now);
   from.setDate(from.getDate() - 30);
 
-  const [{ data: productsData }, { data: stockInData }, { data: rankData }] =
+  type ProductRow = {
+    id: string;
+    barcode: string;
+    name: string;
+    stock_qty: number;
+    low_stock_threshold: number;
+    categories: { name: string } | null;
+  };
+
+  const [productsData, { data: stockInData }, { data: rankData }] =
     await Promise.all([
-      supabase
-        .from("products")
-        .select("id, barcode, name, stock_qty, low_stock_threshold, categories(name)")
-        .eq("store_id", store.id),
+      // 상품이 1000개를 넘는 매장에서 뒤쪽 상품이 누락되지 않도록 range()로 전부 가져온다.
+      fetchAllPages<ProductRow>((from2, to) =>
+        supabase
+          .from("products")
+          .select("id, barcode, name, stock_qty, low_stock_threshold, categories(name)")
+          .eq("store_id", store.id)
+          .range(from2, to)
+          .then((res) => ({ data: res.data as unknown as ProductRow[] | null, error: res.error }))
+      ),
       supabase.from("stock_ins").select("product_id").eq("store_id", store.id),
       supabase.rpc("top_products", {
         p_store_id: store.id,
@@ -60,13 +75,13 @@ export default async function LowStockProductsPage() {
     grade: Grade | null;
   };
 
-  const rows: Row[] = (productsData ?? [])
+  const rows: Row[] = productsData
     .filter((p) => p.stock_qty <= p.low_stock_threshold && carriedIds.has(p.id))
     .map((p) => ({
       id: p.id,
       barcode: p.barcode,
       name: p.name,
-      category: (p.categories as unknown as { name: string } | null)?.name ?? null,
+      category: p.categories?.name ?? null,
       stock_qty: p.stock_qty,
       low_stock_threshold: p.low_stock_threshold,
       grade: gradeMap.get(p.id) ?? null,

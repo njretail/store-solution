@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { extractText } from "unpdf";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 import {
   parseCoupangText,
   matchProductByName,
@@ -44,11 +45,14 @@ export async function parsePurchasePdf(
     };
   }
 
-  const { data: productsData } = await supabase
-    .from("products")
-    .select("id, name, barcode")
-    .eq("store_id", store.id);
-  const products = productsData ?? [];
+  const products = await fetchAllPages<{ id: string; name: string; barcode: string }>(
+    (from, to) =>
+      supabase
+        .from("products")
+        .select("id, name, barcode")
+        .eq("store_id", store.id)
+        .range(from, to)
+  );
 
   const matchedRows: ParsedRow[] = rows.map((r) => {
     const matched = matchProductByName(r.name, products);

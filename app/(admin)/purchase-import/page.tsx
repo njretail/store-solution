@@ -1,4 +1,5 @@
 import { requireAdmin, getCurrentStore } from "@/lib/session";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 import PurchaseImportForm from "@/app/components/PurchaseImportForm";
 import { parsePurchasePdf } from "./actions";
 
@@ -9,13 +10,15 @@ export default async function PurchaseImportPage() {
 
   // 매칭 드롭다운에는 이름/바코드만 필요하므로 전체 컬럼을 보내지 않는다
   // (상품이 많아지면 전체 컬럼 전송이 페이지 로딩을 눈에 띄게 늦춘다).
-  const { data } = await supabase
-    .from("products")
-    .select("id, name, barcode")
-    .eq("store_id", store.id)
-    .order("name");
-
-  const products = data ?? [];
+  const products = await fetchAllPages<{ id: string; name: string; barcode: string }>(
+    (from, to) =>
+      supabase
+        .from("products")
+        .select("id, name, barcode")
+        .eq("store_id", store.id)
+        .order("name")
+        .range(from, to)
+  );
 
   return (
     <div className="flex flex-col gap-6">

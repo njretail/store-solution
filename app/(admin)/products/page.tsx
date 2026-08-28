@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const SEARCH_LIMIT = 200;
 
@@ -64,18 +65,46 @@ export default async function ProductsPage({
   const params = await searchParams;
   const q = (params.q ?? "").trim();
 
-  let query = supabase
-    .from("products")
-    .select(
-      "id, barcode, name, sell_price, cost_price, stock_qty, low_stock_threshold, image_url, categories(name)",
-      { count: "exact" }
-    )
-    .eq("store_id", store.id);
-  if (q) {
-    query = query.or(`name.ilike.%${q}%,barcode.ilike.%${q}%`).limit(SEARCH_LIMIT);
-  }
+  const columns =
+    "id, barcode, name, sell_price, cost_price, stock_qty, low_stock_threshold, image_url, categories(name)";
+  type ProductRow = {
+    id: string;
+    barcode: string;
+    name: string;
+    sell_price: number;
+    cost_price: number;
+    stock_qty: number;
+    low_stock_threshold: number;
+    image_url: string | null;
+    categories: { name: string } | null;
+  };
 
-  const { data, count } = await query.order("name");
+  let data: ProductRow[];
+  let count: number | null;
+  if (q) {
+    const res = await supabase
+      .from("products")
+      .select(columns, { count: "exact" })
+      .eq("store_id", store.id)
+      .or(`name.ilike.%${q}%,barcode.ilike.%${q}%`)
+      .order("name")
+      .limit(SEARCH_LIMIT);
+    data = (res.data as unknown as ProductRow[]) ?? [];
+    count = res.count;
+  } else {
+    // 검색 중이 아닐 때는 전체 목록이 필요하므로, Supabase 기본 1000행 제한에 걸리지
+    // 않도록 range()로 나눠서 전부 가져온다(상품이 1000개를 넘으면 뒤쪽이 누락되던 버그).
+    data = await fetchAllPages<ProductRow>((from, to) =>
+      supabase
+        .from("products")
+        .select(columns)
+        .eq("store_id", store.id)
+        .order("name")
+        .range(from, to)
+        .then((res) => ({ data: res.data as unknown as ProductRow[] | null, error: res.error }))
+    );
+    count = data.length;
+  }
 
   const rows: Row[] = (data ?? []).map((p) => ({
     id: p.id,
@@ -86,7 +115,7 @@ export default async function ProductsPage({
     stock_qty: p.stock_qty,
     low_stock_threshold: p.low_stock_threshold,
     image_url: p.image_url,
-    category: (p.categories as unknown as { name: string } | null)?.name ?? null,
+    category: p.categories?.name ?? null,
   }));
 
   const total = count ?? rows.length;
