@@ -71,6 +71,7 @@ export type ConfirmItem = {
   cost_price: number;
   sell_price: number;
   quantity: number;
+  is_tax_exempt?: boolean;
 };
 
 export type ConfirmState = { error: string | null; success: string | null };
@@ -109,6 +110,7 @@ export async function confirmPurchaseImport(
           name: item.name,
           cost_price: item.cost_price,
           sell_price: item.sell_price,
+          is_tax_exempt: item.is_tax_exempt ?? false,
           stock_qty: 0,
           low_stock_threshold: 5,
         })

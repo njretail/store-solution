@@ -22,6 +22,7 @@ type EditableRow = {
   mode: "new" | "existing";
   product_id: string;
   barcode: string;
+  is_tax_exempt: boolean;
   matchedProductName?: string;
 };
 
@@ -58,13 +59,14 @@ export default function PurchaseImportForm({
       setRows(
         parseState.rows.map((r, i) => ({
           key: `${i}-${r.name}`,
-          name: r.name,
+          name: r.cleanName ?? r.name,
           quantity: r.pieceQty,
           cost_price: r.unitCost,
           sell_price: r.suggestedSellPrice,
           mode: r.matchedProductId ? ("existing" as const) : ("new" as const),
           product_id: r.matchedProductId ?? "",
           barcode: r.barcode ?? "",
+          is_tax_exempt: r.isTaxExempt ?? false,
           matchedProductName: r.matchedProductName,
         }))
       );
@@ -100,6 +102,7 @@ export default function PurchaseImportForm({
         cost_price: r.cost_price,
         sell_price: r.sell_price,
         quantity: r.quantity,
+        is_tax_exempt: r.mode === "new" ? r.is_tax_exempt : undefined,
       })
     )
   );
@@ -238,24 +241,38 @@ export default function PurchaseImportForm({
                           <option value="existing">기존 상품 매칭</option>
                         </select>
                         {r.mode === "new" ? (
-                          <div className="flex gap-1">
-                            <input
-                              placeholder="바코드"
-                              value={r.barcode}
+                          <div className="flex flex-col gap-1">
+                            <div className="flex gap-1">
+                              <input
+                                placeholder="바코드"
+                                value={r.barcode}
+                                onChange={(e) =>
+                                  updateRow(r.key, { barcode: e.target.value })
+                                }
+                                className="w-28 rounded border border-zinc-200 px-2 py-1"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setScanningKey(scanningKey === r.key ? null : r.key)
+                                }
+                                className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-600"
+                              >
+                                스캔
+                              </button>
+                            </div>
+                            <select
+                              value={r.is_tax_exempt ? "exempt" : "taxable"}
                               onChange={(e) =>
-                                updateRow(r.key, { barcode: e.target.value })
+                                updateRow(r.key, {
+                                  is_tax_exempt: e.target.value === "exempt",
+                                })
                               }
                               className="w-28 rounded border border-zinc-200 px-2 py-1"
-                            />
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setScanningKey(scanningKey === r.key ? null : r.key)
-                              }
-                              className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-600"
                             >
-                              스캔
-                            </button>
+                              <option value="taxable">과세</option>
+                              <option value="exempt">면세</option>
+                            </select>
                           </div>
                         ) : (
                           <select
