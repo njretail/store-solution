@@ -11,6 +11,75 @@ function dayRangeIso(offsetDays: number) {
   return { fromIso: start.toISOString(), toIso: end.toISOString() };
 }
 
+// monthOffset=0이면 이번달 1일부터 오늘까지, -1이면 지난달 1일부터 "이번달과 같은 날짜"까지
+// (월 길이가 다르면 그 달의 마지막 날로 맞춤) — 두 달을 같은 진행 기간끼리 공정하게 비교하기 위함.
+function monthToDateRangeIso(monthOffset: number) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + monthOffset;
+  const start = new Date(y, m, 1);
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const dayCutoff = Math.min(now.getDate(), daysInMonth);
+  const end = new Date(y, m, dayCutoff + 1);
+  return { fromIso: start.toISOString(), toIso: end.toISOString() };
+}
+
+function CompareBar({
+  title,
+  labelA,
+  valueA,
+  labelB,
+  valueB,
+}: {
+  title: string;
+  labelA: string;
+  valueA: number;
+  labelB: string;
+  valueB: number;
+}) {
+  const max = Math.max(valueA, valueB, 1);
+  const diff = valueA > 0 ? Math.round(((valueB - valueA) / valueA) * 100) : null;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white px-5 py-4">
+      <p className="text-sm text-zinc-500">{title}</p>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-zinc-500">{labelA}</span>
+          <span className="text-zinc-600">{valueA.toLocaleString()}원</span>
+        </div>
+        <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100">
+          <div
+            className="h-full rounded-full bg-zinc-300"
+            style={{ width: `${(valueA / max) * 100}%` }}
+          />
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-medium text-zinc-700">{labelB}</span>
+          <span className="font-semibold text-zinc-900">{valueB.toLocaleString()}원</span>
+        </div>
+        <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100">
+          <div
+            className="h-full rounded-full bg-[#C8075F]"
+            style={{ width: `${(valueB / max) * 100}%` }}
+          />
+        </div>
+      </div>
+      {diff !== null ? (
+        <p
+          className={`text-xs font-medium ${diff >= 0 ? "text-green-600" : "text-red-500"}`}
+        >
+          {diff >= 0 ? "▲" : "▼"} {Math.abs(diff)}% {diff >= 0 ? "증가" : "감소"}
+        </p>
+      ) : (
+        <p className="text-xs text-zinc-400">비교할 이전 매출이 없습니다.</p>
+      )}
+    </div>
+  );
+}
+
 type RankPeriod = "day" | "month" | "year";
 
 const RANK_PERIOD_LABELS: Record<RankPeriod, string> = {
@@ -64,6 +133,9 @@ export default async function DashboardPage({
 
   const today = dayRangeIso(0);
   const yesterday = dayRangeIso(-1);
+  const weekAgo = dayRangeIso(-7);
+  const thisMonth = monthToDateRangeIso(0);
+  const lastMonth = monthToDateRangeIso(-1);
   const todayStr = new Date().toISOString().slice(0, 10);
   const weekAhead = new Date();
   weekAhead.setDate(weekAhead.getDate() + 7);
@@ -72,6 +144,9 @@ export default async function DashboardPage({
   const [
     { data: todayData },
     { data: yesterdayData },
+    { data: weekAgoData },
+    { data: thisMonthData },
+    { data: lastMonthData },
     { data: expiryData },
     { data: cashSalesData },
     { data: cashTxData },
@@ -90,6 +165,24 @@ export default async function DashboardPage({
       .eq("store_id", store.id)
       .gte("created_at", yesterday.fromIso)
       .lt("created_at", yesterday.toIso),
+    supabase
+      .from("sales")
+      .select("total_amount")
+      .eq("store_id", store.id)
+      .gte("created_at", weekAgo.fromIso)
+      .lt("created_at", weekAgo.toIso),
+    supabase
+      .from("sales")
+      .select("total_amount")
+      .eq("store_id", store.id)
+      .gte("created_at", thisMonth.fromIso)
+      .lt("created_at", thisMonth.toIso),
+    supabase
+      .from("sales")
+      .select("total_amount")
+      .eq("store_id", store.id)
+      .gte("created_at", lastMonth.fromIso)
+      .lt("created_at", lastMonth.toIso),
     supabase
       .from("product_expiries")
       .select("id, expiry_date, quantity, products(name, barcode)")
@@ -115,6 +208,10 @@ export default async function DashboardPage({
   ]);
 
   const cameraCount = (cameraData ?? []).length;
+
+  const weekAgoRevenue = (weekAgoData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
+  const thisMonthRevenue = (thisMonthData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
+  const lastMonthRevenue = (lastMonthData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
 
   const topProducts = (rankData ?? []) as Array<{
     product_id: string;
@@ -267,6 +364,33 @@ export default async function DashboardPage({
                 );
               })
           )}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-base font-medium text-zinc-700">매출 비교</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <CompareBar
+            title="어제 대비 오늘"
+            labelA="어제"
+            valueA={yesterdayRevenue}
+            labelB="오늘"
+            valueB={todayRevenue}
+          />
+          <CompareBar
+            title="일주일 전 대비 오늘"
+            labelA="일주일 전"
+            valueA={weekAgoRevenue}
+            labelB="오늘"
+            valueB={todayRevenue}
+          />
+          <CompareBar
+            title="전월 대비 이달(같은 기간까지)"
+            labelA="전월"
+            valueA={lastMonthRevenue}
+            labelB="이달"
+            valueB={thisMonthRevenue}
+          />
         </div>
       </div>
 
