@@ -1,5 +1,6 @@
 import { requireAdmin, getCurrentStore } from "@/lib/session";
-import PurchaseImportForm from "./PurchaseImportForm";
+import PurchaseImportForm from "@/app/components/PurchaseImportForm";
+import { parsePurchasePdf } from "./actions";
 
 export default async function PurchaseImportPage() {
   const { supabase, profile } = await requireAdmin();
@@ -34,6 +35,10 @@ export default async function PurchaseImportPage() {
       <PurchaseImportForm
         marginPercent={store.default_margin_percent}
         products={products}
+        parseAction={parsePurchasePdf}
+        parseInitial={{ error: null, rows: [] }}
+        fileAccept="application/pdf"
+        fileLabel="쿠팡 거래명세표 PDF"
       />
     </div>
   );

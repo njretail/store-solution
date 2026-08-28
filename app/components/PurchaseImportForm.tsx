@@ -3,13 +3,12 @@
 import { useActionState, useRef, useState } from "react";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
 import {
-  parsePurchasePdf,
   confirmPurchaseImport,
   type ParseState,
   type ConfirmState,
   type ConfirmItem,
-} from "./actions";
-const parseInitial: ParseState = { error: null, rows: [] };
+} from "@/app/(admin)/purchase-import/actions";
+
 const confirmInitial: ConfirmState = { error: null, success: null };
 
 type ProductOption = { id: string; name: string; barcode: string };
@@ -29,14 +28,19 @@ type EditableRow = {
 export default function PurchaseImportForm({
   marginPercent,
   products,
+  parseAction,
+  parseInitial,
+  fileAccept,
+  fileLabel,
 }: {
   marginPercent: number;
   products: ProductOption[];
+  parseAction: (prevState: ParseState, formData: FormData) => Promise<ParseState>;
+  parseInitial: ParseState;
+  fileAccept: string;
+  fileLabel: string;
 }) {
-  const [parseState, parseAction, parsing] = useActionState(
-    parsePurchasePdf,
-    parseInitial
-  );
+  const [parseState, parseActionState, parsing] = useActionState(parseAction, parseInitial);
   const [confirmState, confirmAction, confirming] = useActionState(
     confirmPurchaseImport,
     confirmInitial
@@ -60,7 +64,7 @@ export default function PurchaseImportForm({
           sell_price: r.suggestedSellPrice,
           mode: r.matchedProductId ? ("existing" as const) : ("new" as const),
           product_id: r.matchedProductId ?? "",
-          barcode: "",
+          barcode: r.barcode ?? "",
           matchedProductName: r.matchedProductName,
         }))
       );
@@ -103,16 +107,16 @@ export default function PurchaseImportForm({
   return (
     <div className="flex flex-col gap-6">
       <form
-        action={parseAction}
+        action={parseActionState}
         className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-4"
       >
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-zinc-500">쿠팡 거래명세표 PDF</label>
+          <label className="text-xs text-zinc-500">{fileLabel}</label>
           <input
             ref={fileInputRef}
             name="file"
             type="file"
-            accept="application/pdf"
+            accept={fileAccept}
             required
             className="sr-only"
             onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
@@ -138,7 +142,7 @@ export default function PurchaseImportForm({
               />
             </svg>
             <span className={fileName ? "text-zinc-900" : "text-zinc-400"}>
-              {fileName ?? "PDF 파일 선택"}
+              {fileName ?? `${fileLabel} 선택`}
             </span>
           </button>
         </div>
@@ -170,7 +174,7 @@ export default function PurchaseImportForm({
             <table className="w-full whitespace-nowrap text-sm">
               <thead className="bg-zinc-50 text-left text-zinc-500">
                 <tr>
-                  <th className="px-3 py-2">상품명(쿠팡)</th>
+                  <th className="px-3 py-2">상품명</th>
                   <th className="px-3 py-2">낱개수량</th>
                   <th className="px-3 py-2">매입단가</th>
                   <th className="px-3 py-2">판매단가</th>

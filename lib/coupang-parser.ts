@@ -6,6 +6,7 @@ export type ParsedRow = {
   pieceQty: number;
   unitCost: number;
   suggestedSellPrice: number;
+  barcode?: string;
   matchedProductId?: string;
   matchedProductName?: string;
 };
@@ -85,4 +86,46 @@ export function parseCoupangText(
     rows.push({ name, orderQty, amount, packSize, pieceQty, unitCost, suggestedSellPrice });
   }
   return rows;
+}
+
+// 대량매입 엑셀(바코드번호/상품명/수량/거래액 컬럼)을 파싱한다.
+// sheet_to_json({ header: 1 })로 뽑은 2차원 배열을 받아 헤더 행에서 컬럼 위치를 찾고,
+// 그 아래 데이터 행을 순회한다 — 컬럼 순서가 바뀌어도 헤더 텍스트로 찾으므로 안전하다.
+export function parseBulkRows(rows: unknown[][], marginPercent: number): ParsedRow[] {
+  if (rows.length < 2) return [];
+
+  const header = rows[0].map((h) => String(h ?? "").trim());
+  const colIndex = (label: string) => header.findIndex((h) => h.includes(label));
+  const barcodeIdx = colIndex("바코드");
+  const nameIdx = colIndex("상품명");
+  const qtyIdx = colIndex("수량");
+  const amountIdx = colIndex("거래액");
+  if (nameIdx === -1 || qtyIdx === -1 || amountIdx === -1) return [];
+
+  const result: ParsedRow[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const name = String(row[nameIdx] ?? "").trim();
+    const orderQty = Number(String(row[qtyIdx] ?? "").replace(/,/g, "")) || 0;
+    const amount = Number(String(row[amountIdx] ?? "").replace(/[,\s]/g, "")) || 0;
+    if (!name || !orderQty || !amount) continue;
+
+    const barcode = barcodeIdx !== -1 ? String(row[barcodeIdx] ?? "").trim() : "";
+    const packSize = extractPackSize(name);
+    const pieceQty = packSize * orderQty;
+    const unitCost = pieceQty > 0 ? Math.round(amount / pieceQty) : amount;
+    const suggestedSellPrice = Math.round(unitCost * (1 + marginPercent / 100));
+
+    result.push({
+      name,
+      orderQty,
+      amount,
+      packSize,
+      pieceQty,
+      unitCost,
+      suggestedSellPrice,
+      barcode: barcode || undefined,
+    });
+  }
+  return result;
 }
