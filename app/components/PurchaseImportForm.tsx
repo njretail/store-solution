@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import JsBarcode from "jsbarcode";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
 import {
   confirmPurchaseImport,
@@ -26,6 +27,33 @@ function downloadPriceChangesExcel(changes: PriceChange[]) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "가격변동");
   XLSX.writeFile(wb, `가격변동_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+function PriceLabel({ barcode, name, price }: { barcode: string; name: string; price: number }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    if (!svgRef.current) return;
+    try {
+      JsBarcode(svgRef.current, barcode, {
+        format: "CODE128",
+        height: 40,
+        displayValue: false,
+        margin: 4,
+      });
+    } catch {
+      // 바코드 형식이 CODE128로 인코딩할 수 없는 값이면 그림 없이 텍스트만 남긴다.
+    }
+  }, [barcode]);
+
+  return (
+    <div className="flex w-[55mm] flex-col items-center gap-1 border border-black p-2 text-center">
+      <p className="w-full truncate text-xs font-semibold">{name}</p>
+      <svg ref={svgRef} className="w-full" />
+      <p className="text-[10px] text-zinc-600">{barcode}</p>
+      <p className="text-lg font-bold">{price.toLocaleString()}원</p>
+    </div>
+  );
 }
 
 type ProductOption = { id: string; name: string; barcode: string };
@@ -67,6 +95,16 @@ export default function PurchaseImportForm({
   const [scanningKey, setScanningKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [selectedBarcodes, setSelectedBarcodes] = useState<Set<string>>(new Set());
+
+  function toggleSelected(barcode: string) {
+    setSelectedBarcodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(barcode)) next.delete(barcode);
+      else next.add(barcode);
+      return next;
+    });
+  }
 
   // 새로 파싱된 결과가 도착하면(액션 state가 바뀌면) 렌더 중에 검토용 편집 상태를 채운다.
   const [handledParse, setHandledParse] = useState(parseState);
@@ -126,6 +164,7 @@ export default function PurchaseImportForm({
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 print:hidden">
       <form
         action={parseActionState}
         className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-4"
@@ -353,23 +392,49 @@ export default function PurchaseImportForm({
           <p className="text-sm text-green-700">{confirmState.success}</p>
 
           {confirmState.priceChanges.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 print:hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold text-zinc-900">
                   가격이 변경된 상품 ({confirmState.priceChanges.length}건)
                 </h3>
-                <button
-                  type="button"
-                  onClick={() => downloadPriceChangesExcel(confirmState.priceChanges)}
-                  className="rounded border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50"
-                >
-                  엑셀 다운로드
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={selectedBarcodes.size === 0}
+                    onClick={() => window.print()}
+                    className="rounded bg-[#C8075F] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#a80650] disabled:opacity-40"
+                  >
+                    선택 바코드 출력 ({selectedBarcodes.size})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadPriceChangesExcel(confirmState.priceChanges)}
+                    className="rounded border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50"
+                  >
+                    엑셀 다운로드
+                  </button>
+                </div>
               </div>
               <div className="max-h-72 overflow-auto rounded-lg border border-zinc-200 bg-white">
                 <table className="w-full whitespace-nowrap text-sm">
                   <thead className="bg-zinc-50 text-left text-zinc-500">
                     <tr>
+                      <th className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={
+                            confirmState.priceChanges.length > 0 &&
+                            confirmState.priceChanges.every((c) => selectedBarcodes.has(c.barcode))
+                          }
+                          onChange={(e) =>
+                            setSelectedBarcodes(
+                              e.target.checked
+                                ? new Set(confirmState.priceChanges.map((c) => c.barcode))
+                                : new Set()
+                            )
+                          }
+                        />
+                      </th>
                       <th className="px-3 py-2">상품명</th>
                       <th className="px-3 py-2">매입가</th>
                       <th className="px-3 py-2">판매가</th>
@@ -378,6 +443,13 @@ export default function PurchaseImportForm({
                   <tbody>
                     {confirmState.priceChanges.map((c, i) => (
                       <tr key={i} className="border-t border-zinc-100">
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedBarcodes.has(c.barcode)}
+                            onChange={() => toggleSelected(c.barcode)}
+                          />
+                        </td>
                         <td className="px-3 py-2">
                           {c.name}
                           <p className="text-xs text-zinc-400">{c.barcode}</p>
@@ -413,6 +485,17 @@ export default function PurchaseImportForm({
               </div>
             </div>
           )}
+        </div>
+      )}
+      </div>
+
+      {selectedBarcodes.size > 0 && (
+        <div className="hidden print:flex print:flex-wrap print:gap-2">
+          {confirmState.priceChanges
+            .filter((c) => selectedBarcodes.has(c.barcode))
+            .map((c) => (
+              <PriceLabel key={c.barcode} barcode={c.barcode} name={c.name} price={c.newSellPrice} />
+            ))}
         </div>
       )}
     </div>
