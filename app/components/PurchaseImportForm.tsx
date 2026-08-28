@@ -1,15 +1,32 @@
 "use client";
 
 import { useActionState, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
 import {
   confirmPurchaseImport,
   type ParseState,
   type ConfirmState,
   type ConfirmItem,
+  type PriceChange,
 } from "@/app/(admin)/purchase-import/actions";
 
-const confirmInitial: ConfirmState = { error: null, success: null };
+const confirmInitial: ConfirmState = { error: null, success: null, priceChanges: [] };
+
+function downloadPriceChangesExcel(changes: PriceChange[]) {
+  const rows = changes.map((c) => ({
+    바코드: c.barcode,
+    상품명: c.name,
+    기존매입가: c.oldCostPrice,
+    신규매입가: c.newCostPrice,
+    기존판매가: c.oldSellPrice,
+    신규판매가: c.newSellPrice,
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "가격변동");
+  XLSX.writeFile(wb, `가격변동_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
 
 type ProductOption = { id: string; name: string; barcode: string };
 
@@ -320,9 +337,6 @@ export default function PurchaseImportForm({
           {confirmState.error && (
             <p className="text-sm text-red-600">{confirmState.error}</p>
           )}
-          {confirmState.success && (
-            <p className="text-sm text-green-600">{confirmState.success}</p>
-          )}
 
           <button
             type="submit"
@@ -332,6 +346,74 @@ export default function PurchaseImportForm({
             {confirming ? "등록 중..." : `매입 등록 확정 (${rows.length}건)`}
           </button>
         </form>
+      )}
+
+      {confirmState.success && (
+        <div className="flex flex-col gap-4 rounded-lg border border-green-200 bg-green-50 p-4">
+          <p className="text-sm text-green-700">{confirmState.success}</p>
+
+          {confirmState.priceChanges.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-zinc-900">
+                  가격이 변경된 상품 ({confirmState.priceChanges.length}건)
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => downloadPriceChangesExcel(confirmState.priceChanges)}
+                  className="rounded border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50"
+                >
+                  엑셀 다운로드
+                </button>
+              </div>
+              <div className="max-h-72 overflow-auto rounded-lg border border-zinc-200 bg-white">
+                <table className="w-full whitespace-nowrap text-sm">
+                  <thead className="bg-zinc-50 text-left text-zinc-500">
+                    <tr>
+                      <th className="px-3 py-2">상품명</th>
+                      <th className="px-3 py-2">매입가</th>
+                      <th className="px-3 py-2">판매가</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {confirmState.priceChanges.map((c, i) => (
+                      <tr key={i} className="border-t border-zinc-100">
+                        <td className="px-3 py-2">
+                          {c.name}
+                          <p className="text-xs text-zinc-400">{c.barcode}</p>
+                        </td>
+                        <td className="px-3 py-2">
+                          {c.oldCostPrice !== c.newCostPrice ? (
+                            <span>
+                              {c.oldCostPrice.toLocaleString()} →{" "}
+                              <span className="font-medium text-[#C8075F]">
+                                {c.newCostPrice.toLocaleString()}
+                              </span>
+                            </span>
+                          ) : (
+                            c.newCostPrice.toLocaleString()
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {c.oldSellPrice !== c.newSellPrice ? (
+                            <span>
+                              {c.oldSellPrice.toLocaleString()} →{" "}
+                              <span className="font-medium text-[#C8075F]">
+                                {c.newSellPrice.toLocaleString()}
+                              </span>
+                            </span>
+                          ) : (
+                            c.newSellPrice.toLocaleString()
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
