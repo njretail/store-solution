@@ -456,7 +456,7 @@ export default async function DashboardPage({
             )}
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3">
+        <div className="max-w-sm">
           <CompareBar {...compareCard} />
         </div>
       </div>
