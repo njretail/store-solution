@@ -25,7 +25,6 @@ function monthToDateRangeIso(monthOffset: number) {
 }
 
 function CompareBar({
-  title,
   labelA,
   valueA,
   labelB,
@@ -41,24 +40,33 @@ function CompareBar({
   const diff = valueA > 0 ? Math.round(((valueB - valueA) / valueA) * 100) : null;
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white px-5 py-4">
-      <p className="text-sm text-zinc-500">{title}</p>
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-zinc-500">{labelA}</span>
-          <span className="text-zinc-600">{valueA.toLocaleString()}원</span>
+    <div className="flex flex-col gap-5 rounded-lg border border-zinc-200 bg-white px-5 py-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-sm text-zinc-500">{labelA}</p>
+          <p className="text-3xl font-semibold text-zinc-400">{valueA.toLocaleString()}원</p>
         </div>
+        <div>
+          <p className="text-sm text-zinc-500">{labelB}</p>
+          <div className="flex items-baseline gap-2">
+            <p className="text-3xl font-semibold text-[#C8075F]">{valueB.toLocaleString()}원</p>
+            {diff !== null && (
+              <span
+                className={`text-sm font-medium ${diff >= 0 ? "text-green-600" : "text-red-500"}`}
+              >
+                {diff >= 0 ? "▲" : "▼"} {Math.abs(diff)}%
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
         <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100">
           <div
             className="h-full rounded-full bg-zinc-300"
             style={{ width: `${(valueA / max) * 100}%` }}
           />
-        </div>
-      </div>
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between text-sm">
-          <span className="font-medium text-zinc-700">{labelB}</span>
-          <span className="font-semibold text-zinc-900">{valueB.toLocaleString()}원</span>
         </div>
         <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100">
           <div
@@ -67,13 +75,8 @@ function CompareBar({
           />
         </div>
       </div>
-      {diff !== null ? (
-        <p
-          className={`text-xs font-medium ${diff >= 0 ? "text-green-600" : "text-red-500"}`}
-        >
-          {diff >= 0 ? "▲" : "▼"} {Math.abs(diff)}% {diff >= 0 ? "증가" : "감소"}
-        </p>
-      ) : (
+
+      {diff === null && (
         <p className="text-xs text-zinc-400">비교할 이전 매출이 없습니다.</p>
       )}
     </div>
@@ -456,9 +459,7 @@ export default async function DashboardPage({
             )}
           </div>
         </div>
-        <div className="max-w-sm">
-          <CompareBar {...compareCard} />
-        </div>
+        <CompareBar {...compareCard} />
       </div>
 
       <div>
