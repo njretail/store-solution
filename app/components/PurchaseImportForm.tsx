@@ -249,7 +249,7 @@ export default function PurchaseImportForm({
                                 onChange={(e) =>
                                   updateRow(r.key, { barcode: e.target.value })
                                 }
-                                className="w-28 rounded border border-zinc-200 px-2 py-1"
+                                className="w-40 rounded border border-zinc-200 px-2 py-1"
                               />
                               <button
                                 type="button"

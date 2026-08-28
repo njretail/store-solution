@@ -105,6 +105,17 @@ function extractPackInfo(name: string): { packSize: number; cleanName: string } 
   return { packSize: Number(last[1]), cleanName: cleanName || name.trim() };
 }
 
+// 엑셀 셀 값을 바코드 문자열로 안전하게 변환한다.
+// 바코드 컬럼이 "숫자" 서식으로 저장되어 있으면 xlsx가 JS 숫자로 돌려주는데,
+// String()/toString()은 아주 큰 수에서 지수 표기(예: 8.80927e+12)로 바뀔 수 있어
+// toFixed(0)로 항상 자릿수 그대로의 정수 문자열을 만든다.
+function cellToBarcode(value: unknown): string {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value.toFixed(0) : "";
+  }
+  return String(value ?? "").trim();
+}
+
 // 대량매입 엑셀(바코드번호/상품명/수량/거래액/과세여부 컬럼)을 파싱한다.
 // sheet_to_json({ header: 1 })로 뽑은 2차원 배열을 받아 헤더 행에서 컬럼 위치를 찾고,
 // 그 아래 데이터 행을 순회한다 — 컬럼 순서가 바뀌어도 헤더 텍스트로 찾으므로 안전하다.
@@ -128,7 +139,7 @@ export function parseBulkRows(rows: unknown[][], marginPercent: number): ParsedR
     const amount = Number(String(row[amountIdx] ?? "").replace(/[,\s]/g, "")) || 0;
     if (!name || !orderQty || !amount) continue;
 
-    const barcode = barcodeIdx !== -1 ? String(row[barcodeIdx] ?? "").trim() : "";
+    const barcode = barcodeIdx !== -1 ? cellToBarcode(row[barcodeIdx]) : "";
     const { packSize, cleanName } = extractPackInfo(name);
     const pieceQty = packSize * orderQty;
     const unitCost = pieceQty > 0 ? Math.round(amount / pieceQty) : amount;

@@ -44,7 +44,7 @@ export async function parseBulkExcel(
     .select("id, name, barcode")
     .eq("store_id", store.id);
   const products = productsData ?? [];
-  const byBarcode = new Map(products.map((p) => [p.barcode, p]));
+  const byBarcode = new Map(products.map((p) => [p.barcode.trim(), p]));
 
   const matchedRows: ParsedRow[] = rows.map((r) => {
     const matched = r.barcode ? byBarcode.get(r.barcode) : undefined;
