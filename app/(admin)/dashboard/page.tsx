@@ -80,6 +80,22 @@ function CompareBar({
   );
 }
 
+function dateRangeIsoForDate(dateStr: string) {
+  const start = new Date(`${dateStr}T00:00:00`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { fromIso: start.toISOString(), toIso: end.toISOString() };
+}
+
+type ComparePeriod = "yesterday" | "week" | "month" | "custom";
+
+const COMPARE_LABELS: Record<ComparePeriod, string> = {
+  yesterday: "어제 대비",
+  week: "일주일전 대비",
+  month: "전월 대비",
+  custom: "직접 설정",
+};
+
 type RankPeriod = "day" | "month" | "year";
 
 const RANK_PERIOD_LABELS: Record<RankPeriod, string> = {
@@ -117,7 +133,12 @@ function rankPeriodRange(period: RankPeriod, value: string) {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ rank_period?: string; rank_value?: string }>;
+  searchParams: Promise<{
+    rank_period?: string;
+    rank_value?: string;
+    compare?: string;
+    compare_date?: string;
+  }>;
 }) {
   const { supabase, profile } = await requireAdmin();
   const store = await getCurrentStore(supabase, profile);
@@ -131,11 +152,19 @@ export default async function DashboardPage({
   const rankValue = params.rank_value || rankPeriodDefault(rankPeriod);
   const rankRange = rankPeriodRange(rankPeriod, rankValue);
 
+  const comparePeriod: ComparePeriod =
+    params.compare === "week" || params.compare === "month" || params.compare === "custom"
+      ? params.compare
+      : "yesterday";
+  const compareDateDefault = dayRangeIso(-7).fromIso.slice(0, 10);
+  const compareDate = params.compare_date || compareDateDefault;
+
   const today = dayRangeIso(0);
   const yesterday = dayRangeIso(-1);
   const weekAgo = dayRangeIso(-7);
   const thisMonth = monthToDateRangeIso(0);
   const lastMonth = monthToDateRangeIso(-1);
+  const customRange = dateRangeIsoForDate(compareDate);
   const todayStr = new Date().toISOString().slice(0, 10);
   const weekAhead = new Date();
   weekAhead.setDate(weekAhead.getDate() + 7);
@@ -147,6 +176,7 @@ export default async function DashboardPage({
     { data: weekAgoData },
     { data: thisMonthData },
     { data: lastMonthData },
+    { data: customData },
     { data: expiryData },
     { data: cashSalesData },
     { data: cashTxData },
@@ -184,6 +214,12 @@ export default async function DashboardPage({
       .gte("created_at", lastMonth.fromIso)
       .lt("created_at", lastMonth.toIso),
     supabase
+      .from("sales")
+      .select("total_amount")
+      .eq("store_id", store.id)
+      .gte("created_at", customRange.fromIso)
+      .lt("created_at", customRange.toIso),
+    supabase
       .from("product_expiries")
       .select("id, expiry_date, quantity, products(name, barcode)")
       .eq("store_id", store.id)
@@ -212,6 +248,7 @@ export default async function DashboardPage({
   const weekAgoRevenue = (weekAgoData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
   const thisMonthRevenue = (thisMonthData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
   const lastMonthRevenue = (lastMonthData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
+  const customRevenue = (customData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
 
   const topProducts = (rankData ?? []) as Array<{
     product_id: string;
@@ -254,6 +291,15 @@ export default async function DashboardPage({
     yesterdayRevenue > 0
       ? Math.round(((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100)
       : null;
+
+  const compareCard: { title: string; labelA: string; valueA: number; labelB: string; valueB: number } =
+    comparePeriod === "week"
+      ? { title: "일주일 전 대비 오늘", labelA: "일주일 전", valueA: weekAgoRevenue, labelB: "오늘", valueB: todayRevenue }
+      : comparePeriod === "month"
+        ? { title: "전월 대비 이달(같은 기간까지)", labelA: "전월", valueA: lastMonthRevenue, labelB: "이달", valueB: thisMonthRevenue }
+        : comparePeriod === "custom"
+          ? { title: `${compareDate} 대비 오늘`, labelA: compareDate, valueA: customRevenue, labelB: "오늘", valueB: todayRevenue }
+          : { title: "어제 대비 오늘", labelA: "어제", valueA: yesterdayRevenue, labelB: "오늘", valueB: todayRevenue };
 
   const byMethod = new Map<string, number>();
   for (const s of todaySales) {
@@ -368,29 +414,50 @@ export default async function DashboardPage({
       </div>
 
       <div>
-        <h2 className="mb-3 text-base font-medium text-zinc-700">매출 비교</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <CompareBar
-            title="어제 대비 오늘"
-            labelA="어제"
-            valueA={yesterdayRevenue}
-            labelB="오늘"
-            valueB={todayRevenue}
-          />
-          <CompareBar
-            title="일주일 전 대비 오늘"
-            labelA="일주일 전"
-            valueA={weekAgoRevenue}
-            labelB="오늘"
-            valueB={todayRevenue}
-          />
-          <CompareBar
-            title="전월 대비 이달(같은 기간까지)"
-            labelA="전월"
-            valueA={lastMonthRevenue}
-            labelB="이달"
-            valueB={thisMonthRevenue}
-          />
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-base font-medium text-zinc-700">매출 비교</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 rounded-md border border-zinc-300 text-sm">
+              {(Object.keys(COMPARE_LABELS) as ComparePeriod[]).map((p, i) => (
+                <Link
+                  key={p}
+                  href={
+                    p === "custom"
+                      ? `/dashboard?compare=custom&compare_date=${compareDateDefault}`
+                      : `/dashboard?compare=${p}`
+                  }
+                  className={`whitespace-nowrap px-3 py-1.5 ${i > 0 ? "border-l border-zinc-300" : ""} ${
+                    p === comparePeriod
+                      ? "bg-[#C8075F] text-white"
+                      : "text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  {COMPARE_LABELS[p]}
+                </Link>
+              ))}
+            </div>
+            {comparePeriod === "custom" && (
+              <form className="flex flex-wrap items-center gap-2">
+                <input type="hidden" name="compare" value="custom" />
+                <input
+                  type="date"
+                  name="compare_date"
+                  defaultValue={compareDate}
+                  max={todayStr}
+                  className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
+                />
+                <button
+                  type="submit"
+                  className="shrink-0 whitespace-nowrap rounded border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                >
+                  조회
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3">
+          <CompareBar {...compareCard} />
         </div>
       </div>
 
