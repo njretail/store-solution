@@ -34,14 +34,26 @@ export default async function CustomerDetailPage({
   const saleIds = sales.map((s) => s.id);
   const { data: itemsData } =
     saleIds.length > 0
-      ? await supabase.from("sale_items").select("sale_id, products(categories(name))").in("sale_id", saleIds)
+      ? await supabase
+          .from("sale_items")
+          .select("sale_id, product_id, quantity, products(name, categories(name))")
+          .in("sale_id", saleIds)
       : { data: [] };
 
   const items = (
-    (itemsData ?? []) as unknown as Array<{ products: { categories: { name: string } | null } | null }>
+    (itemsData ?? []) as unknown as Array<{
+      sale_id: string;
+      product_id: string;
+      quantity: number;
+      products: { name: string; categories: { name: string } | null } | null;
+    }>
   ).map((it) => ({
     customerId: id,
+    saleId: it.sale_id,
     categoryName: it.products?.categories?.name ?? null,
+    productId: it.product_id,
+    productName: it.products?.name ?? "상품",
+    quantity: it.quantity,
   }));
 
   const segments = computeCustomerSegments(
@@ -74,11 +86,14 @@ export default async function CustomerDetailPage({
               ))
             )}
           </div>
-          <div className="ml-auto flex gap-6 text-sm text-zinc-600">
+          <div className="ml-auto flex flex-wrap gap-6 text-sm text-zinc-600">
             <span>방문 {segment.visitCount}회</span>
             <span>누적 {segment.totalSpent.toLocaleString()}원</span>
+            <span>주력상품 {segment.topProductName ?? "-"}</span>
+            <span>{segment.preferredTimeLabel}</span>
             <span>
               최근방문 {segment.daysSinceLastVisit === 0 ? "오늘" : `${segment.daysSinceLastVisit}일 전`}
+              {segment.isOverdue && <span className="ml-1 font-medium text-amber-600">(뜸해짐)</span>}
             </span>
           </div>
         </div>
