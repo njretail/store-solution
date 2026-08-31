@@ -133,8 +133,43 @@ export type Sale = {
   payment_method: string;
   discount_amount: number;
   status: SaleStatus;
+  customer_id: string | null;
   created_by: string | null;
   created_at: string;
+};
+
+export type Customer = {
+  id: string;
+  store_id: string;
+  phone: string;
+  name: string | null;
+  first_seen_at: string;
+  created_at: string;
+};
+
+export type CampaignType = "routine" | "clearance" | "deadtime" | "winback" | "welcome" | "manual";
+
+export const CAMPAIGN_TYPE_LABELS: Record<CampaignType, string> = {
+  routine: "루틴 리마인드",
+  clearance: "마감 할인",
+  deadtime: "심야/한산 시간대",
+  winback: "재방문 유도",
+  welcome: "첫 방문 환영",
+  manual: "수동 발급",
+};
+
+export type CustomerCoupon = {
+  id: string;
+  store_id: string;
+  customer_id: string;
+  title: string;
+  discount_type: "amount" | "percent";
+  discount_value: number;
+  campaign_type: CampaignType;
+  issued_at: string;
+  expires_at: string | null;
+  redeemed_at: string | null;
+  redeemed_sale_id: string | null;
 };
 
 export type SaleItem = {

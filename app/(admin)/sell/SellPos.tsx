@@ -15,6 +15,7 @@ export default function SellPos({ storeId }: { storeId: string }) {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [couponCode, setCouponCode] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [customerPhone, setCustomerPhone] = useState("");
   const [state, formAction, pending] = useActionState(checkout, initialState);
 
   // 결제가 성공하면(액션 state가 바뀌면) 렌더 중에 장바구니를 비운다.
@@ -26,6 +27,7 @@ export default function SellPos({ storeId }: { storeId: string }) {
       setCart([]);
       setCouponCode("");
       setDiscountAmount(0);
+      setCustomerPhone("");
     }
   }
 
@@ -171,6 +173,17 @@ export default function SellPos({ storeId }: { storeId: string }) {
         )}
 
         <div className="flex flex-col gap-2 border-t border-zinc-200 pt-3">
+          <div>
+            <input
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              placeholder="고객 전화번호 (선택, 적립/쿠폰 자동적용)"
+              className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm"
+            />
+            <p className="mt-1 text-xs text-zinc-400">
+              번호를 입력하면 신규 고객은 500원 즉시 할인, 기존 고객은 보유 쿠폰이 있으면 자동 적용됩니다.
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <input
               value={couponCode}
@@ -201,6 +214,7 @@ export default function SellPos({ storeId }: { storeId: string }) {
           <input type="hidden" name="items" value={itemsJson} />
           <input type="hidden" name="coupon_code" value={couponCode} />
           <input type="hidden" name="discount_amount" value={discountAmount} />
+          <input type="hidden" name="customer_phone" value={customerPhone} />
           <select
             name="payment_method"
             value={paymentMethod}

@@ -15,6 +15,7 @@ export async function checkout(
   const payment_method = String(formData.get("payment_method") ?? "cash");
   const coupon_code = String(formData.get("coupon_code") ?? "").trim() || null;
   const discount_amount = Number(formData.get("discount_amount") ?? 0) || 0;
+  const customer_phone = String(formData.get("customer_phone") ?? "").trim() || null;
 
   let items: Array<{ product_id: string; quantity: number }>;
   try {
@@ -32,6 +33,7 @@ export async function checkout(
     p_items: items,
     p_coupon_code: coupon_code,
     p_discount_amount: discount_amount,
+    p_customer_phone: customer_phone,
   });
 
   if (error) {
@@ -41,13 +43,15 @@ export async function checkout(
   revalidatePath("/sell");
   revalidatePath("/sales");
   revalidatePath("/dashboard");
+  revalidatePath("/customers");
 
-  const sale = data as { total_amount: number; discount_amount: number } | null;
+  const sale = data as { total_amount: number; discount_amount: number; customer_id: string | null } | null;
   const total = sale?.total_amount ?? 0;
   const discount = sale?.discount_amount ?? 0;
   const discountNote = discount > 0 ? ` (할인 ${discount.toLocaleString()}원 적용)` : "";
+  const customerNote = customer_phone ? " · 고객 적립됨" : "";
   return {
     error: null,
-    success: `결제 완료 (총 ${total.toLocaleString()}원)${discountNote}`,
+    success: `결제 완료 (총 ${total.toLocaleString()}원)${discountNote}${customerNote}`,
   };
 }
