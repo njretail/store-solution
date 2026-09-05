@@ -34,6 +34,11 @@ export default function StaffForm({ stores }: { stores: Store[] }) {
           placeholder="이름 (선택)"
           className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
         />
+        <input
+          name="phone"
+          placeholder="전화번호 (아이디 찾기용, 선택)"
+          className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
+        />
         <select
           name="role"
           defaultValue="staff"

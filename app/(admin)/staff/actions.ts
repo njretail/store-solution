@@ -15,6 +15,7 @@ export async function createStaff(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const name = String(formData.get("name") ?? "").trim() || null;
+  const phone = String(formData.get("phone") ?? "").trim() || null;
   const role = String(formData.get("role") ?? "staff");
   const store_id = String(formData.get("store_id") ?? "") || null;
 
@@ -45,6 +46,7 @@ export async function createStaff(
     store_id,
     name,
     email,
+    phone,
   });
 
   if (profileError) {
@@ -62,8 +64,9 @@ export async function updateStaff(formData: FormData) {
 
   const role = String(formData.get("role") ?? "staff");
   const store_id = String(formData.get("store_id") ?? "") || null;
+  const phone = String(formData.get("phone") ?? "").trim() || null;
 
-  await supabase.from("profiles").update({ role, store_id }).eq("id", id);
+  await supabase.from("profiles").update({ role, store_id, phone }).eq("id", id);
   revalidatePath("/staff");
 }
 

@@ -9,6 +9,7 @@ type StaffRow = {
   store_id: string | null;
   name: string | null;
   email: string | null;
+  phone: string | null;
   stores: { name: string } | null;
 };
 
@@ -18,7 +19,7 @@ export default async function StaffPage() {
   const [{ data }, stores] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, role, store_id, name, email, stores(name)")
+      .select("id, role, store_id, name, email, phone, stores(name)")
       .order("email"),
     getAccessibleStores(supabase),
   ]);
@@ -42,6 +43,7 @@ export default async function StaffPage() {
             <tr>
               <th className="px-3 py-2">이메일</th>
               <th className="px-3 py-2">이름</th>
+              <th className="px-3 py-2">전화번호</th>
               <th className="px-3 py-2">역할</th>
               <th className="px-3 py-2">매장</th>
               <th className="px-3 py-2"></th>
@@ -54,6 +56,15 @@ export default async function StaffPage() {
                 <tr key={s.id} className="border-t border-zinc-100">
                   <td className="px-3 py-2 text-zinc-500">{s.email ?? "-"}</td>
                   <td className="px-3 py-2">{s.name ?? "-"}</td>
+                  <td className="px-2 py-1">
+                    <input
+                      form={formId}
+                      name="phone"
+                      defaultValue={s.phone ?? ""}
+                      placeholder="전화번호"
+                      className="w-32 rounded border border-zinc-200 px-2 py-1"
+                    />
+                  </td>
                   <td className="px-2 py-1">
                     <select
                       form={formId}
@@ -106,7 +117,7 @@ export default async function StaffPage() {
             })}
             {staff.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-zinc-400">
+                <td colSpan={6} className="px-3 py-6 text-center text-zinc-400">
                   등록된 계정이 없습니다.
                 </td>
               </tr>
