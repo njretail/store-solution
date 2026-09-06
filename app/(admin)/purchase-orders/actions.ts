@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
-import { createCoupangDeepLink } from "@/lib/coupang-partners";
+import { createCoupangDeepLink, buildCoupangSearchUrl } from "@/lib/coupang-partners";
 
 export type OrderActionState = { error: string | null; link: string | null };
 
@@ -37,8 +37,9 @@ export async function createHqOrder(
   return { error: null, link: null };
 }
 
-// 쿠팡 발주: 파트너스 딥링크를 생성해 기록하고, 직원이 클릭해 쿠팡 결제를 직접 완료하도록
-// 링크를 반환한다(쿠팡은 구매 자동결제 API를 제공하지 않아 결제 자체는 사람이 완료해야 함).
+// 쿠팡 발주: 상품별 URL을 등록해두지 않으므로 상품명으로 쿠팡 검색 결과를 열고,
+// 그 링크를 파트너스 딥링크로 변환해 기록한다. 직원이 새 탭에서 상품을 찾아
+// 직접 주문/결제까지 완료해야 한다(쿠팡은 자동결제 API를 제공하지 않음).
 export async function createCoupangOrder(
   _prevState: OrderActionState,
   formData: FormData
@@ -48,16 +49,16 @@ export async function createCoupangOrder(
   if (!store) return { error: "매장을 먼저 선택하세요.", link: null };
 
   const product_id = String(formData.get("product_id") ?? "");
+  const product_name = String(formData.get("product_name") ?? "").trim();
   const quantity = Number(formData.get("quantity") ?? 0) || 0;
-  const coupang_product_url = String(formData.get("coupang_product_url") ?? "").trim();
   if (!product_id || quantity <= 0) {
     return { error: "발주 수량을 입력하세요.", link: null };
   }
-  if (!coupang_product_url) {
-    return { error: "이 상품에 등록된 쿠팡 상품 URL이 없습니다. 먼저 등록해주세요.", link: null };
+  if (!product_name) {
+    return { error: "상품 정보를 확인할 수 없습니다.", link: null };
   }
 
-  const link = await createCoupangDeepLink(coupang_product_url);
+  const link = await createCoupangDeepLink(buildCoupangSearchUrl(product_name));
 
   const { error } = await supabase.from("purchase_orders").insert({
     store_id: store.id,

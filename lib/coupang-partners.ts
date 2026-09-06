@@ -24,6 +24,12 @@ function buildAuthHeader(method: string, path: string, accessKey: string, secret
   return `CEA algorithm=HmacSHA256, access-key=${accessKey}, signed-date=${signedDate}, signature=${signature}`;
 }
 
+// 상품별로 정확한 쿠팡 상품 URL을 등록해두지 않으므로, 상품명으로 쿠팡 검색 결과
+// 페이지를 열어주고 직원이 그 안에서 직접 상품을 찾아 주문하게 한다.
+export function buildCoupangSearchUrl(productName: string): string {
+  return `https://www.coupang.com/np/search?component=&q=${encodeURIComponent(productName)}&channel=user`;
+}
+
 export async function createCoupangDeepLink(productUrl: string): Promise<string> {
   const accessKey = process.env.COUPANG_PARTNERS_ACCESS_KEY;
   const secretKey = process.env.COUPANG_PARTNERS_SECRET_KEY;

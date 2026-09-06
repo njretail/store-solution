@@ -213,7 +213,8 @@ export async function updateProduct(
   return { error: null, success: "저장되었습니다." };
 }
 
-// 재고소진상품 화면에서 상품별 발주 설정(자동발주/발주수량/쿠팡URL)만 가볍게 저장한다.
+// 재고소진상품 화면에서 상품별 자동발주 사용 여부만 가볍게 저장한다. 발주수량은
+// 자동발주 시점에 최근 7일 판매량으로 매번 계산하므로 여기서 저장하지 않는다.
 // updateProduct는 상품명 등 전체 필드가 필요해 이 인라인 폼과는 별도로 둔다.
 export async function updateOrderSettings(formData: FormData) {
   const { supabase } = await requireAdmin();
@@ -221,13 +222,19 @@ export async function updateOrderSettings(formData: FormData) {
   if (!id) return;
 
   const auto_order_enabled = formData.get("auto_order_enabled") === "on";
-  const reorder_qty = Number(formData.get("reorder_qty") ?? 0) || 0;
-  const coupang_product_url = String(formData.get("coupang_product_url") ?? "").trim() || null;
 
-  await supabase
-    .from("products")
-    .update({ auto_order_enabled, reorder_qty, coupang_product_url })
-    .eq("id", id);
+  await supabase.from("products").update({ auto_order_enabled }).eq("id", id);
+
+  revalidatePath("/products/low-stock");
+}
+
+// 재고소진상품 화면에서 여러 상품을 한 번에 자동발주 대상으로 켠다.
+export async function enableAutoOrderForAll(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  if (ids.length === 0) return;
+
+  await supabase.from("products").update({ auto_order_enabled: true }).in("id", ids);
 
   revalidatePath("/products/low-stock");
 }

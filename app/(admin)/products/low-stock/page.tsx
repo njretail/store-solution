@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+import { getWeekSoldQtyMap } from "@/lib/auto-order-scan";
+import { enableAutoOrderForAll } from "../actions";
 import ProductOrderCell from "./ProductOrderCell";
 
 type Grade = "A" | "B" | "C";
@@ -27,19 +29,17 @@ export default async function LowStockProductsPage() {
     stock_qty: number;
     low_stock_threshold: number;
     auto_order_enabled: boolean;
-    reorder_qty: number;
-    coupang_product_url: string | null;
     categories: { name: string } | null;
   };
 
-  const [productsData, { data: stockInData }, { data: rankData }] =
+  const [productsData, { data: stockInData }, { data: rankData }, weekSales] =
     await Promise.all([
       // 상품이 1000개를 넘는 매장에서 뒤쪽 상품이 누락되지 않도록 range()로 전부 가져온다.
       fetchAllPages<ProductRow>((from2, to) =>
         supabase
           .from("products")
           .select(
-            "id, barcode, name, stock_qty, low_stock_threshold, auto_order_enabled, reorder_qty, coupang_product_url, categories(name)"
+            "id, barcode, name, stock_qty, low_stock_threshold, auto_order_enabled, categories(name)"
           )
           .eq("store_id", store.id)
           .range(from2, to)
@@ -52,6 +52,7 @@ export default async function LowStockProductsPage() {
         p_to: now.toISOString(),
         p_limit: 100000,
       }),
+      getWeekSoldQtyMap(supabase, store.id),
     ]);
 
   // 취급상품 = 한 번이라도 실제 입고 기록이 있는 상품. 대량 카탈로그 등록으로 들어왔지만
@@ -79,8 +80,7 @@ export default async function LowStockProductsPage() {
     stock_qty: number;
     low_stock_threshold: number;
     auto_order_enabled: boolean;
-    reorder_qty: number;
-    coupang_product_url: string | null;
+    weekSoldQty: number;
     grade: Grade | null;
   };
 
@@ -94,8 +94,7 @@ export default async function LowStockProductsPage() {
       stock_qty: p.stock_qty,
       low_stock_threshold: p.low_stock_threshold,
       auto_order_enabled: p.auto_order_enabled,
-      reorder_qty: p.reorder_qty,
-      coupang_product_url: p.coupang_product_url,
+      weekSoldQty: weekSales.get(p.id) ?? 0,
       grade: gradeMap.get(p.id) ?? null,
     }))
     .sort((a, b) => {
@@ -126,6 +125,20 @@ export default async function LowStockProductsPage() {
         </Link>
         에서 확인하세요.
       </p>
+
+      {rows.length > 0 && (
+        <form action={enableAutoOrderForAll}>
+          {rows.map((r) => (
+            <input key={r.id} type="hidden" name="ids" value={r.id} />
+          ))}
+          <button
+            type="submit"
+            className="rounded-lg border border-[#C8075F] px-3 py-1.5 text-sm font-medium text-[#C8075F] hover:bg-[#C8075F]/5"
+          >
+            아래 {rows.length}개 상품 전체 자동발주 켜기
+          </button>
+        </form>
+      )}
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
         <table className="w-full whitespace-nowrap text-base">
@@ -166,9 +179,9 @@ export default async function LowStockProductsPage() {
                 <td className="px-4 py-3">
                   <ProductOrderCell
                     productId={r.id}
+                    productName={r.name}
                     autoOrderEnabled={r.auto_order_enabled}
-                    reorderQty={r.reorder_qty}
-                    coupangProductUrl={r.coupang_product_url}
+                    weekSoldQty={r.weekSoldQty}
                   />
                 </td>
               </tr>
