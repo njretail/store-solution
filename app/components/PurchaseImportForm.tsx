@@ -10,7 +10,7 @@ import {
   type ConfirmState,
   type ConfirmItem,
   type PriceChange,
-} from "@/app/(admin)/purchase-import/actions";
+} from "@/app/(admin)/purchase-bulk/actions";
 
 const confirmInitial: ConfirmState = { error: null, success: null, priceChanges: [] };
 

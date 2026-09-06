@@ -87,16 +87,27 @@ export default async function PurchaseOrdersPage() {
                   </td>
                   <td className="px-4 py-3 text-zinc-500">{SOURCE_LABEL[o.source]}</td>
                   <td className="px-4 py-3">
-                    {o.products?.name ?? "-"}
-                    {o.coupang_link && (
-                      <a
-                        href={o.coupang_link}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="ml-2 text-xs text-[#C8075F] underline"
-                      >
-                        쿠팡에서 결제하기
-                      </a>
+                    <div>
+                      {o.products?.name ?? "-"}
+                      {o.coupang_link && (
+                        <a
+                          href={o.coupang_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="ml-2 text-xs text-[#C8075F] underline"
+                        >
+                          쿠팡에서 결제하기
+                        </a>
+                      )}
+                    </div>
+                    {o.channel === "coupang" && (
+                      <p className="mt-1 text-xs text-amber-600">
+                        ⚠ 바코드 연동이 안 돼 입고가 자동 반영되지 않아요 — 상품 도착 후{" "}
+                        <a href="/stock-in" className="underline">
+                          입고 등록
+                        </a>
+                        에서 직접 등록해주세요.
+                      </p>
                     )}
                   </td>
                   <td className="px-4 py-3">{o.quantity}</td>

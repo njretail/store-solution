@@ -105,6 +105,12 @@ export default function ProductOrderCell({
       {(hqState.error || coupangState.error) && (
         <p className="text-xs text-red-600">{hqState.error ?? coupangState.error}</p>
       )}
+      {coupangState.link && !coupangState.error && (
+        <p className="text-xs text-amber-600">
+          ⚠ 새 탭에서 결제를 완료해주세요. 바코드 연동이 안 돼 입고가 자동 반영되지 않으니,
+          상품 도착 후 입고 등록에서 직접 등록해주세요.
+        </p>
+      )}
     </div>
   );
 }
