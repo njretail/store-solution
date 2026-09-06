@@ -136,15 +136,17 @@ export default async function LowStockSection({
               {category} <span className="text-sm font-normal text-zinc-400">({groupRows.length}개)</span>
             </h2>
             <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-              <table className="w-full whitespace-nowrap text-base">
+              {/* table-fixed + 모든 분류 표에 동일한 컬럼 너비를 줘서, 표마다 내용 길이에
+                  따라 컬럼 너비가 제각각이 되어 세로로 정렬이 안 맞아 보이는 문제를 없앤다. */}
+              <table className="w-full min-w-[1080px] table-fixed whitespace-nowrap text-base">
                 <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
                   <tr>
-                    <th className="px-4 py-3">등급</th>
-                    <th className="px-4 py-3">상품명</th>
-                    <th className="px-4 py-3">현재 재고</th>
-                    <th className="px-4 py-3">기준</th>
-                    <th className="px-4 py-3">자동발주</th>
-                    <th className="px-4 py-3">발주</th>
+                    <th className="w-[100px] px-4 py-3">등급</th>
+                    <th className="w-[260px] px-4 py-3">상품명</th>
+                    <th className="w-[100px] px-4 py-3">현재 재고</th>
+                    <th className="w-[90px] px-4 py-3">기준</th>
+                    <th className="w-[110px] px-4 py-3">자동발주</th>
+                    <th className="w-[420px] px-4 py-3">발주</th>
                   </tr>
                 </thead>
                 <tbody>

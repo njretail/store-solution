@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "@/lib/actions";
 import StoreSwitcher from "@/app/components/StoreSwitcher";
 import Logo from "@/app/components/Logo";
@@ -54,14 +54,14 @@ function isGroup(item: NavItem): item is { label: string; children: NavLink[] } 
 
 function NavGroup({
   item,
-  pathname,
+  currentUrl,
   onNavigate,
 }: {
   item: { label: string; children: NavLink[] };
-  pathname: string;
+  currentUrl: string;
   onNavigate: () => void;
 }) {
-  const containsActive = item.children.some((c) => c.href === pathname);
+  const containsActive = item.children.some((c) => c.href === currentUrl);
   const [open, setOpen] = useState(containsActive);
 
   return (
@@ -77,7 +77,7 @@ function NavGroup({
       {open && (
         <div className="mt-1 flex flex-col gap-1 pl-4">
           {item.children.map((c) => {
-            const active = pathname === c.href;
+            const active = currentUrl === c.href;
             return (
               <Link
                 key={c.href}
@@ -114,6 +114,11 @@ export default function AdminShell({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // 재고소진상품(/products?view=low-stock)과 상품 조회(/products)처럼 경로는
+  // 같고 쿼리스트링만 다른 메뉴를 구분하려면 pathname만으론 부족해서 합쳐서 비교한다.
+  const query = searchParams.toString();
+  const currentUrl = query ? `${pathname}?${query}` : pathname;
   const links = role === "admin" ? ADMIN_LINKS : STAFF_LINKS;
   const homeHref = role === "admin" ? "/dashboard" : "/sell";
 
@@ -176,12 +181,12 @@ export default function AdminShell({
                 <NavGroup
                   key={item.label}
                   item={item}
-                  pathname={pathname}
+                  currentUrl={currentUrl}
                   onNavigate={() => setOpen(false)}
                 />
               );
             }
-            const active = pathname === item.href;
+            const active = currentUrl === item.href;
             return (
               <Link
                 key={item.href}
