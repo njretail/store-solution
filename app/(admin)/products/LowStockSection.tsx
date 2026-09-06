@@ -161,9 +161,9 @@ export default async function LowStockSection({
                           <span className="text-xs text-zinc-400">판매이력 없음</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-xs text-zinc-400">{r.barcode}</div>
-                        <div>{r.name}</div>
+                      <td className="max-w-[220px] px-4 py-3">
+                        <div className="truncate whitespace-nowrap text-xs text-zinc-400">{r.barcode}</div>
+                        <div className="truncate whitespace-nowrap" title={r.name}>{r.name}</div>
                       </td>
                       <td className="px-4 py-3 font-medium text-red-600">
                         {r.stock_qty}
