@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
-import { getWeekSoldQtyMap } from "@/lib/auto-order-scan";
 import { syncAutoOrderEnabled } from "../actions";
 import ProductOrderCell from "./ProductOrderCell";
 import SelectAllCheckbox from "./SelectAllCheckbox";
@@ -33,28 +32,26 @@ export default async function LowStockProductsPage() {
     categories: { name: string } | null;
   };
 
-  const [productsData, { data: stockInData }, { data: rankData }, weekSales] =
-    await Promise.all([
-      // 상품이 1000개를 넘는 매장에서 뒤쪽 상품이 누락되지 않도록 range()로 전부 가져온다.
-      fetchAllPages<ProductRow>((from2, to) =>
-        supabase
-          .from("products")
-          .select(
-            "id, barcode, name, stock_qty, low_stock_threshold, auto_order_enabled, categories(name)"
-          )
-          .eq("store_id", store.id)
-          .range(from2, to)
-          .then((res) => ({ data: res.data as unknown as ProductRow[] | null, error: res.error }))
-      ),
-      supabase.from("stock_ins").select("product_id").eq("store_id", store.id),
-      supabase.rpc("top_products", {
-        p_store_id: store.id,
-        p_from: from.toISOString(),
-        p_to: now.toISOString(),
-        p_limit: 100000,
-      }),
-      getWeekSoldQtyMap(supabase, store.id),
-    ]);
+  const [productsData, { data: stockInData }, { data: rankData }] = await Promise.all([
+    // 상품이 1000개를 넘는 매장에서 뒤쪽 상품이 누락되지 않도록 range()로 전부 가져온다.
+    fetchAllPages<ProductRow>((from2, to) =>
+      supabase
+        .from("products")
+        .select(
+          "id, barcode, name, stock_qty, low_stock_threshold, auto_order_enabled, categories(name)"
+        )
+        .eq("store_id", store.id)
+        .range(from2, to)
+        .then((res) => ({ data: res.data as unknown as ProductRow[] | null, error: res.error }))
+    ),
+    supabase.from("stock_ins").select("product_id").eq("store_id", store.id),
+    supabase.rpc("top_products", {
+      p_store_id: store.id,
+      p_from: from.toISOString(),
+      p_to: now.toISOString(),
+      p_limit: 100000,
+    }),
+  ]);
 
   // 취급상품 = 한 번이라도 실제 입고 기록이 있는 상품. 대량 카탈로그 등록으로 들어왔지만
   // 아직 이 매장에서 실제로 다루지 않는(입고한 적 없는) 상품은 미취급으로 보고 제외한다.
@@ -81,7 +78,6 @@ export default async function LowStockProductsPage() {
     stock_qty: number;
     low_stock_threshold: number;
     auto_order_enabled: boolean;
-    weekSoldQty: number;
     grade: Grade | null;
   };
 
@@ -95,7 +91,6 @@ export default async function LowStockProductsPage() {
       stock_qty: p.stock_qty,
       low_stock_threshold: p.low_stock_threshold,
       auto_order_enabled: p.auto_order_enabled,
-      weekSoldQty: weekSales.get(p.id) ?? 0,
       grade: gradeMap.get(p.id) ?? null,
     }))
     .sort((a, b) => {
@@ -190,7 +185,7 @@ export default async function LowStockProductsPage() {
                     <ProductOrderCell
                       productId={r.id}
                       productName={r.name}
-                      weekSoldQty={r.weekSoldQty}
+                      lowStockThreshold={r.low_stock_threshold}
                     />
                   </td>
                 </tr>

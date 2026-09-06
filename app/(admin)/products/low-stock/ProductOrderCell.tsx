@@ -8,13 +8,15 @@ const initialOrderState: OrderActionState = { error: null, link: null };
 export default function ProductOrderCell({
   productId,
   productName,
-  weekSoldQty,
+  lowStockThreshold,
 }: {
   productId: string;
   productName: string;
-  weekSoldQty: number;
+  lowStockThreshold: number;
 }) {
-  const [qty, setQty] = useState(weekSoldQty || 1);
+  // 발주 수량은 적정재고 수량과 같게 잡는다 — 재고를 적정 수준까지 채운다는 의미.
+  // 자동발주도 같은 값으로 주문하므로 여기서 보여주는 수량이 실제 자동발주량과 같다.
+  const [qty, setQty] = useState(Math.max(1, lowStockThreshold));
 
   const [hqState, hqAction, hqPending] = useActionState(createHqOrder, initialOrderState);
   const [coupangState, coupangAction, coupangPending] = useActionState(
@@ -31,6 +33,9 @@ export default function ProductOrderCell({
 
   return (
     <div className="flex flex-col gap-1 py-1">
+      <p className="text-xs text-zinc-400">
+        적정재고: {lowStockThreshold}개 (자동발주도 이 수량만큼 주문돼요)
+      </p>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <input
           type="number"
