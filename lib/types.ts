@@ -80,8 +80,40 @@ export type Product = {
   stock_qty: number;
   low_stock_threshold: number;
   image_url: string | null;
+  auto_order_enabled: boolean;
+  reorder_qty: number;
+  coupang_product_url: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type PurchaseOrderChannel = "hq" | "coupang";
+export type PurchaseOrderSource = "auto" | "manual";
+export type PurchaseOrderStatus = "pending" | "ordered" | "received" | "cancelled";
+
+export const PURCHASE_ORDER_CHANNEL_LABELS: Record<PurchaseOrderChannel, string> = {
+  hq: "본부",
+  coupang: "쿠팡",
+};
+
+export const PURCHASE_ORDER_STATUS_LABELS: Record<PurchaseOrderStatus, string> = {
+  pending: "대기중",
+  ordered: "발주완료",
+  received: "입고완료",
+  cancelled: "취소",
+};
+
+export type PurchaseOrder = {
+  id: string;
+  store_id: string;
+  product_id: string;
+  quantity: number;
+  channel: PurchaseOrderChannel;
+  source: PurchaseOrderSource;
+  status: PurchaseOrderStatus;
+  coupang_link: string | null;
+  created_by: string | null;
+  created_at: string;
 };
 
 export type Category = {

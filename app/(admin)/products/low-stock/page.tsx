@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+import ProductOrderCell from "./ProductOrderCell";
 
 type Grade = "A" | "B" | "C";
 
@@ -25,6 +26,9 @@ export default async function LowStockProductsPage() {
     name: string;
     stock_qty: number;
     low_stock_threshold: number;
+    auto_order_enabled: boolean;
+    reorder_qty: number;
+    coupang_product_url: string | null;
     categories: { name: string } | null;
   };
 
@@ -34,7 +38,9 @@ export default async function LowStockProductsPage() {
       fetchAllPages<ProductRow>((from2, to) =>
         supabase
           .from("products")
-          .select("id, barcode, name, stock_qty, low_stock_threshold, categories(name)")
+          .select(
+            "id, barcode, name, stock_qty, low_stock_threshold, auto_order_enabled, reorder_qty, coupang_product_url, categories(name)"
+          )
           .eq("store_id", store.id)
           .range(from2, to)
           .then((res) => ({ data: res.data as unknown as ProductRow[] | null, error: res.error }))
@@ -72,6 +78,9 @@ export default async function LowStockProductsPage() {
     category: string | null;
     stock_qty: number;
     low_stock_threshold: number;
+    auto_order_enabled: boolean;
+    reorder_qty: number;
+    coupang_product_url: string | null;
     grade: Grade | null;
   };
 
@@ -84,6 +93,9 @@ export default async function LowStockProductsPage() {
       category: p.categories?.name ?? null,
       stock_qty: p.stock_qty,
       low_stock_threshold: p.low_stock_threshold,
+      auto_order_enabled: p.auto_order_enabled,
+      reorder_qty: p.reorder_qty,
+      coupang_product_url: p.coupang_product_url,
       grade: gradeMap.get(p.id) ?? null,
     }))
     .sort((a, b) => {
@@ -107,7 +119,12 @@ export default async function LowStockProductsPage() {
         적정재고(재고부족 기준) 이하로 떨어진 상품 중, 실제로 이 매장에서 입고한
         적이 있는(취급 중인) 상품만 보여드려요. 등급은 최근 30일 매출 기준
         파레토 분석(A: 상위 80%, B: 다음 15%, C: 나머지)으로 계산되며, A등급이
-        가장 빨리 발주해야 하는 상품이에요.
+        가장 빨리 발주해야 하는 상품이에요. 자동발주를 켜두면 재고가 기준 이하로
+        떨어졌을 때 본부로 자동 발주돼요 — 진행 상황은{" "}
+        <Link href="/purchase-orders" className="text-[#C8075F] underline">
+          발주관리
+        </Link>
+        에서 확인하세요.
       </p>
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
@@ -120,6 +137,7 @@ export default async function LowStockProductsPage() {
               <th className="px-4 py-3">분류</th>
               <th className="px-4 py-3">현재 재고</th>
               <th className="px-4 py-3">기준</th>
+              <th className="px-4 py-3">발주</th>
             </tr>
           </thead>
           <tbody>
@@ -145,11 +163,19 @@ export default async function LowStockProductsPage() {
                 <td className="px-4 py-3 text-zinc-500">
                   {r.low_stock_threshold}
                 </td>
+                <td className="px-4 py-3">
+                  <ProductOrderCell
+                    productId={r.id}
+                    autoOrderEnabled={r.auto_order_enabled}
+                    reorderQty={r.reorder_qty}
+                    coupangProductUrl={r.coupang_product_url}
+                  />
+                </td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-zinc-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
                   재고 부족 상품이 없습니다.
                 </td>
               </tr>

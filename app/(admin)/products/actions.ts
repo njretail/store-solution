@@ -213,6 +213,25 @@ export async function updateProduct(
   return { error: null, success: "저장되었습니다." };
 }
 
+// 재고소진상품 화면에서 상품별 발주 설정(자동발주/발주수량/쿠팡URL)만 가볍게 저장한다.
+// updateProduct는 상품명 등 전체 필드가 필요해 이 인라인 폼과는 별도로 둔다.
+export async function updateOrderSettings(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const auto_order_enabled = formData.get("auto_order_enabled") === "on";
+  const reorder_qty = Number(formData.get("reorder_qty") ?? 0) || 0;
+  const coupang_product_url = String(formData.get("coupang_product_url") ?? "").trim() || null;
+
+  await supabase
+    .from("products")
+    .update({ auto_order_enabled, reorder_qty, coupang_product_url })
+    .eq("id", id);
+
+  revalidatePath("/products/low-stock");
+}
+
 export async function deleteProduct(formData: FormData) {
   const { supabase } = await requireAdmin();
   const id = String(formData.get("id") ?? "");
