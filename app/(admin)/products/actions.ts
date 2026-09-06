@@ -234,7 +234,7 @@ export async function syncAutoOrderEnabled(formData: FormData) {
       : null,
   ]);
 
-  revalidatePath("/products/low-stock");
+  revalidatePath("/products");
 }
 
 export async function deleteProduct(formData: FormData) {

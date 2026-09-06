@@ -2,6 +2,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+import LowStockSection from "./LowStockSection";
+import SelectAllCheckbox from "./SelectAllCheckbox";
+import { syncAutoOrderEnabled } from "./actions";
+
+const PRODUCTS_AUTO_ORDER_FORM_ID = "products-auto-order-form";
 
 const SEARCH_LIMIT = 200;
 
@@ -15,48 +20,62 @@ type Row = {
   low_stock_threshold: number;
   image_url: string | null;
   category: string | null;
+  auto_order_enabled: boolean;
 };
 
 function ProductCard({ p }: { p: Row }) {
   const lowStock = p.stock_qty <= p.low_stock_threshold;
   return (
-    <Link
-      href={`/products/${p.id}`}
-      className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-3 hover:border-[#C8075F]"
-    >
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded bg-zinc-100">
-        {p.image_url ? (
-          <Image
-            src={p.image_url}
-            alt={p.name}
-            width={56}
-            height={56}
-            className="h-full w-full object-cover"
-            unoptimized
-          />
-        ) : (
-          <span className="text-xs text-zinc-300">사진 없음</span>
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-zinc-900">{p.name}</p>
-        <p className="truncate text-xs text-zinc-400">{p.barcode}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
-          <span className="text-zinc-700">판매가 {p.sell_price.toLocaleString()}원</span>
-          <span className="text-zinc-500">입고가 {p.cost_price.toLocaleString()}원</span>
-          <span className={lowStock ? "font-medium text-red-600" : "text-zinc-500"}>
-            재고 {p.stock_qty}개{lowStock && " ⚠"}
-          </span>
+    <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-3 hover:border-[#C8075F]">
+      <Link href={`/products/${p.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded bg-zinc-100">
+          {p.image_url ? (
+            <Image
+              src={p.image_url}
+              alt={p.name}
+              width={56}
+              height={56}
+              className="h-full w-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <span className="text-xs text-zinc-300">사진 없음</span>
+          )}
         </div>
-      </div>
-    </Link>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-zinc-900">{p.name}</p>
+          <p className="truncate text-xs text-zinc-400">{p.barcode}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+            <span className="text-zinc-700">판매가 {p.sell_price.toLocaleString()}원</span>
+            <span className="text-zinc-500">입고가 {p.cost_price.toLocaleString()}원</span>
+            <span className={lowStock ? "font-medium text-red-600" : "text-zinc-500"}>
+              재고 {p.stock_qty}개{lowStock && " ⚠"}
+            </span>
+          </div>
+        </div>
+      </Link>
+      {/* 링크 밖에 둬서 체크박스 클릭이 상세페이지 이동으로 튀지 않게 한다. */}
+      <label className="flex shrink-0 items-center gap-1 text-xs text-zinc-500">
+        <input type="hidden" form={PRODUCTS_AUTO_ORDER_FORM_ID} name="row_ids" value={p.id} />
+        <input
+          type="checkbox"
+          form={PRODUCTS_AUTO_ORDER_FORM_ID}
+          name="checked_ids"
+          value={p.id}
+          defaultChecked={p.auto_order_enabled}
+          data-auto-order-checkbox
+          className="h-3.5 w-3.5 rounded border-zinc-300"
+        />
+        자동발주
+      </label>
+    </div>
   );
 }
 
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; view?: string }>;
 }) {
   const { supabase, profile } = await requireAdmin();
   const store = await getCurrentStore(supabase, profile);
@@ -64,9 +83,34 @@ export default async function ProductsPage({
 
   const params = await searchParams;
   const q = (params.q ?? "").trim();
+  const isLowStockView = params.view === "low-stock";
+
+  const ViewToggle = (
+    <Link
+      href={isLowStockView ? "/products" : "/products?view=low-stock"}
+      className="rounded border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+    >
+      {isLowStockView ? "전체 상품 보기" : "재고소진상품만 보기"}
+    </Link>
+  );
+
+  if (isLowStockView) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-zinc-900">재고소진상품</h1>
+            <p className="text-sm text-zinc-500">{store.name}</p>
+          </div>
+          {ViewToggle}
+        </div>
+        <LowStockSection supabase={supabase} store={store} />
+      </div>
+    );
+  }
 
   const columns =
-    "id, barcode, name, sell_price, cost_price, stock_qty, low_stock_threshold, image_url, categories(name)";
+    "id, barcode, name, sell_price, cost_price, stock_qty, low_stock_threshold, image_url, auto_order_enabled, categories(name)";
   type ProductRow = {
     id: string;
     barcode: string;
@@ -76,6 +120,7 @@ export default async function ProductsPage({
     stock_qty: number;
     low_stock_threshold: number;
     image_url: string | null;
+    auto_order_enabled: boolean;
     categories: { name: string } | null;
   };
 
@@ -115,6 +160,7 @@ export default async function ProductsPage({
     stock_qty: p.stock_qty,
     low_stock_threshold: p.low_stock_threshold,
     image_url: p.image_url,
+    auto_order_enabled: p.auto_order_enabled,
     category: p.categories?.name ?? null,
   }));
 
@@ -142,12 +188,15 @@ export default async function ProductsPage({
           </h1>
           <p className="text-sm text-zinc-500">{store.name}</p>
         </div>
-        <Link
-          href="/products/new"
-          className="rounded bg-[#C8075F] px-4 py-2 text-sm font-medium text-white hover:bg-[#a80650]"
-        >
-          + 상품 추가
-        </Link>
+        <div className="flex items-center gap-2">
+          {ViewToggle}
+          <Link
+            href="/products/new"
+            className="rounded bg-[#C8075F] px-4 py-2 text-sm font-medium text-white hover:bg-[#a80650]"
+          >
+            + 상품 추가
+          </Link>
+        </div>
       </div>
 
       <form className="flex gap-2">
@@ -172,6 +221,26 @@ export default async function ProductsPage({
           </Link>
         )}
       </form>
+
+      {/* 체크박스는 카드 안에, form 태그는 밖에 두고 form={PRODUCTS_AUTO_ORDER_FORM_ID}로
+          연결한다 — 카드 자체가 <Link>를 포함하고 있어 표 전체를 <form>으로 감싸면
+          form 중첩(잘못된 HTML)이 되기 때문. */}
+      <form id={PRODUCTS_AUTO_ORDER_FORM_ID} action={syncAutoOrderEnabled} />
+      {rows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex items-center gap-1.5 text-sm text-zinc-500">
+            <SelectAllCheckbox />
+            자동발주 전체선택/해제
+          </span>
+          <button
+            type="submit"
+            form={PRODUCTS_AUTO_ORDER_FORM_ID}
+            className="rounded-lg bg-[#C8075F] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#a80650]"
+          >
+            자동발주 설정 저장
+          </button>
+        </div>
+      )}
 
       {q ? (
         <div className="flex flex-col gap-2">
