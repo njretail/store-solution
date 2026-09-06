@@ -5,14 +5,7 @@ import type { Store } from "@/lib/types";
 import { syncAutoOrderEnabled } from "./actions";
 import ProductOrderCell from "./ProductOrderCell";
 import SelectAllCheckbox from "./SelectAllCheckbox";
-
-type Grade = "A" | "B" | "C";
-
-const GRADE_STYLE: Record<Grade, string> = {
-  A: "bg-red-100 text-red-700",
-  B: "bg-amber-100 text-amber-700",
-  C: "bg-zinc-100 text-zinc-600",
-};
+import { buildGradeMap, GRADE_STYLE, type Grade } from "./grade";
 
 // 상품 조회 화면의 "재고소진상품만 보기" 탭에서 쓰는 섹션. 원래 별도 페이지였던
 // /products/low-stock의 내용을 그대로 옮겨와 상품 조회 안에서 렌더링한다.
@@ -63,17 +56,7 @@ export default async function LowStockSection({
   const carriedIds = new Set((stockInData ?? []).map((s) => s.product_id));
 
   // 최근 30일 매출금액 기준 ABC 등급(파레토 80/95) — 발주 우선순위 판단용.
-  const ranked = ((rankData ?? []) as Array<{ product_id: string; revenue: number }>).sort(
-    (a, b) => b.revenue - a.revenue
-  );
-  const totalRevenue = ranked.reduce((sum, r) => sum + r.revenue, 0);
-  const gradeMap = new Map<string, Grade>();
-  let cumulative = 0;
-  for (const r of ranked) {
-    cumulative += r.revenue;
-    const pct = totalRevenue > 0 ? (cumulative / totalRevenue) * 100 : 100;
-    gradeMap.set(r.product_id, pct <= 80 ? "A" : pct <= 95 ? "B" : "C");
-  }
+  const gradeMap = buildGradeMap((rankData ?? []) as Array<{ product_id: string; revenue: number }>);
 
   type Row = {
     id: string;

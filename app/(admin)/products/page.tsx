@@ -5,6 +5,7 @@ import { fetchAllPages } from "@/lib/fetch-all-pages";
 import LowStockSection from "./LowStockSection";
 import SelectAllCheckbox from "./SelectAllCheckbox";
 import { syncAutoOrderEnabled } from "./actions";
+import { buildGradeMap, GRADE_STYLE, type Grade } from "./grade";
 
 const PRODUCTS_AUTO_ORDER_FORM_ID = "products-auto-order-form";
 
@@ -21,6 +22,7 @@ type Row = {
   image_url: string | null;
   category: string | null;
   auto_order_enabled: boolean;
+  grade: Grade | null;
 };
 
 function ProductCard({ p }: { p: Row }) {
@@ -43,7 +45,16 @@ function ProductCard({ p }: { p: Row }) {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-zinc-900">{p.name}</p>
+          <div className="flex items-center gap-1.5">
+            {p.grade ? (
+              <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${GRADE_STYLE[p.grade]}`}>
+                {p.grade}
+              </span>
+            ) : (
+              <span className="text-[10px] text-zinc-300">-</span>
+            )}
+            <p className="truncate text-sm font-medium text-zinc-900">{p.name}</p>
+          </div>
           <p className="truncate text-xs text-zinc-400">{p.barcode}</p>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
             <span className="text-zinc-700">판매가 {p.sell_price.toLocaleString()}원</span>
@@ -51,6 +62,7 @@ function ProductCard({ p }: { p: Row }) {
             <span className={lowStock ? "font-medium text-red-600" : "text-zinc-500"}>
               재고 {p.stock_qty}개{lowStock && " ⚠"}
             </span>
+            <span className="text-zinc-400">적정재고 {p.low_stock_threshold}개</span>
           </div>
         </div>
       </Link>
@@ -124,45 +136,75 @@ export default async function ProductsPage({
     categories: { name: string } | null;
   };
 
+  const rankFrom = new Date();
+  rankFrom.setDate(rankFrom.getDate() - 30);
+
   let data: ProductRow[];
   let count: number | null;
+  let rankData: unknown;
   if (q) {
-    const res = await supabase
-      .from("products")
-      .select(columns, { count: "exact" })
-      .eq("store_id", store.id)
-      .or(`name.ilike.%${q}%,barcode.ilike.%${q}%`)
-      .order("name")
-      .limit(SEARCH_LIMIT);
+    const [res, rank] = await Promise.all([
+      supabase
+        .from("products")
+        .select(columns, { count: "exact" })
+        .eq("store_id", store.id)
+        .or(`name.ilike.%${q}%,barcode.ilike.%${q}%`)
+        .order("name")
+        .limit(SEARCH_LIMIT),
+      supabase.rpc("top_products", {
+        p_store_id: store.id,
+        p_from: rankFrom.toISOString(),
+        p_to: new Date().toISOString(),
+        p_limit: 100000,
+      }),
+    ]);
     data = (res.data as unknown as ProductRow[]) ?? [];
     count = res.count;
+    rankData = rank.data;
   } else {
     // 검색 중이 아닐 때는 전체 목록이 필요하므로, Supabase 기본 1000행 제한에 걸리지
     // 않도록 range()로 나눠서 전부 가져온다(상품이 1000개를 넘으면 뒤쪽이 누락되던 버그).
-    data = await fetchAllPages<ProductRow>((from, to) =>
-      supabase
-        .from("products")
-        .select(columns)
-        .eq("store_id", store.id)
-        .order("name")
-        .range(from, to)
-        .then((res) => ({ data: res.data as unknown as ProductRow[] | null, error: res.error }))
-    );
-    count = data.length;
+    const [fetched, rank] = await Promise.all([
+      fetchAllPages<ProductRow>((from, to) =>
+        supabase
+          .from("products")
+          .select(columns)
+          .eq("store_id", store.id)
+          .order("name")
+          .range(from, to)
+          .then((res) => ({ data: res.data as unknown as ProductRow[] | null, error: res.error }))
+      ),
+      supabase.rpc("top_products", {
+        p_store_id: store.id,
+        p_from: rankFrom.toISOString(),
+        p_to: new Date().toISOString(),
+        p_limit: 100000,
+      }),
+    ]);
+    data = fetched;
+    count = fetched.length;
+    rankData = rank.data;
   }
 
-  const rows: Row[] = (data ?? []).map((p) => ({
-    id: p.id,
-    barcode: p.barcode,
-    name: p.name,
-    sell_price: p.sell_price,
-    cost_price: p.cost_price,
-    stock_qty: p.stock_qty,
-    low_stock_threshold: p.low_stock_threshold,
-    image_url: p.image_url,
-    auto_order_enabled: p.auto_order_enabled,
-    category: p.categories?.name ?? null,
-  }));
+  // 최근 30일 매출금액 기준 ABC 등급 — 상품 카드에 표시용.
+  const gradeMap = buildGradeMap((rankData ?? []) as Array<{ product_id: string; revenue: number }>);
+
+  const rows: Row[] = (data ?? [])
+    .map((p) => ({
+      id: p.id,
+      barcode: p.barcode,
+      name: p.name,
+      sell_price: p.sell_price,
+      cost_price: p.cost_price,
+      stock_qty: p.stock_qty,
+      low_stock_threshold: p.low_stock_threshold,
+      image_url: p.image_url,
+      auto_order_enabled: p.auto_order_enabled,
+      category: p.categories?.name ?? null,
+      grade: gradeMap.get(p.id) ?? null,
+    }))
+    // 재고 적은 순으로 정렬 — 뭐가 급한지 한눈에 보이도록.
+    .sort((a, b) => a.stock_qty - b.stock_qty);
 
   const total = count ?? rows.length;
 
