@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { updateOrderSettings } from "../actions";
 import { createHqOrder, createCoupangOrder, type OrderActionState } from "@/app/(admin)/purchase-orders/actions";
 
 const initialOrderState: OrderActionState = { error: null, link: null };
@@ -9,15 +8,12 @@ const initialOrderState: OrderActionState = { error: null, link: null };
 export default function ProductOrderCell({
   productId,
   productName,
-  autoOrderEnabled,
   weekSoldQty,
 }: {
   productId: string;
   productName: string;
-  autoOrderEnabled: boolean;
   weekSoldQty: number;
 }) {
-  const [autoOrder, setAutoOrder] = useState(autoOrderEnabled);
   const [qty, setQty] = useState(weekSoldQty || 1);
 
   const [hqState, hqAction, hqPending] = useActionState(createHqOrder, initialOrderState);
@@ -34,30 +30,7 @@ export default function ProductOrderCell({
   }, [coupangState.link]);
 
   return (
-    <div className="flex flex-col gap-2 py-1">
-      <form action={updateOrderSettings} className="flex flex-wrap items-center gap-2 text-xs">
-        <input type="hidden" name="id" value={productId} />
-        <label className="flex items-center gap-1">
-          <input
-            type="checkbox"
-            name="auto_order_enabled"
-            checked={autoOrder}
-            onChange={(e) => setAutoOrder(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-zinc-300"
-          />
-          자동발주
-        </label>
-        <button
-          type="submit"
-          className="rounded border border-zinc-300 px-2 py-1 text-zinc-600 hover:bg-zinc-50"
-        >
-          설정 저장
-        </button>
-        <span className="text-zinc-400">
-          (자동발주 수량은 최근 7일 판매량 기준으로 매번 자동 계산돼요{weekSoldQty > 0 ? ` — 현재 ${weekSoldQty}개` : ""})
-        </span>
-      </form>
-
+    <div className="flex flex-col gap-1 py-1">
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <input
           type="number"

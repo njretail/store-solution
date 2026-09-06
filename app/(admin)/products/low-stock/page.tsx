@@ -2,8 +2,9 @@ import Link from "next/link";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import { getWeekSoldQtyMap } from "@/lib/auto-order-scan";
-import { enableAutoOrderForAll } from "../actions";
+import { syncAutoOrderEnabled } from "../actions";
 import ProductOrderCell from "./ProductOrderCell";
+import SelectAllCheckbox from "./SelectAllCheckbox";
 
 type Grade = "A" | "B" | "C";
 
@@ -126,75 +127,94 @@ export default async function LowStockProductsPage() {
         에서 확인하세요.
       </p>
 
-      {rows.length > 0 && (
-        <form action={enableAutoOrderForAll}>
-          {rows.map((r) => (
-            <input key={r.id} type="hidden" name="ids" value={r.id} />
-          ))}
+      {/* 체크박스는 표 안에, form 태그는 밖에 두고 form="auto-order-form"으로 연결한다 —
+          ProductOrderCell이 각 행 안에 자체 <form>(본부/쿠팡 발주)을 갖고 있어서
+          표 전체를 <form>으로 감싸면 form 중첩(잘못된 HTML)이 되기 때문. */}
+      <form id="auto-order-form" action={syncAutoOrderEnabled} />
+      <div className="flex flex-col gap-3">
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+          <table className="w-full whitespace-nowrap text-base">
+            <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
+              <tr>
+                <th className="px-4 py-3">등급</th>
+                <th className="px-4 py-3">상품명</th>
+                <th className="px-4 py-3">바코드</th>
+                <th className="px-4 py-3">분류</th>
+                <th className="px-4 py-3">현재 재고</th>
+                <th className="px-4 py-3">기준</th>
+                <th className="px-4 py-3">
+                  <span className="flex items-center gap-1.5">
+                    <SelectAllCheckbox />
+                    자동발주
+                  </span>
+                </th>
+                <th className="px-4 py-3">발주</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-t border-zinc-100">
+                  <td className="px-4 py-3">
+                    {r.grade ? (
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-semibold ${GRADE_STYLE[r.grade]}`}
+                      >
+                        {r.grade}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-zinc-400">판매이력 없음</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">{r.name}</td>
+                  <td className="px-4 py-3 text-zinc-500">{r.barcode}</td>
+                  <td className="px-4 py-3 text-zinc-500">{r.category ?? "-"}</td>
+                  <td className="px-4 py-3 font-medium text-red-600">
+                    {r.stock_qty}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-500">
+                    {r.low_stock_threshold}
+                  </td>
+                  <td className="px-4 py-3">
+                    <input type="hidden" form="auto-order-form" name="row_ids" value={r.id} />
+                    <input
+                      type="checkbox"
+                      form="auto-order-form"
+                      name="checked_ids"
+                      value={r.id}
+                      defaultChecked={r.auto_order_enabled}
+                      data-auto-order-checkbox
+                      className="h-3.5 w-3.5 rounded border-zinc-300"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <ProductOrderCell
+                      productId={r.id}
+                      productName={r.name}
+                      weekSoldQty={r.weekSoldQty}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-6 text-center text-zinc-400">
+                    재고 부족 상품이 없습니다.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {rows.length > 0 && (
           <button
             type="submit"
-            className="rounded-lg border border-[#C8075F] px-3 py-1.5 text-sm font-medium text-[#C8075F] hover:bg-[#C8075F]/5"
+            form="auto-order-form"
+            className="w-fit rounded-lg bg-[#C8075F] px-4 py-2 text-sm font-medium text-white hover:bg-[#a80650]"
           >
-            아래 {rows.length}개 상품 전체 자동발주 켜기
+            자동발주 설정 저장
           </button>
-        </form>
-      )}
-
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-        <table className="w-full whitespace-nowrap text-base">
-          <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
-            <tr>
-              <th className="px-4 py-3">등급</th>
-              <th className="px-4 py-3">상품명</th>
-              <th className="px-4 py-3">바코드</th>
-              <th className="px-4 py-3">분류</th>
-              <th className="px-4 py-3">현재 재고</th>
-              <th className="px-4 py-3">기준</th>
-              <th className="px-4 py-3">발주</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t border-zinc-100">
-                <td className="px-4 py-3">
-                  {r.grade ? (
-                    <span
-                      className={`rounded px-2 py-0.5 text-xs font-semibold ${GRADE_STYLE[r.grade]}`}
-                    >
-                      {r.grade}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-zinc-400">판매이력 없음</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">{r.name}</td>
-                <td className="px-4 py-3 text-zinc-500">{r.barcode}</td>
-                <td className="px-4 py-3 text-zinc-500">{r.category ?? "-"}</td>
-                <td className="px-4 py-3 font-medium text-red-600">
-                  {r.stock_qty}
-                </td>
-                <td className="px-4 py-3 text-zinc-500">
-                  {r.low_stock_threshold}
-                </td>
-                <td className="px-4 py-3">
-                  <ProductOrderCell
-                    productId={r.id}
-                    productName={r.name}
-                    autoOrderEnabled={r.auto_order_enabled}
-                    weekSoldQty={r.weekSoldQty}
-                  />
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
-                  재고 부족 상품이 없습니다.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        )}
       </div>
 
       <p className="text-sm text-zinc-400">

@@ -213,28 +213,26 @@ export async function updateProduct(
   return { error: null, success: "저장되었습니다." };
 }
 
-// 재고소진상품 화면에서 상품별 자동발주 사용 여부만 가볍게 저장한다. 발주수량은
-// 자동발주 시점에 최근 7일 판매량으로 매번 계산하므로 여기서 저장하지 않는다.
-// updateProduct는 상품명 등 전체 필드가 필요해 이 인라인 폼과는 별도로 둔다.
-export async function updateOrderSettings(formData: FormData) {
+// 재고소진상품 화면의 자동발주 체크박스 열을 한 번에 저장한다. 화면에 보이던
+// 모든 상품(row_ids) 중 체크된 것(checked_ids)은 켜고, 나머지는 끈다 — 개별
+// 저장 버튼 없이 전체선택 체크박스 + 각 행 체크박스만으로 조작할 수 있게 한다.
+export async function syncAutoOrderEnabled(formData: FormData) {
   const { supabase } = await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
+  const rowIds = formData.getAll("row_ids").map(String).filter(Boolean);
+  const checkedIds = new Set(formData.getAll("checked_ids").map(String));
+  if (rowIds.length === 0) return;
 
-  const auto_order_enabled = formData.get("auto_order_enabled") === "on";
+  const toEnable = rowIds.filter((id) => checkedIds.has(id));
+  const toDisable = rowIds.filter((id) => !checkedIds.has(id));
 
-  await supabase.from("products").update({ auto_order_enabled }).eq("id", id);
-
-  revalidatePath("/products/low-stock");
-}
-
-// 재고소진상품 화면에서 여러 상품을 한 번에 자동발주 대상으로 켠다.
-export async function enableAutoOrderForAll(formData: FormData) {
-  const { supabase } = await requireAdmin();
-  const ids = formData.getAll("ids").map(String).filter(Boolean);
-  if (ids.length === 0) return;
-
-  await supabase.from("products").update({ auto_order_enabled: true }).in("id", ids);
+  await Promise.all([
+    toEnable.length > 0
+      ? supabase.from("products").update({ auto_order_enabled: true }).in("id", toEnable)
+      : null,
+    toDisable.length > 0
+      ? supabase.from("products").update({ auto_order_enabled: false }).in("id", toDisable)
+      : null,
+  ]);
 
   revalidatePath("/products/low-stock");
 }
