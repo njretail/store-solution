@@ -7,28 +7,23 @@ import { signIn, type SignInState } from "./actions";
 
 const initialState: SignInState = { error: null };
 const SAVED_EMAIL_KEY = "store_solution_saved_email";
-const SAVED_PASSWORD_KEY = "store_solution_saved_password";
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(signIn, initialState);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberEmail, setRememberEmail] = useState(false);
-  const [rememberPassword, setRememberPassword] = useState(false);
 
-  // 저장된 아이디/비밀번호가 있으면 마운트 후(클라이언트에서만) 불러와 채워준다.
+  // 저장된 아이디가 있으면 마운트 후(클라이언트에서만) 불러와 채워준다.
   // localStorage는 서버에 없는 브라우저 전용 저장소라 렌더 중 계산으로 대체할 수 없다.
+  // 비밀번호는 평문으로 저장하면 XSS/공용PC에서 그대로 노출되므로 저장하지 않고,
+  // autoComplete="current-password"를 통해 브라우저 자체 비밀번호 관리자에 맡긴다.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const savedEmail = localStorage.getItem(SAVED_EMAIL_KEY);
     if (savedEmail) {
       setEmail(savedEmail);
       setRememberEmail(true);
-    }
-    const savedPassword = localStorage.getItem(SAVED_PASSWORD_KEY);
-    if (savedPassword) {
-      setPassword(savedPassword);
-      setRememberPassword(true);
     }
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -42,11 +37,6 @@ export default function LoginPage() {
             localStorage.setItem(SAVED_EMAIL_KEY, email);
           } else {
             localStorage.removeItem(SAVED_EMAIL_KEY);
-          }
-          if (rememberPassword) {
-            localStorage.setItem(SAVED_PASSWORD_KEY, password);
-          } else {
-            localStorage.removeItem(SAVED_PASSWORD_KEY);
           }
         }}
         className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-8 shadow-sm"
@@ -93,15 +83,6 @@ export default function LoginPage() {
               className="h-4 w-4 rounded border-zinc-300"
             />
             아이디 저장
-          </label>
-          <label className="flex items-center gap-2 text-sm text-zinc-600">
-            <input
-              type="checkbox"
-              checked={rememberPassword}
-              onChange={(e) => setRememberPassword(e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300"
-            />
-            비밀번호 저장
           </label>
         </div>
 
