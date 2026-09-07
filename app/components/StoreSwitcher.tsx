@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { switchStore, addStore } from "@/lib/actions";
 import type { Store } from "@/lib/types";
 
@@ -12,6 +12,15 @@ export default function StoreSwitcher({
   currentStoreId: string | null;
 }) {
   const detailsRef = useRef<HTMLDetailsElement>(null);
+  // select를 defaultValue(비제어)로 두면 최초 렌더 이후 currentStoreId가 바뀌어도
+  // (예: 매장 추가로 자동 전환, 다른 곳에서 매장이 바뀐 경우) select의 실제 DOM 값은
+  // 갱신되지 않고 그대로 남아있는다 — 그 상태에서 화면에 남아있던(사실은 이미 선택된)
+  // 옵션을 다시 고르면 브라우저 입장에서 값이 안 바뀌어 onChange 자체가 발생하지 않고
+  // 완전히 무반응으로 보인다. value로 제어하고 currentStoreId 변경에 맞춰 동기화한다.
+  const [value, setValue] = useState(currentStoreId ?? "");
+  useEffect(() => {
+    setValue(currentStoreId ?? "");
+  }, [currentStoreId]);
 
   return (
     <div className="flex flex-col gap-2 px-2 text-sm">
@@ -20,8 +29,11 @@ export default function StoreSwitcher({
           <span className="text-xs text-zinc-500">매장</span>
           <select
             name="store_id"
-            defaultValue={currentStoreId ?? ""}
-            onChange={(e) => e.currentTarget.form?.requestSubmit()}
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              e.currentTarget.form?.requestSubmit();
+            }}
             className="w-full rounded-md border border-zinc-300 px-2 py-1"
           >
             {stores.map((s) => (
