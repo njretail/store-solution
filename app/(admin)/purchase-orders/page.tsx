@@ -54,12 +54,14 @@ export default async function PurchaseOrdersPage() {
 
       <p className="text-sm text-zinc-500">
         자동발주(재고가 기준 이하로 떨어진 상품 중 자동발주가 켜진 상품)와 수동발주 내역이에요.
-        본부 발주는 대기중 상태로 쌓이고, 쿠팡 발주는 링크를 클릭해 결제까지 완료해야 진행돼요.
-        실제 재고 반영은{" "}
+        본부 발주는 대기중 상태로 쌓이고, 배송완료를 누르면 상품·수량을 정확히 알고 있어
+        재고에도 바로 더해져요. 쿠팡 발주는 링크를 클릭해 결제까지 완료해야 하고, 실제로
+        무엇이 왔는지는 시스템이 알 수 없어 입고완료를 눌러도 재고는 자동으로 반영되지
+        않으니{" "}
         <a href="/stock-in" className="text-[#C8075F] underline">
           입고 등록
         </a>
-        에서 해주세요.
+        에서 직접 등록해주세요.
       </p>
 
       <div>
@@ -120,7 +122,7 @@ export default async function PurchaseOrdersPage() {
                       <form action={markOrderReceived}>
                         <input type="hidden" name="id" value={o.id} />
                         <button type="submit" className="text-zinc-600 hover:text-zinc-900">
-                          입고완료
+                          {o.channel === "hq" ? "배송완료 (재고 자동반영)" : "입고완료"}
                         </button>
                       </form>
                       <form action={cancelOrder}>

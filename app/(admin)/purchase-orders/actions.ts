@@ -77,10 +77,34 @@ export async function createCoupangOrder(
   return { error: null, link };
 }
 
+// 본부 발주는 우리가 상품/수량을 정확히 알고 있으니(직접 매칭이 필요한 쿠팡과 달리)
+// 입고완료 처리 시 record_stock_in RPC로 실제 재고에도 자동으로 더해준다.
+// 쿠팡 발주는 실제로 무엇이 얼마나 도착했는지 시스템이 알 방법이 없어(바코드 연동 없음)
+// 상태만 바꾸고, 재고는 여전히 입고 등록에서 직접 입력해야 한다.
 export async function markOrderReceived(formData: FormData) {
   const { supabase } = await requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
+
+  const { data: order } = await supabase
+    .from("purchase_orders")
+    .select("channel, status, product_id, quantity")
+    .eq("id", id)
+    .single();
+  if (!order || (order.status !== "pending" && order.status !== "ordered")) return;
+
+  if (order.channel === "hq") {
+    const { error: stockInError } = await supabase.rpc("record_stock_in", {
+      p_product_id: order.product_id,
+      p_quantity: order.quantity,
+      p_unit_cost: null,
+      p_memo: "본부 발주 입고완료 자동반영",
+    });
+    // 재고 반영이 실패하면 상태도 바꾸지 않는다 — 재고 없이 "입고완료"만 찍히는
+    // 상황(실제로는 안 들어왔는데 들어온 것처럼 보이는 것)을 막기 위함.
+    if (stockInError) return;
+    revalidatePath("/products");
+  }
 
   await supabase.from("purchase_orders").update({ status: "received" }).eq("id", id);
   revalidatePath("/purchase-orders");
