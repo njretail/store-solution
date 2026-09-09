@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { createCoupangDeepLink, buildCoupangSearchUrl } from "@/lib/coupang-partners";
+import { setPurchaseOrderStatus } from "@/lib/purchase-order-status";
 
 export type OrderActionState = { error: string | null; link: string | null };
 
-// 본부 발주: 외부 결제가 필요 없어 바로 대기중 상태로 기록한다.
+// 본부 발주: 외부 결제가 필요 없어 바로 발주완료 상태로 기록한다.
 export async function createHqOrder(
   _prevState: OrderActionState,
   formData: FormData
@@ -27,12 +28,12 @@ export async function createHqOrder(
     quantity,
     channel: "hq",
     source: "manual",
-    status: "pending",
+    status: "confirmed",
     created_by: profile.id,
   });
   if (error) return { error: error.message, link: null };
 
-  revalidatePath("/products/low-stock");
+  revalidatePath("/products");
   revalidatePath("/purchase-orders");
   return { error: null, link: null };
 }
@@ -66,55 +67,53 @@ export async function createCoupangOrder(
     quantity,
     channel: "coupang",
     source: "manual",
-    status: "ordered",
+    status: "confirmed",
     coupang_link: link,
     created_by: profile.id,
   });
   if (error) return { error: error.message, link: null };
 
-  revalidatePath("/products/low-stock");
+  revalidatePath("/products");
   revalidatePath("/purchase-orders");
   return { error: null, link };
 }
 
-// 본부 발주는 우리가 상품/수량을 정확히 알고 있으니(직접 매칭이 필요한 쿠팡과 달리)
-// 입고완료 처리 시 record_stock_in RPC로 실제 재고에도 자동으로 더해준다.
-// 쿠팡 발주는 실제로 무엇이 얼마나 도착했는지 시스템이 알 방법이 없어(바코드 연동 없음)
-// 상태만 바꾸고, 재고는 여전히 입고 등록에서 직접 입력해야 한다.
-export async function markOrderReceived(formData: FormData) {
+// 발주완료 -> 상품준비중 -> 배송중 -> 배송완료로 한 단계씩 넘긴다. 실제 전환 규칙과
+// (배송완료 시 본부 발주 재고 자동반영) 로직은 lib/purchase-order-status.ts에
+// 모아뒀다 — 나중에 붙을 본부 솔루션 웹훅(app/api/purchase-orders/status)도
+// 같은 함수를 거치므로 여기서 버튼으로 바꾸든 그쪽에서 바꾸든 동작이 갈라지지 않는다.
+async function advance(id: string, next: "preparing" | "shipping" | "delivered" | "cancelled") {
   const { supabase } = await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-
-  const { data: order } = await supabase
-    .from("purchase_orders")
-    .select("channel, status, product_id, quantity")
-    .eq("id", id)
-    .single();
-  if (!order || (order.status !== "pending" && order.status !== "ordered")) return;
-
-  if (order.channel === "hq") {
-    const { error: stockInError } = await supabase.rpc("record_stock_in", {
-      p_product_id: order.product_id,
-      p_quantity: order.quantity,
-      p_unit_cost: null,
-      p_memo: "본부 발주 입고완료 자동반영",
-    });
-    // 재고 반영이 실패하면 상태도 바꾸지 않는다 — 재고 없이 "입고완료"만 찍히는
-    // 상황(실제로는 안 들어왔는데 들어온 것처럼 보이는 것)을 막기 위함.
-    if (stockInError) return;
+  const result = await setPurchaseOrderStatus(supabase, id, next);
+  if (result.ok && next === "delivered") {
     revalidatePath("/products");
   }
-
-  await supabase.from("purchase_orders").update({ status: "received" }).eq("id", id);
   revalidatePath("/purchase-orders");
+  return result;
 }
 
-export async function cancelOrder(formData: FormData) {
-  const { supabase } = await requireAdmin();
+export async function startPreparing(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
+  await advance(id, "preparing");
+}
 
-  await supabase.from("purchase_orders").update({ status: "cancelled" }).eq("id", id);
-  revalidatePath("/purchase-orders");
+export async function startShipping(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await advance(id, "shipping");
+}
+
+export async function markOrderDelivered(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await advance(id, "delivered");
+}
+
+// 발주완료 단계에서만 취소할 수 있다 — 준비가 시작된 뒤에는 취소 버튼 자체가
+// 안 보이지만, 서버에서도 setPurchaseOrderStatus의 전환 규칙으로 다시 막는다.
+export async function cancelOrder(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await advance(id, "cancelled");
 }

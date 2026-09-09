@@ -33,7 +33,7 @@ export async function runAutoOrderScan(
     .from("purchase_orders")
     .select("product_id")
     .eq("store_id", storeId)
-    .in("status", ["pending", "ordered"]);
+    .in("status", ["confirmed", "preparing", "shipping"]);
 
   const openProductIds = new Set((openOrders ?? []).map((o) => o.product_id as string));
   const toOrder = lowStock.filter((p) => !openProductIds.has(p.id));
@@ -45,7 +45,7 @@ export async function runAutoOrderScan(
     quantity: Math.max(1, p.low_stock_threshold),
     channel: "hq" as const,
     source: "auto" as const,
-    status: "pending" as const,
+    status: "confirmed" as const,
   }));
 
   const { error } = await supabase.from("purchase_orders").insert(insertRows);

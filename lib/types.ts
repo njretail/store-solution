@@ -89,7 +89,10 @@ export type Product = {
 
 export type PurchaseOrderChannel = "hq" | "coupang";
 export type PurchaseOrderSource = "auto" | "manual";
-export type PurchaseOrderStatus = "pending" | "ordered" | "received" | "cancelled";
+// 실제 쇼핑몰 유통 흐름과 같은 4단계 + 취소. 발주완료 단계에서만 취소할 수 있다.
+// 본부 발주가 배송완료로 넘어가면 재고에 자동으로 반영된다(쿠팡은 바코드 연동이
+// 없어 상태만 바뀌고 재고는 입고 등록에서 직접 등록해야 함).
+export type PurchaseOrderStatus = "confirmed" | "preparing" | "shipping" | "delivered" | "cancelled";
 
 export const PURCHASE_ORDER_CHANNEL_LABELS: Record<PurchaseOrderChannel, string> = {
   hq: "본부",
@@ -97,11 +100,20 @@ export const PURCHASE_ORDER_CHANNEL_LABELS: Record<PurchaseOrderChannel, string>
 };
 
 export const PURCHASE_ORDER_STATUS_LABELS: Record<PurchaseOrderStatus, string> = {
-  pending: "대기중",
-  ordered: "발주완료",
-  received: "입고완료",
+  confirmed: "발주완료",
+  preparing: "상품준비중",
+  shipping: "배송중",
+  delivered: "배송완료",
   cancelled: "취소",
 };
+
+// 진행 순서(취소 제외) — 다음 단계 계산, 진행률 표시 등에 쓴다.
+export const PURCHASE_ORDER_STATUS_FLOW: PurchaseOrderStatus[] = [
+  "confirmed",
+  "preparing",
+  "shipping",
+  "delivered",
+];
 
 export type PurchaseOrder = {
   id: string;

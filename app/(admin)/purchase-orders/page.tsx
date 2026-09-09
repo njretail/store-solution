@@ -1,5 +1,5 @@
 import { requireAdmin, getCurrentStore } from "@/lib/session";
-import { markOrderReceived, cancelOrder } from "./actions";
+import { startPreparing, startShipping, markOrderDelivered, cancelOrder } from "./actions";
 import {
   PURCHASE_ORDER_CHANNEL_LABELS,
   PURCHASE_ORDER_STATUS_LABELS,
@@ -42,8 +42,8 @@ export default async function PurchaseOrdersPage() {
     .limit(200);
 
   const orders = (data ?? []) as unknown as OrderRow[];
-  const open = orders.filter((o) => o.status === "pending" || o.status === "ordered");
-  const closed = orders.filter((o) => o.status === "received" || o.status === "cancelled");
+  const open = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled");
+  const closed = orders.filter((o) => o.status === "delivered" || o.status === "cancelled");
 
   return (
     <div className="flex flex-col gap-6">
@@ -54,14 +54,15 @@ export default async function PurchaseOrdersPage() {
 
       <p className="text-sm text-zinc-500">
         자동발주(재고가 기준 이하로 떨어진 상품 중 자동발주가 켜진 상품)와 수동발주 내역이에요.
-        본부 발주는 대기중 상태로 쌓이고, 배송완료를 누르면 상품·수량을 정확히 알고 있어
-        재고에도 바로 더해져요. 쿠팡 발주는 링크를 클릭해 결제까지 완료해야 하고, 실제로
-        무엇이 왔는지는 시스템이 알 수 없어 입고완료를 눌러도 재고는 자동으로 반영되지
-        않으니{" "}
+        발주완료 → 상품준비중 → 배송중 → 배송완료 순서로 진행되고, 발주완료 단계에서만
+        취소할 수 있어요. 본부 발주가 배송완료로 넘어가면 상품·수량을 정확히 알고 있어
+        재고에도 바로 더해지지만, 쿠팡 발주는 실제로 무엇이 왔는지 시스템이 알 수 없어(바코드
+        미연동) 상태만 바뀌고 재고는 자동으로 반영되지 않으니{" "}
         <a href="/stock-in" className="text-[#C8075F] underline">
           입고 등록
         </a>
-        에서 직접 등록해주세요.
+        에서 직접 등록해주세요. (여러 매장을 취합 관리하는 본부 솔루션이 따로 개발되면, 그쪽에서
+        상태를 바꿔도 여기 자동으로 반영되도록 연동 지점을 미리 만들어뒀어요.)
       </p>
 
       <div>
@@ -118,19 +119,39 @@ export default async function PurchaseOrdersPage() {
                     {new Date(o.created_at).toLocaleDateString("ko-KR")}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-3">
-                      <form action={markOrderReceived}>
-                        <input type="hidden" name="id" value={o.id} />
-                        <button type="submit" className="text-zinc-600 hover:text-zinc-900">
-                          {o.channel === "hq" ? "배송완료 (재고 자동반영)" : "입고완료"}
-                        </button>
-                      </form>
-                      <form action={cancelOrder}>
-                        <input type="hidden" name="id" value={o.id} />
-                        <button type="submit" className="text-red-500 hover:text-red-700">
-                          취소
-                        </button>
-                      </form>
+                    <div className="flex flex-wrap gap-3">
+                      {o.status === "confirmed" && (
+                        <>
+                          <form action={startPreparing}>
+                            <input type="hidden" name="id" value={o.id} />
+                            <button type="submit" className="text-zinc-600 hover:text-zinc-900">
+                              준비 시작
+                            </button>
+                          </form>
+                          <form action={cancelOrder}>
+                            <input type="hidden" name="id" value={o.id} />
+                            <button type="submit" className="text-red-500 hover:text-red-700">
+                              취소
+                            </button>
+                          </form>
+                        </>
+                      )}
+                      {o.status === "preparing" && (
+                        <form action={startShipping}>
+                          <input type="hidden" name="id" value={o.id} />
+                          <button type="submit" className="text-zinc-600 hover:text-zinc-900">
+                            배송 시작
+                          </button>
+                        </form>
+                      )}
+                      {o.status === "shipping" && (
+                        <form action={markOrderDelivered}>
+                          <input type="hidden" name="id" value={o.id} />
+                          <button type="submit" className="text-zinc-600 hover:text-zinc-900">
+                            {o.channel === "hq" ? "배송완료 (재고 자동반영)" : "배송완료"}
+                          </button>
+                        </form>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -24,6 +24,8 @@ export default function ProductOrderCell({
     initialOrderState
   );
 
+  const hqFormId = `hq-order-${productId}`;
+
   // 쿠팡 발주 액션이 딥링크를 반환하면 새 탭으로 열어 직원이 바로 검색/결제를 이어가게 한다.
   useEffect(() => {
     if (coupangState.link) {
@@ -42,10 +44,21 @@ export default function ProductOrderCell({
           min={1}
           value={qty}
           onChange={(e) => setQty(Number(e.target.value) || 0)}
+          onKeyDown={(e) => {
+            // 엔터 = 본부 발주. 매번 버튼까지 손을 옮기지 않아도 되게.
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (qty > 0 && !hqPending) {
+                const form = document.getElementById(hqFormId) as HTMLFormElement | null;
+                form?.requestSubmit();
+              }
+            }
+          }}
+          title="수량 입력 후 엔터를 누르면 본부로 바로 발주돼요"
           className="w-16 rounded border border-zinc-300 px-1.5 py-1"
           placeholder="수량"
         />
-        <form action={hqAction}>
+        <form id={hqFormId} action={hqAction}>
           <input type="hidden" name="product_id" value={productId} />
           <input type="hidden" name="quantity" value={qty} />
           <button
