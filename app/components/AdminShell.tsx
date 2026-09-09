@@ -13,6 +13,7 @@ type NavItem = NavLink | { label: string; children: NavLink[] };
 
 const ADMIN_LINKS: NavItem[] = [
   { href: "/dashboard", label: "홈" },
+  { href: "/stats", label: "통계" },
   {
     label: "상품관리",
     children: [
