@@ -3,7 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import type { Store } from "@/lib/types";
 import { syncAutoOrderEnabled } from "./actions";
-import ProductOrderCell from "./ProductOrderCell";
+import { createBulkHqOrders } from "../purchase-orders/actions";
+import ProductOrderCell, { BULK_HQ_ORDER_FORM_ID } from "./ProductOrderCell";
 import SelectAllCheckbox from "./SelectAllCheckbox";
 import { buildGradeMap, GRADE_STYLE, type Grade } from "./grade";
 
@@ -122,11 +123,25 @@ export default async function LowStockSection({
           ProductOrderCell이 각 행 안에 자체 <form>(본부/쿠팡 발주)을 갖고 있어서
           표 전체를 <form>으로 감싸면 form 중첩(잘못된 HTML)이 되기 때문. */}
       <form id="auto-order-form" action={syncAutoOrderEnabled} />
+      <form id={BULK_HQ_ORDER_FORM_ID} action={createBulkHqOrders} />
       <div className="flex flex-col gap-6">
         {rows.length > 0 && (
-          <div className="flex items-center gap-1.5 text-sm text-zinc-500">
-            <SelectAllCheckbox />
-            분류 전체에서 자동발주 전체선택/해제
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex items-center gap-1.5 text-sm text-zinc-500">
+              <SelectAllCheckbox />
+              분류 전체에서 자동발주 전체선택/해제
+            </span>
+            <span className="ml-2 flex items-center gap-1.5 text-sm text-zinc-500">
+              <SelectAllCheckbox selector="input[name='bulk_order_ids']" />
+              발주선택 전체선택/해제
+            </span>
+            <button
+              type="submit"
+              form={BULK_HQ_ORDER_FORM_ID}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              선택 상품 전체 발주 (본부)
+            </button>
           </div>
         )}
 

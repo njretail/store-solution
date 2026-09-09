@@ -38,6 +38,34 @@ export async function createHqOrder(
   return { error: null, link: null };
 }
 
+// 여러 상품의 수량을 한 번에 입력해두고 "전체 발주" 한 번으로 본부 발주를 몰아서
+// 넣는다. 쿠팡은 상품마다 링크를 열어 직접 결제해야 해서 일괄 처리 대상이 아니다.
+export async function createBulkHqOrders(formData: FormData) {
+  const { supabase, profile } = await requireAdmin();
+  const store = await getCurrentStore(supabase, profile);
+  if (!store) return;
+
+  const ids = formData.getAll("bulk_order_ids").map(String);
+  if (ids.length === 0) return;
+
+  const rows = ids
+    .map((id) => ({
+      store_id: store.id,
+      product_id: id,
+      quantity: Number(formData.get(`bulk_qty_${id}`) ?? 0) || 0,
+      channel: "hq" as const,
+      source: "manual" as const,
+      status: "confirmed" as const,
+      created_by: profile.id,
+    }))
+    .filter((r) => r.quantity > 0);
+  if (rows.length === 0) return;
+
+  await supabase.from("purchase_orders").insert(rows);
+  revalidatePath("/products");
+  revalidatePath("/purchase-orders");
+}
+
 // 쿠팡 발주: 상품별 URL을 등록해두지 않으므로 상품명으로 쿠팡 검색 결과를 열고,
 // 그 링크를 파트너스 딥링크로 변환해 기록한다. 직원이 새 탭에서 상품을 찾아
 // 직접 주문/결제까지 완료해야 한다(쿠팡은 자동결제 API를 제공하지 않음).

@@ -4,8 +4,9 @@ import { fetchAllPages } from "@/lib/fetch-all-pages";
 import LowStockSection from "./LowStockSection";
 import SelectAllCheckbox from "./SelectAllCheckbox";
 import CategorySelectAllCheckbox from "./CategorySelectAllCheckbox";
-import ProductOrderCell from "./ProductOrderCell";
+import ProductOrderCell, { BULK_HQ_ORDER_FORM_ID } from "./ProductOrderCell";
 import { syncAutoOrderEnabled } from "./actions";
+import { createBulkHqOrders } from "../purchase-orders/actions";
 import { buildGradeMap, GRADE_STYLE, type Grade } from "./grade";
 
 const PRODUCTS_AUTO_ORDER_FORM_ID = "products-auto-order-form";
@@ -205,6 +206,7 @@ export default async function ProductsPage({
     const nextDir: SortDir = sort === key && dir === "asc" ? "desc" : "asc";
     const sp = new URLSearchParams();
     if (q) sp.set("q", q);
+    if (isFlatList) sp.set("list", "flat");
     sp.set("sort", key);
     sp.set("dir", nextDir);
     return `/products?${sp.toString()}`;
@@ -360,10 +362,11 @@ export default async function ProductsPage({
         발주는 각 행의 본부/쿠팡 발주 버튼으로 확정하세요.
       </p>
 
-      {/* 체크박스는 표 안에, form 태그는 밖에 두고 form={PRODUCTS_AUTO_ORDER_FORM_ID}로
-          연결한다 — ProductOrderCell이 행마다 자체 <form>(본부/쿠팡 발주)을 갖고 있어서
+      {/* 체크박스는 표 안에, form 태그는 밖에 두고 form={...}로 연결한다 —
+          ProductOrderCell이 행마다 자체 <form>(본부/쿠팡 발주)을 갖고 있어서
           표 전체를 <form>으로 감싸면 form 중첩(잘못된 HTML)이 되기 때문. */}
       <form id={PRODUCTS_AUTO_ORDER_FORM_ID} action={syncAutoOrderEnabled} />
+      <form id={BULK_HQ_ORDER_FORM_ID} action={createBulkHqOrders} />
       {rows.length > 0 && (
         <div className="flex flex-wrap items-center gap-3">
           <span className="flex items-center gap-1.5 text-sm text-zinc-500">
@@ -376,6 +379,17 @@ export default async function ProductsPage({
             className="rounded-lg bg-[#C8075F] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#a80650]"
           >
             자동발주 설정 저장
+          </button>
+          <span className="ml-2 flex items-center gap-1.5 text-sm text-zinc-500">
+            <SelectAllCheckbox selector="input[name='bulk_order_ids']" />
+            발주선택 전체선택/해제
+          </span>
+          <button
+            type="submit"
+            form={BULK_HQ_ORDER_FORM_ID}
+            className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            선택 상품 전체 발주 (본부)
           </button>
         </div>
       )}

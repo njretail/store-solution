@@ -5,6 +5,10 @@ import { createHqOrder, createCoupangOrder, type OrderActionState } from "@/app/
 
 const initialOrderState: OrderActionState = { error: null, link: null };
 
+// 상품 조회 화면 상단의 "전체 발주" 버튼이 참조하는 폼 id. 여러 상품의 발주선택
+// 체크박스 + 수량이 전부 이 폼 하나로 들어가 한 번에 제출된다.
+export const BULK_HQ_ORDER_FORM_ID = "bulk-hq-order-form";
+
 export default function ProductOrderCell({
   productId,
   productName,
@@ -39,6 +43,16 @@ export default function ProductOrderCell({
         적정재고: {lowStockThreshold}개 (자동발주도 이 수량만큼 주문돼요)
       </p>
       <div className="flex flex-wrap items-center gap-2 text-xs">
+        <label className="flex items-center gap-1" title="전체 발주에 이 상품을 포함">
+          <input
+            type="checkbox"
+            form={BULK_HQ_ORDER_FORM_ID}
+            name="bulk_order_ids"
+            value={productId}
+            className="h-3.5 w-3.5 rounded border-zinc-300"
+          />
+          <input type="hidden" form={BULK_HQ_ORDER_FORM_ID} name={`bulk_qty_${productId}`} value={qty} />
+        </label>
         <input
           type="number"
           min={1}
