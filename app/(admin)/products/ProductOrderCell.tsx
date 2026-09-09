@@ -43,18 +43,23 @@ export default function ProductOrderCell({
           type="number"
           min={1}
           value={qty}
+          data-order-qty-input
           onChange={(e) => setQty(Number(e.target.value) || 0)}
           onKeyDown={(e) => {
-            // 엔터 = 본부 발주. 매번 버튼까지 손을 옮기지 않아도 되게.
+            // 엔터 = 발주가 아니라 바로 아래 행의 수량칸으로 이동. 여러 상품 수량을
+            // 쭉 훑으며 입력하고, 발주는 각 행의 버튼을 눌러 따로 확정한다.
             if (e.key === "Enter") {
               e.preventDefault();
-              if (qty > 0 && !hqPending) {
-                const form = document.getElementById(hqFormId) as HTMLFormElement | null;
-                form?.requestSubmit();
-              }
+              const inputs = Array.from(
+                document.querySelectorAll<HTMLInputElement>("[data-order-qty-input]")
+              );
+              const idx = inputs.indexOf(e.currentTarget);
+              const next = inputs[idx + 1];
+              next?.focus();
+              next?.select();
             }
           }}
-          title="수량 입력 후 엔터를 누르면 본부로 바로 발주돼요"
+          title="엔터를 누르면 아래 상품의 수량 입력칸으로 이동해요"
           className="w-16 rounded border border-zinc-300 px-1.5 py-1"
           placeholder="수량"
         />
