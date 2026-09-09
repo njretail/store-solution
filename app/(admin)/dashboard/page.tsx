@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin, getCurrentStore } from "@/lib/session";
+import { requireAdmin, getCurrentStore, getAccessibleStores } from "@/lib/session";
 import { PAYMENT_METHODS, paymentMethodLabel } from "@/lib/types";
 
 function dayRangeIso(offsetDays: number) {
@@ -141,6 +141,7 @@ export default async function DashboardPage({
     rank_value?: string;
     compare?: string;
     compare_date?: string;
+    scope?: string;
   }>;
 }) {
   const { supabase, profile } = await requireAdmin();
@@ -148,6 +149,118 @@ export default async function DashboardPage({
   if (!store) return null;
 
   const params = await searchParams;
+  const scope = params.scope === "all" ? "all" : "store";
+
+  if (scope === "all") {
+    const stores = await getAccessibleStores(supabase);
+    const today = dayRangeIso(0);
+    const thisMonth = monthToDateRangeIso(0);
+
+    const [{ data: todayAllData }, { data: monthAllData }] = await Promise.all([
+      supabase
+        .from("sales")
+        .select("store_id, total_amount")
+        .gte("created_at", today.fromIso)
+        .lt("created_at", today.toIso),
+      supabase
+        .from("sales")
+        .select("store_id, total_amount")
+        .gte("created_at", thisMonth.fromIso)
+        .lt("created_at", thisMonth.toIso),
+    ]);
+
+    function byStore(rows: Array<{ store_id: string; total_amount: number }> | null) {
+      const map = new Map<string, { total: number; count: number }>();
+      for (const r of rows ?? []) {
+        const cur = map.get(r.store_id) ?? { total: 0, count: 0 };
+        cur.total += r.total_amount;
+        cur.count += 1;
+        map.set(r.store_id, cur);
+      }
+      return map;
+    }
+
+    const todayByStore = byStore(todayAllData);
+    const monthByStore = byStore(monthAllData);
+    const todayTotal = [...todayByStore.values()].reduce((s, v) => s + v.total, 0);
+    const todayCountTotal = [...todayByStore.values()].reduce((s, v) => s + v.count, 0);
+    const monthTotal = [...monthByStore.values()].reduce((s, v) => s + v.total, 0);
+
+    return (
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold text-zinc-900">전체 매장 합산</h1>
+          <Link href="/dashboard" className="text-sm text-[#C8075F] underline">
+            매장별로 보기
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
+            <p className="text-sm text-zinc-500">오늘 매출 합계</p>
+            <p className="text-3xl font-semibold text-[#C8075F]">
+              {todayTotal.toLocaleString()}원
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
+            <p className="text-sm text-zinc-500">오늘 판매 건수 합계</p>
+            <p className="text-3xl font-semibold text-zinc-900">{todayCountTotal}건</p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
+            <p className="text-sm text-zinc-500">이번달 매출 합계</p>
+            <p className="text-3xl font-semibold text-zinc-900">
+              {monthTotal.toLocaleString()}원
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <h2 className="mb-3 text-base font-medium text-zinc-700">매장별 매출</h2>
+          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+            <table className="w-full whitespace-nowrap text-base">
+              <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
+                <tr>
+                  <th className="px-4 py-3">매장</th>
+                  <th className="px-4 py-3">오늘 매출</th>
+                  <th className="px-4 py-3">오늘 건수</th>
+                  <th className="px-4 py-3">이번달 매출</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stores.map((s) => {
+                  const t = todayByStore.get(s.id);
+                  const m = monthByStore.get(s.id);
+                  return (
+                    <tr key={s.id} className="border-t border-zinc-100">
+                      <td className="px-4 py-3 font-medium text-zinc-900">{s.name}</td>
+                      <td className="px-4 py-3">{(t?.total ?? 0).toLocaleString()}원</td>
+                      <td className="px-4 py-3">{t?.count ?? 0}건</td>
+                      <td className="px-4 py-3">{(m?.total ?? 0).toLocaleString()}원</td>
+                    </tr>
+                  );
+                })}
+                {stores.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-zinc-400">
+                      등록된 매장이 없습니다.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-sm text-zinc-400">
+            더 자세한 매장별 판매내역은{" "}
+            <Link href="/sales?scope=all" className="text-[#C8075F] underline">
+              판매내역 전체 매장 합산 보기
+            </Link>
+            에서 확인할 수 있습니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const rankPeriod: RankPeriod =
     params.rank_period === "month" || params.rank_period === "year"
       ? params.rank_period
@@ -324,6 +437,12 @@ export default async function DashboardPage({
 
   return (
     <div className="flex flex-col gap-8">
+      <div className="flex justify-end">
+        <Link href="/dashboard?scope=all" className="text-sm text-[#C8075F] underline">
+          전체 매장 합산 보기
+        </Link>
+      </div>
+
       {cashLow && (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <span>
