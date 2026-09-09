@@ -4,10 +4,10 @@ import { fetchAllPages } from "./fetch-all-pages";
 export type AutoOrderCreated = { productId: string; productName: string; quantity: number };
 
 // 이 매장에서 자동발주가 켜진 상품 중 재고가 적정재고(low_stock_threshold) 이하로
-// 떨어진 상품을 찾아 본부(HQ) 발주를 자동 생성한다. 발주 수량은 적정재고 수량과
-// 동일하게 맞춘다(재고를 적정 수준까지 채운다는 의미). 이미 대기중/발주완료 상태인
-// 발주가 있으면 중복 생성하지 않는다. Vercel Cron(app/api/cron/auto-order)이
-// 주기적으로 호출한다.
+// 떨어진 상품을 찾아 본부(HQ) 발주를 자동 생성한다. 발주 수량은 부족분(적정재고 -
+// 현재재고)만큼만 채운다 — 이미 적정재고 이상 있으면 부족분이 0 이하이므로 발주
+// 대상에서 빠진다. 이미 대기중/발주완료 상태인 발주가 있으면 중복 생성하지 않는다.
+// Vercel Cron(app/api/cron/auto-order)이 주기적으로 호출한다.
 export async function runAutoOrderScan(
   supabase: SupabaseClient,
   storeId: string
@@ -36,13 +36,15 @@ export async function runAutoOrderScan(
     .in("status", ["confirmed", "preparing", "shipping"]);
 
   const openProductIds = new Set((openOrders ?? []).map((o) => o.product_id as string));
-  const toOrder = lowStock.filter((p) => !openProductIds.has(p.id));
+  const toOrder = lowStock
+    .filter((p) => !openProductIds.has(p.id))
+    .filter((p) => p.low_stock_threshold - p.stock_qty > 0);
   if (toOrder.length === 0) return [];
 
   const insertRows = toOrder.map((p) => ({
     store_id: storeId,
     product_id: p.id,
-    quantity: Math.max(1, p.low_stock_threshold),
+    quantity: p.low_stock_threshold - p.stock_qty,
     channel: "hq" as const,
     source: "auto" as const,
     status: "confirmed" as const,

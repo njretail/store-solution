@@ -12,15 +12,17 @@ export const BULK_HQ_ORDER_FORM_ID = "bulk-hq-order-form";
 export default function ProductOrderCell({
   productId,
   productName,
+  stockQty,
   lowStockThreshold,
 }: {
   productId: string;
   productName: string;
+  stockQty: number;
   lowStockThreshold: number;
 }) {
-  // 발주 수량은 적정재고 수량과 같게 잡는다 — 재고를 적정 수준까지 채운다는 의미.
-  // 자동발주도 같은 값으로 주문하므로 여기서 보여주는 수량이 실제 자동발주량과 같다.
-  const [qty, setQty] = useState(Math.max(1, lowStockThreshold));
+  // 발주 수량 기본값은 부족분(적정재고 - 현재재고)만큼만 잡는다 — 이미 적정재고
+  // 이상 있으면 0으로 시작해 발주 버튼이 비활성화된다(자동발주 로직과 동일한 규칙).
+  const [qty, setQty] = useState(Math.max(0, lowStockThreshold - stockQty));
 
   const [hqState, hqAction, hqPending] = useActionState(createHqOrder, initialOrderState);
   const [coupangState, coupangAction, coupangPending] = useActionState(
@@ -40,7 +42,7 @@ export default function ProductOrderCell({
   return (
     <div className="flex flex-col gap-1 py-1">
       <p className="text-xs text-zinc-400">
-        적정재고: {lowStockThreshold}개 (자동발주도 이 수량만큼 주문돼요)
+        적정재고: {lowStockThreshold}개 · 부족분 {Math.max(0, lowStockThreshold - stockQty)}개까지 자동/기본 발주돼요
       </p>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <label className="flex items-center gap-1" title="전체 발주에 이 상품을 포함">

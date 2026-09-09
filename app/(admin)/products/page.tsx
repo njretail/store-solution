@@ -292,6 +292,7 @@ export default async function ProductsPage({
                     <ProductOrderCell
                       productId={p.id}
                       productName={p.name}
+                      stockQty={p.stock_qty}
                       lowStockThreshold={p.low_stock_threshold}
                     />
                   </td>

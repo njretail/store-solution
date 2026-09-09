@@ -204,6 +204,7 @@ export default async function LowStockSection({
                         <ProductOrderCell
                           productId={r.id}
                           productName={r.name}
+                          stockQty={r.stock_qty}
                           lowStockThreshold={r.low_stock_threshold}
                         />
                       </td>
