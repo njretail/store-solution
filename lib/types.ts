@@ -181,6 +181,11 @@ export type Sale = {
   customer_id: string | null;
   created_by: string | null;
   created_at: string;
+  // 키오스크(PG단말기) 연동 전까지는 모두 null — 연동되면 그쪽에서 채워 넣는다.
+  kiosk_label: string | null;
+  order_number: string | null;
+  approval_number: string | null;
+  payment_detail: string | null;
 };
 
 export type Customer = {

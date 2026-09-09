@@ -94,7 +94,7 @@ function StatusTabs({
 export default async function SalesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; scope?: string; status?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; scope?: string; status?: string; q?: string }>;
 }) {
   const { supabase, profile } = await requireAdmin();
   const store = await getCurrentStore(supabase, profile);
@@ -107,6 +107,7 @@ export default async function SalesPage({
   const statusFilter: "all" | SaleStatus =
     params.status === "completed" || params.status === "cancelled" ? params.status : "all";
   const scope = params.scope === "all" ? "all" : "store";
+  const q = (params.q ?? "").trim();
 
   const fromIso = new Date(`${from}T00:00:00`).toISOString();
   const toIso = new Date(`${to}T23:59:59.999`).toISOString();
@@ -238,9 +239,16 @@ export default async function SalesPage({
     return items.length > 1 ? `${first} 외 ${items.length - 1}건` : first;
   }
 
-  const totalAmount = sales.reduce((sum, s) => sum + s.total_amount, 0);
+  // 상품명으로 검색 — sale_items에 포함된 상품 중 하나라도 검색어를 포함하면 남긴다.
+  const filteredSales = q
+    ? sales.filter((s) =>
+        (itemsBySale.get(s.id) ?? []).some((it) => it.name.toLowerCase().includes(q.toLowerCase()))
+      )
+    : sales;
 
-  const excelRows = sales.map((s) => ({
+  const totalAmount = filteredSales.reduce((sum, s) => sum + s.total_amount, 0);
+
+  const excelRows = filteredSales.map((s) => ({
     일시: new Date(s.created_at).toLocaleString("ko-KR"),
     상품: productSummary(s.id),
     결제수단: paymentMethodLabel(s.payment_method),
@@ -258,6 +266,30 @@ export default async function SalesPage({
 
       <FilterBar from={from} to={to} scope={scope} status={statusFilter} />
 
+      <form className="flex gap-2">
+        <input type="hidden" name="from" value={from} />
+        <input type="hidden" name="to" value={to} />
+        <input type="hidden" name="scope" value={scope} />
+        <input type="hidden" name="status" value={statusFilter} />
+        <input
+          name="q"
+          defaultValue={q}
+          placeholder="상품명으로 검색"
+          className="w-full max-w-sm rounded border border-zinc-300 px-3 py-1.5 text-sm"
+        />
+        <button type="submit" className="rounded border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50">
+          검색
+        </button>
+        {q && (
+          <Link
+            href={`/sales?from=${from}&to=${to}&scope=${scope}&status=${statusFilter}`}
+            className="rounded border border-zinc-300 px-3 py-1.5 text-sm text-zinc-500 hover:bg-zinc-50"
+          >
+            초기화
+          </Link>
+        )}
+      </form>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-4">
           <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
@@ -268,7 +300,7 @@ export default async function SalesPage({
           </div>
           <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
             <p className="text-xs text-zinc-500">거래 건수</p>
-            <p className="text-2xl font-semibold text-zinc-900">{sales.length}건</p>
+            <p className="text-2xl font-semibold text-zinc-900">{filteredSales.length}건</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -290,7 +322,7 @@ export default async function SalesPage({
             </tr>
           </thead>
           <tbody>
-            {sales.map((s) => {
+            {filteredSales.map((s) => {
               const status = s.status ?? "completed";
               return (
                 <tr key={s.id} className="border-t border-zinc-100 hover:bg-zinc-50">
@@ -327,10 +359,10 @@ export default async function SalesPage({
                 </tr>
               );
             })}
-            {sales.length === 0 && (
+            {filteredSales.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-3 py-6 text-center text-zinc-400">
-                  해당 기간 매출이 없습니다.
+                  {q ? "검색 결과가 없습니다." : "해당 기간 매출이 없습니다."}
                 </td>
               </tr>
             )}
