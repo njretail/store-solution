@@ -4,6 +4,7 @@ import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import LowStockSection from "./LowStockSection";
 import SelectAllCheckbox from "./SelectAllCheckbox";
+import CategorySelectAllCheckbox from "./CategorySelectAllCheckbox";
 import { syncAutoOrderEnabled } from "./actions";
 import { buildGradeMap, GRADE_STYLE, type Grade } from "./grade";
 
@@ -313,7 +314,10 @@ export default async function ProductsPage({
               className="rounded-lg border border-zinc-200 bg-white"
             >
               <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium text-zinc-700">
-                <span>{category}</span>
+                <span className="flex items-center gap-2">
+                  <CategorySelectAllCheckbox />
+                  {category}
+                </span>
                 <span className="text-zinc-400">{items.length}개</span>
               </summary>
               <div className="flex flex-col gap-2 border-t border-zinc-100 p-3">
