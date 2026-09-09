@@ -43,7 +43,7 @@ type Row = {
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; view?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ q?: string; view?: string; sort?: string; dir?: string; list?: string }>;
 }) {
   const { supabase, profile } = await requireAdmin();
   const store = await getCurrentStore(supabase, profile);
@@ -52,16 +52,38 @@ export default async function ProductsPage({
   const params = await searchParams;
   const q = (params.q ?? "").trim();
   const isLowStockView = params.view === "low-stock";
+  const isFlatList = params.list === "flat";
   const sort: SortKey = isSortKey(params.sort) ? params.sort : "name";
   const dir: SortDir = params.dir === "desc" ? "desc" : "asc";
 
+  function withParam(key: string, value: string | null) {
+    const sp = new URLSearchParams();
+    if (q) sp.set("q", q);
+    sp.set("sort", sort);
+    sp.set("dir", dir);
+    if (isFlatList) sp.set("list", "flat");
+    if (value === null) sp.delete(key);
+    else sp.set(key, value);
+    return `/products?${sp.toString()}`;
+  }
+
   const ViewToggle = (
-    <Link
-      href={isLowStockView ? "/products" : "/products?view=low-stock"}
-      className="rounded border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
-    >
-      {isLowStockView ? "전체 상품 보기" : "재고소진상품만 보기"}
-    </Link>
+    <div className="flex items-center gap-2">
+      <Link
+        href={isLowStockView ? "/products" : "/products?view=low-stock"}
+        className="rounded border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+      >
+        {isLowStockView ? "전체 상품 보기" : "재고소진상품만 보기"}
+      </Link>
+      {!isLowStockView && !q && (
+        <Link
+          href={withParam("list", isFlatList ? null : "flat")}
+          className="rounded border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+        >
+          {isFlatList ? "분류별로 보기" : "전체 목록 보기"}
+        </Link>
+      )}
+    </div>
   );
 
   if (isLowStockView) {
@@ -334,7 +356,8 @@ export default async function ProductsPage({
 
       <p className="text-xs text-zinc-400">
         표 머리글(상품명/판매가/입고가/재고/적정재고)을 클릭하면 그 기준으로 정렬돼요.
-        발주 칸에 수량을 입력하고 엔터를 누르면 바로 본부로 발주가 들어가요.
+        발주 칸에 수량을 입력하고 엔터를 누르면 바로 아래 상품 수량칸으로 이동해요 —
+        발주는 각 행의 본부/쿠팡 발주 버튼으로 확정하세요.
       </p>
 
       {/* 체크박스는 표 안에, form 태그는 밖에 두고 form={PRODUCTS_AUTO_ORDER_FORM_ID}로
@@ -367,6 +390,8 @@ export default async function ProductsPage({
           )}
           <ProductTable items={rows} />
         </div>
+      ) : isFlatList ? (
+        <ProductTable items={rows} />
       ) : groupEntries.length === 0 ? (
         <p className="rounded-lg border border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-400">
           등록된 상품이 없습니다.
