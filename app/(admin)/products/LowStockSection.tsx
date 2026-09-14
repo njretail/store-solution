@@ -5,7 +5,7 @@ import type { Store } from "@/lib/types";
 import { syncAutoOrderEnabled } from "./actions";
 import ProductOrderCell from "./ProductOrderCell";
 import SelectAllCheckbox from "./SelectAllCheckbox";
-import { buildGradeMap, GRADE_STYLE, type Grade } from "./grade";
+import { buildGradeMap, GRADE_STYLE, type Grade } from "@/lib/grade";
 
 // 상품 조회 화면의 "재고소진상품만 보기" 탭에서 쓰는 섹션. 원래 별도 페이지였던
 // /products/low-stock의 내용을 그대로 옮겨와 상품 조회 안에서 렌더링한다.

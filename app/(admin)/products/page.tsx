@@ -5,7 +5,7 @@ import { fetchAllPages } from "@/lib/fetch-all-pages";
 import LowStockSection from "./LowStockSection";
 import SelectAllCheckbox from "./SelectAllCheckbox";
 import { syncAutoOrderEnabled } from "./actions";
-import { buildGradeMap, GRADE_STYLE, type Grade } from "./grade";
+import { buildGradeMap, GRADE_STYLE, type Grade } from "@/lib/grade";
 
 const PRODUCTS_AUTO_ORDER_FORM_ID = "products-auto-order-form";
 

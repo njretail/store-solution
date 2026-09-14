@@ -185,41 +185,48 @@ export default async function DashboardPage({
     { data: cashTxData },
     { data: rankData },
     { data: cameraData },
+    { data: rankRevenueData },
   ] = await Promise.all([
     supabase
       .from("sales")
       .select("total_amount, payment_method")
       .eq("store_id", store.id)
+      .eq("status", "completed")
       .gte("created_at", today.fromIso)
       .lt("created_at", today.toIso),
     supabase
       .from("sales")
       .select("total_amount")
       .eq("store_id", store.id)
+      .eq("status", "completed")
       .gte("created_at", yesterday.fromIso)
       .lt("created_at", yesterday.toIso),
     supabase
       .from("sales")
       .select("total_amount")
       .eq("store_id", store.id)
+      .eq("status", "completed")
       .gte("created_at", weekAgo.fromIso)
       .lt("created_at", weekAgo.toIso),
     supabase
       .from("sales")
       .select("total_amount")
       .eq("store_id", store.id)
+      .eq("status", "completed")
       .gte("created_at", thisMonth.fromIso)
       .lt("created_at", thisMonth.toIso),
     supabase
       .from("sales")
       .select("total_amount")
       .eq("store_id", store.id)
+      .eq("status", "completed")
       .gte("created_at", lastMonth.fromIso)
       .lt("created_at", lastMonth.toIso),
     supabase
       .from("sales")
       .select("total_amount")
       .eq("store_id", store.id)
+      .eq("status", "completed")
       .gte("created_at", customRange.fromIso)
       .lt("created_at", customRange.toIso),
     supabase
@@ -232,6 +239,7 @@ export default async function DashboardPage({
       .from("sales")
       .select("total_amount")
       .eq("store_id", store.id)
+      .eq("status", "completed")
       .eq("payment_method", "cash"),
     supabase
       .from("cash_transactions")
@@ -244,6 +252,13 @@ export default async function DashboardPage({
       p_limit: 10,
     }),
     supabase.from("cameras").select("id").eq("store_id", store.id),
+    supabase
+      .from("sales")
+      .select("total_amount")
+      .eq("store_id", store.id)
+      .eq("status", "completed")
+      .gte("created_at", rankRange.fromIso)
+      .lt("created_at", rankRange.toIso),
   ]);
 
   const cameraCount = (cameraData ?? []).length;
@@ -259,6 +274,13 @@ export default async function DashboardPage({
     quantity: number;
     revenue: number;
   }>;
+  const rankTotalRevenue = (rankRevenueData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
+  const top3Share =
+    rankTotalRevenue > 0
+      ? Math.round(
+          (topProducts.slice(0, 3).reduce((sum, p) => sum + p.revenue, 0) / rankTotalRevenue) * 100
+        )
+      : null;
 
   const expiringSoon = (expiryData ?? []) as unknown as Array<{
     id: string;
@@ -466,6 +488,12 @@ export default async function DashboardPage({
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-medium text-zinc-700">잘나가는 상품</h2>
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/statistics/products"
+              className="whitespace-nowrap text-sm text-[#C8075F] underline"
+            >
+              상품통계 자세히 보기
+            </Link>
             <div className="flex shrink-0 rounded-md border border-zinc-300 text-sm">
               {(Object.keys(RANK_PERIOD_LABELS) as RankPeriod[]).map((p, i) => (
                 <Link
@@ -516,6 +544,12 @@ export default async function DashboardPage({
             </form>
           </div>
         </div>
+        {top3Share !== null && topProducts.length > 0 && (
+          <p className="mb-3 rounded-lg border border-[#C8075F]/20 bg-[#C8075F]/5 px-4 py-3 text-sm text-zinc-700">
+            상위 3개 상품이 이 기간 매출의 <span className="font-semibold text-[#C8075F]">{top3Share}%</span>를
+            차지하고 있어요.
+          </p>
+        )}
         <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
           <table className="w-full whitespace-nowrap text-base">
             <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
