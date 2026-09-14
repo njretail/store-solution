@@ -51,6 +51,14 @@ export default async function SaleDetailPage({
         </h2>
         <dl className="divide-y divide-zinc-100">
           <div className="flex items-center justify-between px-5 py-3">
+            <dt className="text-sm text-zinc-500">키오스크</dt>
+            <dd className="text-sm text-zinc-900">{sale.kiosk_label ?? "-"}</dd>
+          </div>
+          <div className="flex items-center justify-between px-5 py-3">
+            <dt className="text-sm text-zinc-500">주문번호</dt>
+            <dd className="text-sm text-zinc-900">{sale.order_number ?? "-"}</dd>
+          </div>
+          <div className="flex items-center justify-between px-5 py-3">
             <dt className="text-sm text-zinc-500">판매상태</dt>
             <dd
               className={`text-sm font-semibold ${
@@ -69,6 +77,14 @@ export default async function SaleDetailPage({
           <div className="flex items-center justify-between px-5 py-3">
             <dt className="text-sm text-zinc-500">결제수단</dt>
             <dd className="text-sm text-zinc-900">{paymentMethodLabel(sale.payment_method)}</dd>
+          </div>
+          <div className="flex items-center justify-between px-5 py-3">
+            <dt className="text-sm text-zinc-500">결제정보</dt>
+            <dd className="text-sm text-zinc-900">{sale.payment_detail ?? "-"}</dd>
+          </div>
+          <div className="flex items-center justify-between px-5 py-3">
+            <dt className="text-sm text-zinc-500">승인번호</dt>
+            <dd className="text-sm text-zinc-900">{sale.approval_number ?? "-"}</dd>
           </div>
           {sale.discount_amount > 0 && (
             <div className="flex items-center justify-between px-5 py-3">
@@ -96,6 +112,7 @@ export default async function SaleDetailPage({
                 <th className="px-5 py-2">상품명</th>
                 <th className="px-5 py-2">수량</th>
                 <th className="px-5 py-2">단가</th>
+                <th className="px-5 py-2">할인</th>
                 <th className="px-5 py-2">금액</th>
               </tr>
             </thead>
@@ -108,6 +125,8 @@ export default async function SaleDetailPage({
                   </td>
                   <td className="px-5 py-2">{it.quantity}</td>
                   <td className="px-5 py-2">{it.unit_price.toLocaleString()}원</td>
+                  {/* 할인은 상품별이 아니라 판매 전체 단위로만 기록돼서(discount_amount) 0으로 고정 표시 */}
+                  <td className="px-5 py-2 text-zinc-500">0</td>
                   <td className="px-5 py-2">{it.subtotal.toLocaleString()}원</td>
                 </tr>
               ))}

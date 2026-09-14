@@ -33,7 +33,10 @@ const ADMIN_LINKS: NavItem[] = [
   },
   {
     label: "통계",
-    children: [{ href: "/statistics/products", label: "상품통계" }],
+    children: [
+      { href: "/stats", label: "매출통계" },
+      { href: "/statistics/products", label: "상품통계" },
+    ],
   },
   { href: "/customers", label: "고객관리" },
   { href: "/coupons", label: "쿠폰관리" },
