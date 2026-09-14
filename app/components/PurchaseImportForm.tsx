@@ -14,6 +14,41 @@ import {
 
 const confirmInitial: ConfirmState = { error: null, success: null, priceChanges: [] };
 
+function downloadBulkTemplateExcel() {
+  const sheetRows = [
+    ["바코드번호", "상품명", "수량", "거래액(VAT포함)", "과세여부"],
+    ["8801234567890", "새우깡, 24개", 2, 24000, "과세"],
+    ["", "초코파이, 12개", 3, 27000, "과세"],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(sheetRows);
+  ws["!cols"] = [{ wch: 16 }, { wch: 24 }, { wch: 8 }, { wch: 16 }, { wch: 10 }];
+
+  const guideRows = [
+    ["대량매입 엑셀 작성 방법"],
+    [""],
+    ["1. 첫 번째 시트(매입양식)의 헤더 행(1행)은 그대로 두고, 2행부터 실제 매입 내역을 입력하세요."],
+    ["2. 바코드번호: 기존 상품과 정확히 일치하면 자동으로 매칭됩니다. 신규 상품이면 비워둬도 되고,"],
+    ["   업로드 후 화면에서 직접 입력할 수도 있습니다."],
+    ["3. 상품명: 한 번에 여러 개를 묶어 산 경우 상품명 끝에 \"N개\"를 붙이세요(포장 단위)."],
+    ["   예: \"새우깡, 24개\" — 낱개 24개들이 묶음이라는 뜻입니다. 신규 상품 등록 시 이 표기는"],
+    ["   자동으로 제거되고 상품명만 저장됩니다."],
+    ["4. 수량: 위 포장 단위를 몇 묶음 샀는지(주문 수량)입니다. 낱개 수량이 아닙니다."],
+    ["   예: \"새우깡, 24개\" 2묶음을 샀다면 수량은 2 (낱개로는 48개)."],
+    ["5. 거래액(VAT포함): 해당 행 전체 결제금액입니다(단가가 아니라 총액)."],
+    ["   매입단가 = 거래액 ÷ (포장 단위 × 수량)로 자동 계산됩니다."],
+    ["   예: 거래액 24,000원 ÷ 48개 = 개당 500원."],
+    ["6. 과세여부: \"과세\" 또는 \"면세\"로 입력하세요. 신규 상품 등록 시에만 사용됩니다."],
+    ["7. 판매단가는 매장 기본 마진율을 적용해 자동 계산되며, 업로드 후 화면에서 직접 수정할 수 있습니다."],
+  ];
+  const guideWs = XLSX.utils.aoa_to_sheet(guideRows);
+  guideWs["!cols"] = [{ wch: 80 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "매입양식");
+  XLSX.utils.book_append_sheet(wb, guideWs, "작성방법");
+  XLSX.writeFile(wb, "대량매입_양식샘플.xlsx");
+}
+
 function downloadPriceChangesExcel(changes: PriceChange[]) {
   const rows = changes.map((c) => ({
     바코드: c.barcode,
@@ -165,6 +200,19 @@ export default function PurchaseImportForm({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-6 print:hidden">
+      <div>
+        <button
+          type="button"
+          onClick={downloadBulkTemplateExcel}
+          className="rounded border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50"
+        >
+          양식 샘플 다운로드
+        </button>
+        <p className="mt-1 text-xs text-zinc-400">
+          이 양식대로 작성해서 올리면 규칙에 맞게 자동으로 반영됩니다(작성 방법은 다운받은
+          엑셀의 &ldquo;작성방법&rdquo; 시트 참고).
+        </p>
+      </div>
       <form
         action={parseActionState}
         className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-4"
