@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
-import { paymentMethodLabel, SALE_STATUS_LABELS, type SaleStatus } from "@/lib/types";
+import {
+  paymentMethodLabel,
+  SALE_STATUS_LABELS,
+  DELIVERY_STATUS_LABELS,
+  type SaleStatus,
+  type DeliveryStatus,
+} from "@/lib/types";
 import CancelSaleButton from "../CancelSaleButton";
 
 export default async function SaleDetailPage({
@@ -100,6 +106,49 @@ export default async function SaleDetailPage({
           </div>
         </dl>
       </div>
+
+      {sale.is_delivery && (
+        <div className="rounded-lg border border-zinc-200 bg-white">
+          <h2 className="border-b border-zinc-100 px-5 py-3 text-sm font-medium text-zinc-500">
+            배송정보
+          </h2>
+          <dl className="divide-y divide-zinc-100">
+            <div className="flex items-center justify-between px-5 py-3">
+              <dt className="text-sm text-zinc-500">배송상태</dt>
+              <dd className="text-sm font-semibold text-zinc-900">
+                {DELIVERY_STATUS_LABELS[(sale.delivery_status ?? "requested") as DeliveryStatus]}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between px-5 py-3">
+              <dt className="text-sm text-zinc-500">배송지</dt>
+              <dd className="text-sm text-zinc-900">{sale.delivery_address ?? "-"}</dd>
+            </div>
+            <div className="flex items-center justify-between px-5 py-3">
+              <dt className="text-sm text-zinc-500">연락처</dt>
+              <dd className="text-sm text-zinc-900">{sale.delivery_phone ?? "-"}</dd>
+            </div>
+            {sale.delivery_memo && (
+              <div className="flex items-center justify-between px-5 py-3">
+                <dt className="text-sm text-zinc-500">요청사항</dt>
+                <dd className="text-sm text-zinc-900">{sale.delivery_memo}</dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between px-5 py-3">
+              <dt className="text-sm text-zinc-500">배송비</dt>
+              <dd className="text-sm text-zinc-900">
+                {sale.delivery_fee > 0 ? `${sale.delivery_fee.toLocaleString()}원` : "무료"}
+              </dd>
+            </div>
+          </dl>
+          <p className="border-t border-zinc-100 px-5 py-3 text-xs text-zinc-400">
+            상태 변경은{" "}
+            <Link href="/deliveries" className="text-[#C8075F] underline">
+              배송주문건
+            </Link>
+            에서 할 수 있습니다.
+          </p>
+        </div>
+      )}
 
       <div className="rounded-lg border border-zinc-200 bg-white">
         <h2 className="border-b border-zinc-100 px-5 py-3 text-sm font-medium text-zinc-500">

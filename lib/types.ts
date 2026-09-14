@@ -19,6 +19,8 @@ export type Store = {
   address: string | null;
   cash_alert_threshold: number | null;
   default_margin_percent: number;
+  default_delivery_fee: number;
+  free_shipping_threshold: number | null;
   created_at: string;
 };
 
@@ -171,6 +173,30 @@ export const SALE_STATUS_LABELS: Record<SaleStatus, string> = {
   cancelled: "취소",
 };
 
+// 키오스크에서 구매자가 "배송으로 받기"를 선택한 주문의 처리 단계.
+// 배송요청 단계에서만 취소할 수 있다(발주/발주상태 흐름과 동일한 규칙).
+export type DeliveryStatus =
+  | "requested"
+  | "preparing"
+  | "out_for_delivery"
+  | "delivered"
+  | "cancelled";
+
+export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
+  requested: "배송요청",
+  preparing: "상품준비중",
+  out_for_delivery: "배송중",
+  delivered: "배송완료",
+  cancelled: "취소",
+};
+
+export const DELIVERY_STATUS_FLOW: DeliveryStatus[] = [
+  "requested",
+  "preparing",
+  "out_for_delivery",
+  "delivered",
+];
+
 export type Sale = {
   id: string;
   store_id: string;
@@ -186,6 +212,13 @@ export type Sale = {
   order_number: string | null;
   approval_number: string | null;
   payment_detail: string | null;
+  // 배송주문건 관련 필드. is_delivery가 false면 나머지는 의미 없다.
+  is_delivery: boolean;
+  delivery_status: DeliveryStatus | null;
+  delivery_address: string | null;
+  delivery_phone: string | null;
+  delivery_memo: string | null;
+  delivery_fee: number;
 };
 
 export type Customer = {

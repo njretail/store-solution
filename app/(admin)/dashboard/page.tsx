@@ -301,6 +301,8 @@ export default async function DashboardPage({
     { data: rankData },
     { data: cameraData },
     { data: rankRevenueData },
+    { data: todayDeliveryData },
+    { data: openDeliveryData },
   ] = await Promise.all([
     supabase
       .from("sales")
@@ -374,9 +376,29 @@ export default async function DashboardPage({
       .eq("status", "completed")
       .gte("created_at", rankRange.fromIso)
       .lt("created_at", rankRange.toIso),
+    supabase
+      .from("sales")
+      .select("total_amount")
+      .eq("store_id", store.id)
+      .eq("status", "completed")
+      .eq("is_delivery", true)
+      .gte("created_at", today.fromIso)
+      .lt("created_at", today.toIso),
+    supabase
+      .from("sales")
+      .select("id")
+      .eq("store_id", store.id)
+      .eq("is_delivery", true)
+      .in("delivery_status", ["requested", "preparing", "out_for_delivery"]),
   ]);
 
   const cameraCount = (cameraData ?? []).length;
+  const todayDeliveryCount = (todayDeliveryData ?? []).length;
+  const todayDeliveryRevenue = (todayDeliveryData ?? []).reduce(
+    (sum, s) => sum + s.total_amount,
+    0
+  );
+  const openDeliveryCount = (openDeliveryData ?? []).length;
 
   const weekAgoRevenue = (weekAgoData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
   const thisMonthRevenue = (thisMonthData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
@@ -524,6 +546,39 @@ export default async function DashboardPage({
           </Link>
           에서 확인할 수 있습니다.
         </p>
+      </div>
+
+      <div>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-base font-medium text-zinc-700">배송주문건</h2>
+          <Link href="/deliveries" className="text-sm text-[#C8075F] underline">
+            배송주문건으로 이동
+          </Link>
+        </div>
+        {openDeliveryCount > 0 && (
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            <span>⚠️ 처리 대기 중인 배송주문이 {openDeliveryCount}건 있습니다.</span>
+            <Link href="/deliveries" className="shrink-0 font-medium underline">
+              확인하기
+            </Link>
+          </div>
+        )}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
+            <p className="text-sm text-zinc-500">오늘 배송주문 매출</p>
+            <p className="text-3xl font-semibold text-[#C8075F]">
+              {todayDeliveryRevenue.toLocaleString()}원
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
+            <p className="text-sm text-zinc-500">오늘 배송주문 건수</p>
+            <p className="text-3xl font-semibold text-zinc-900">{todayDeliveryCount}건</p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
+            <p className="text-sm text-zinc-500">처리 대기중</p>
+            <p className="text-3xl font-semibold text-zinc-900">{openDeliveryCount}건</p>
+          </div>
+        </div>
       </div>
 
       <div>

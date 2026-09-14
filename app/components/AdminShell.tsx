@@ -29,6 +29,7 @@ const ADMIN_LINKS: NavItem[] = [
     children: [
       { href: "/sell", label: "실시간 장바구니" },
       { href: "/sales", label: "판매내역" },
+      { href: "/deliveries", label: "배송주문건" },
     ],
   },
   {
@@ -48,6 +49,7 @@ const ADMIN_LINKS: NavItem[] = [
 
 const STAFF_LINKS: NavItem[] = [
   { href: "/sell", label: "판매" },
+  { href: "/deliveries", label: "배송주문건" },
   { href: "/stock-in", label: "입고" },
   { href: "/expiry", label: "소비기한 등록" },
   { href: "/cash", label: "현금관리" },
