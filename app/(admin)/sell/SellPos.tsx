@@ -57,7 +57,29 @@ export default function SellPos({ storeId }: { storeId: string }) {
       setLookupError(`바코드 "${code}"에 해당하는 상품이 없습니다.`);
       return;
     }
-    addToCart(data as Product);
+
+    const product = data as Product;
+    // 기간한정 할인이 지금 걸려있으면 장바구니에 표시되는 가격도 실제 결제될
+    // 할인가와 같게 보여준다(최종 계산은 record_sale이 서버에서 다시 하므로
+    // 여기 표시는 참고용이지만, 다르게 보이면 직원이 혼란스러울 수 있음).
+    const nowIso = new Date().toISOString();
+    const { data: promo } = await supabase
+      .from("promotions")
+      .select("discount_type, discount_value")
+      .eq("product_id", product.id)
+      .eq("active", true)
+      .lte("starts_at", nowIso)
+      .gt("ends_at", nowIso)
+      .maybeSingle();
+    if (promo) {
+      const discounted =
+        promo.discount_type === "percent"
+          ? Math.max(product.sell_price - Math.floor((product.sell_price * promo.discount_value) / 100), 0)
+          : Math.max(product.sell_price - promo.discount_value, 0);
+      product.sell_price = discounted;
+    }
+
+    addToCart(product);
   }
 
   function changeQty(productId: string, delta: number) {

@@ -23,6 +23,7 @@ const ADMIN_LINKS: NavItem[] = [
       { href: "/categories", label: "카테고리 관리" },
       { href: "/purchase-orders", label: "발주관리" },
       { href: "/purchase-bulk", label: "대량매입" },
+      { href: "/promotions", label: "기간한정 할인" },
       { href: "/stock-in", label: "입고" },
       { href: "/stock-adjust", label: "재고조정" },
       { href: "/expiry", label: "소비기한 등록" },

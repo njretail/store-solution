@@ -148,6 +148,19 @@ export type Category = {
   created_at: string;
 };
 
+export type Promotion = {
+  id: string;
+  store_id: string;
+  product_id: string;
+  discount_type: "amount" | "percent";
+  discount_value: number;
+  starts_at: string;
+  ends_at: string;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+};
+
 export type Coupon = {
   id: string;
   code: string;
