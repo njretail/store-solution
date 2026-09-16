@@ -239,6 +239,15 @@ export default async function StatsPage({
     .filter((m) => m.amount > 0)
     .sort((a, b) => b.amount - a.amount);
 
+  // 요일별 매출 — created_at은 UTC라서 KST로 보정한 뒤 요일을 뽑는다.
+  const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+  const byWeekday = WEEKDAY_LABELS.map(() => 0);
+  for (const s of salesData) {
+    const kstDay = new Date(new Date(s.created_at).getTime() + 9 * 3600000).getUTCDay();
+    byWeekday[kstDay] += s.total_amount;
+  }
+  const weekdayBreakdown = WEEKDAY_LABELS.map((label, i) => ({ label, amount: byWeekday[i] }));
+
   const byCategory = new Map<string, number>();
   for (const it of itemsData) {
     const cat = it.products?.categories?.name ?? "미분류";
@@ -332,6 +341,24 @@ export default async function StatsPage({
               ))
             )}
           </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-base font-medium text-zinc-700">요일별 매출</h2>
+        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white px-5 py-4">
+          {totalRevenue === 0 ? (
+            <p className="text-sm text-zinc-400">해당 기간 판매 내역이 없습니다.</p>
+          ) : (
+            weekdayBreakdown.map((w) => (
+              <BarRow
+                key={w.label}
+                label={`${w.label}요일`}
+                amount={w.amount}
+                pct={totalRevenue > 0 ? Math.round((w.amount / totalRevenue) * 100) : 0}
+              />
+            ))
+          )}
         </div>
       </div>
 

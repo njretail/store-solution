@@ -30,6 +30,7 @@ export type CashTransaction = {
   type: "deposit" | "withdrawal";
   amount: number;
   memo: string | null;
+  denominations: Record<string, number> | null;
   created_by: string | null;
   created_at: string;
 };

@@ -117,7 +117,17 @@ export default async function CashPage() {
                   >
                     {t.type === "deposit" ? "투입" : "출금"}
                   </td>
-                  <td className="px-4 py-3">{t.amount.toLocaleString()}원</td>
+                  <td className="px-4 py-3">
+                    {t.amount.toLocaleString()}원
+                    {t.denominations && (
+                      <p className="whitespace-normal text-xs text-zinc-400">
+                        {Object.entries(t.denominations)
+                          .sort(([a], [b]) => Number(b) - Number(a))
+                          .map(([denom, count]) => `${Number(denom).toLocaleString()}원×${count}`)
+                          .join(" · ")}
+                      </p>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-zinc-500">{t.memo ?? "-"}</td>
                 </tr>
               ))}

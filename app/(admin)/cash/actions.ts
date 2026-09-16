@@ -16,9 +16,24 @@ export async function recordCashTransaction(
   const type = String(formData.get("type") ?? "deposit");
   const amount = Number(formData.get("amount") ?? 0);
   const memo = String(formData.get("memo") ?? "").trim() || null;
+  const denominationsRaw = String(formData.get("denominations") ?? "").trim();
 
   if (!amount || amount <= 0) {
     return { error: "금액을 확인하세요.", success: null };
+  }
+
+  let denominations: Record<string, number> | null = null;
+  if (denominationsRaw) {
+    try {
+      const parsed = JSON.parse(denominationsRaw) as Record<string, number>;
+      // 매수 0인 권종은 굳이 남기지 않는다.
+      denominations = Object.fromEntries(
+        Object.entries(parsed).filter(([, count]) => count > 0)
+      );
+      if (Object.keys(denominations).length === 0) denominations = null;
+    } catch {
+      denominations = null;
+    }
   }
 
   const { error } = await supabase.from("cash_transactions").insert({
@@ -26,6 +41,7 @@ export async function recordCashTransaction(
     type,
     amount,
     memo,
+    denominations,
   });
 
   if (error) {
