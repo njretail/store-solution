@@ -112,7 +112,8 @@ export default async function LowStockSection({
         적이 있는(취급 중인) 상품만 보여드려요. 등급은 최근 30일 매출 기준
         파레토 분석(A: 상위 80%, B: 다음 15%, C: 나머지)으로 계산되며, A등급이
         가장 빨리 발주해야 하는 상품이에요. 자동발주를 켜두면 재고가 기준 이하로
-        떨어졌을 때 본부로 자동 발주돼요 — 진행 상황은{" "}
+        떨어지는 즉시 본부로 자동 발주돼요(놓친 경우를 대비해 매일 한 번씩도
+        다시 확인해요) — 진행 상황은{" "}
         <Link href="/purchase-orders" className="text-[#C8075F] underline">
           발주관리
         </Link>
