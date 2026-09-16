@@ -156,6 +156,26 @@ export type StockIn = {
   created_at: string;
 };
 
+export type StockAdjustmentReason = "disposal" | "return" | "loss" | "other";
+
+export const STOCK_ADJUSTMENT_REASON_LABELS: Record<StockAdjustmentReason, string> = {
+  disposal: "폐기",
+  return: "반품",
+  loss: "분실/도난",
+  other: "기타",
+};
+
+export type StockAdjustment = {
+  id: string;
+  store_id: string;
+  product_id: string;
+  quantity: number;
+  reason: StockAdjustmentReason;
+  memo: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
 export type ProductExpiry = {
   id: string;
   store_id: string;
