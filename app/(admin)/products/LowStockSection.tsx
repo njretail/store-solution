@@ -2,9 +2,9 @@ import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import type { Store } from "@/lib/types";
-import { syncAutoOrderEnabled } from "./actions";
 import { createBulkHqOrders } from "../purchase-orders/actions";
 import ProductOrderCell, { BULK_HQ_ORDER_FORM_ID } from "./ProductOrderCell";
+import AutoOrderForm from "./AutoOrderForm";
 import SelectAllCheckbox from "./SelectAllCheckbox";
 import { buildGradeMap, GRADE_STYLE, type Grade } from "@/lib/grade";
 
@@ -119,10 +119,11 @@ export default async function LowStockSection({
         에서 확인하세요.
       </p>
 
-      {/* 체크박스는 표 안에, form 태그는 밖에 두고 form="auto-order-form"으로 연결한다 —
-          ProductOrderCell이 각 행 안에 자체 <form>(본부/쿠팡 발주)을 갖고 있어서
-          표 전체를 <form>으로 감싸면 form 중첩(잘못된 HTML)이 되기 때문. */}
-      <form id="auto-order-form" action={syncAutoOrderEnabled} />
+      {/* 체크박스는 표 안에, form 태그는 밖(AutoOrderForm 안)에 두고 form="auto-order-form"으로
+          연결한다 — ProductOrderCell이 각 행 안에 자체 <form>(본부/쿠팡 발주)을 갖고 있어서
+          표 전체를 <form>으로 감싸면 form 중첩(잘못된 HTML)이 되기 때문. HTML form 속성은
+          DOM 위치와 무관하게 id로 연결되므로 실제 폼/저장버튼/결과메시지는 아래쪽(자동발주
+          설정 저장 버튼 자리)에서 함께 렌더링한다. */}
       <form id={BULK_HQ_ORDER_FORM_ID} action={createBulkHqOrders} />
       <div className="flex flex-col gap-6">
         {rows.length > 0 && (
@@ -222,15 +223,7 @@ export default async function LowStockSection({
           </div>
         )}
 
-        {rows.length > 0 && (
-          <button
-            type="submit"
-            form="auto-order-form"
-            className="w-fit rounded-lg bg-[#C8075F] px-4 py-2 text-sm font-medium text-white hover:bg-[#a80650]"
-          >
-            자동발주 설정 저장
-          </button>
-        )}
+        {rows.length > 0 && <AutoOrderForm formId="auto-order-form" />}
       </div>
     </div>
   );

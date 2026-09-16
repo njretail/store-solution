@@ -213,19 +213,24 @@ export async function updateProduct(
   return { error: null, success: "저장되었습니다." };
 }
 
+export type AutoOrderState = { error: string | null; success: string | null };
+
 // 재고소진상품 화면의 자동발주 체크박스 열을 한 번에 저장한다. 화면에 보이던
 // 모든 상품(row_ids) 중 체크된 것(checked_ids)은 켜고, 나머지는 끈다 — 개별
 // 저장 버튼 없이 전체선택 체크박스 + 각 행 체크박스만으로 조작할 수 있게 한다.
-export async function syncAutoOrderEnabled(formData: FormData) {
+export async function syncAutoOrderEnabled(
+  _prevState: AutoOrderState,
+  formData: FormData
+): Promise<AutoOrderState> {
   const { supabase } = await requireAdmin();
   const rowIds = formData.getAll("row_ids").map(String).filter(Boolean);
   const checkedIds = new Set(formData.getAll("checked_ids").map(String));
-  if (rowIds.length === 0) return;
+  if (rowIds.length === 0) return { error: null, success: null };
 
   const toEnable = rowIds.filter((id) => checkedIds.has(id));
   const toDisable = rowIds.filter((id) => !checkedIds.has(id));
 
-  await Promise.all([
+  const results = await Promise.all([
     toEnable.length > 0
       ? supabase.from("products").update({ auto_order_enabled: true }).in("id", toEnable)
       : null,
@@ -233,8 +238,11 @@ export async function syncAutoOrderEnabled(formData: FormData) {
       ? supabase.from("products").update({ auto_order_enabled: false }).in("id", toDisable)
       : null,
   ]);
+  const failed = results.find((r) => r?.error);
+  if (failed?.error) return { error: failed.error.message, success: null };
 
   revalidatePath("/products");
+  return { error: null, success: "자동발주 설정이 저장되었습니다." };
 }
 
 export async function deleteProduct(formData: FormData) {
