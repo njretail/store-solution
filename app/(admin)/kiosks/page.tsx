@@ -1,5 +1,6 @@
+import { Fragment } from "react";
 import { requireProfile, getCurrentStore } from "@/lib/session";
-import { createKiosk, updateKioskStatus, deleteKiosk } from "./actions";
+import { createKiosk, updateKioskStatus, updateKioskDisplay, deleteKiosk } from "./actions";
 import { KIOSK_STATUS_LABELS } from "@/lib/types";
 import type { Kiosk } from "@/lib/types";
 
@@ -64,48 +65,82 @@ export default async function KiosksPage() {
           </thead>
           <tbody>
             {kiosks.map((k) => (
-              <tr key={k.id} className="border-t border-zinc-100">
-                <td className="px-4 py-3">{k.name}</td>
-                <td className={`px-4 py-3 font-medium ${STATUS_COLORS[k.status]}`}>
-                  {KIOSK_STATUS_LABELS[k.status]}
-                </td>
-                <td className="px-4 py-3 text-zinc-500">
-                  {new Date(k.updated_at).toLocaleString("ko-KR")}
-                </td>
-                {isAdmin && (
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <form action={updateKioskStatus} className="flex items-center gap-2">
-                        <input type="hidden" name="id" value={k.id} />
-                        <select
-                          name="status"
-                          defaultValue={k.status}
-                          className="rounded border border-zinc-200 px-2 py-1 text-sm"
-                        >
-                          <option value="online">정상</option>
-                          <option value="maintenance">점검중</option>
-                          <option value="offline">오프라인</option>
-                        </select>
-                        <button
-                          type="submit"
-                          className="text-sm text-zinc-600 hover:text-zinc-900"
-                        >
-                          변경
-                        </button>
-                      </form>
-                      <form action={deleteKiosk}>
-                        <input type="hidden" name="id" value={k.id} />
-                        <button
-                          type="submit"
-                          className="text-sm text-red-500 hover:text-red-700"
-                        >
-                          삭제
-                        </button>
-                      </form>
-                    </div>
+              <Fragment key={k.id}>
+                <tr className="border-t border-zinc-100">
+                  <td className="px-4 py-3">{k.name}</td>
+                  <td className={`px-4 py-3 font-medium ${STATUS_COLORS[k.status]}`}>
+                    {KIOSK_STATUS_LABELS[k.status]}
                   </td>
+                  <td className="px-4 py-3 text-zinc-500">
+                    {new Date(k.updated_at).toLocaleString("ko-KR")}
+                  </td>
+                  {isAdmin && (
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <form action={updateKioskStatus} className="flex items-center gap-2">
+                          <input type="hidden" name="id" value={k.id} />
+                          <select
+                            name="status"
+                            defaultValue={k.status}
+                            className="rounded border border-zinc-200 px-2 py-1 text-sm"
+                          >
+                            <option value="online">정상</option>
+                            <option value="maintenance">점검중</option>
+                            <option value="offline">오프라인</option>
+                          </select>
+                          <button
+                            type="submit"
+                            className="text-sm text-zinc-600 hover:text-zinc-900"
+                          >
+                            변경
+                          </button>
+                        </form>
+                        <form action={deleteKiosk}>
+                          <input type="hidden" name="id" value={k.id} />
+                          <button
+                            type="submit"
+                            className="text-sm text-red-500 hover:text-red-700"
+                          >
+                            삭제
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+                {isAdmin && (
+                  <tr className="border-t border-zinc-100 bg-zinc-50/50">
+                    <td colSpan={4} className="px-4 py-3">
+                      <details>
+                        <summary className="cursor-pointer text-xs font-medium text-zinc-500">
+                          화면 문구 설정 (실제 키오스크 화면이 붙으면 여기 값을 그대로 보여줘요)
+                        </summary>
+                        <form action={updateKioskDisplay} className="mt-2 flex flex-wrap gap-2">
+                          <input type="hidden" name="id" value={k.id} />
+                          <input
+                            name="banner_message"
+                            defaultValue={k.banner_message ?? ""}
+                            placeholder="상단 배너 문구 (예: 오늘 아이스크림 1+1)"
+                            className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm"
+                          />
+                          <input
+                            name="notice_message"
+                            defaultValue={k.notice_message ?? ""}
+                            placeholder="안내 멘트 (예: 봉투는 별도 구매입니다)"
+                            className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm"
+                          />
+                          <button
+                            type="submit"
+                            className="rounded border border-zinc-300 px-3 py-1.5 text-sm hover:bg-white"
+                          >
+                            저장
+                          </button>
+                        </form>
+                      </details>
+                    </td>
+                  </tr>
                 )}
-              </tr>
+              </Fragment>
             ))}
             {kiosks.length === 0 && (
               <tr>

@@ -49,7 +49,18 @@ export type Kiosk = {
   name: string;
   status: KioskStatus;
   memo: string | null;
+  // 실제 키오스크 화면 프로그램이 붙기 전까지 미리 설정해두는 화면 문구.
+  notice_message: string | null;
+  banner_message: string | null;
   updated_at: string;
+  created_at: string;
+};
+
+export type Announcement = {
+  id: string;
+  title: string;
+  body: string;
+  created_by: string | null;
   created_at: string;
 };
 

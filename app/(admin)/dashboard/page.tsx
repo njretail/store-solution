@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin, getCurrentStore, getAccessibleStores } from "@/lib/session";
-import { PAYMENT_METHODS, paymentMethodLabel } from "@/lib/types";
+import { PAYMENT_METHODS, paymentMethodLabel, type Announcement } from "@/lib/types";
 
 function dayRangeIso(offsetDays: number) {
   const now = new Date();
@@ -303,6 +303,7 @@ export default async function DashboardPage({
     { data: rankRevenueData },
     { data: todayDeliveryData },
     { data: openDeliveryData },
+    { data: announcementData },
   ] = await Promise.all([
     supabase
       .from("sales")
@@ -390,6 +391,11 @@ export default async function DashboardPage({
       .eq("store_id", store.id)
       .eq("is_delivery", true)
       .in("delivery_status", ["requested", "preparing", "out_for_delivery"]),
+    supabase
+      .from("announcements")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(3),
   ]);
 
   const cameraCount = (cameraData ?? []).length;
@@ -399,6 +405,7 @@ export default async function DashboardPage({
     0
   );
   const openDeliveryCount = (openDeliveryData ?? []).length;
+  const recentAnnouncements = (announcementData ?? []) as Announcement[];
 
   const weekAgoRevenue = (weekAgoData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
   const thisMonthRevenue = (thisMonthData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
@@ -498,6 +505,31 @@ export default async function DashboardPage({
           <Link href="/cash" className="shrink-0 font-medium underline">
             현금관리로 이동
           </Link>
+        </div>
+      )}
+
+      {recentAnnouncements.length > 0 && (
+        <div>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-base font-medium text-zinc-700">공지사항</h2>
+            <Link href="/announcements" className="text-sm text-[#C8075F] underline">
+              전체보기
+            </Link>
+          </div>
+          <div className="flex flex-col gap-2">
+            {recentAnnouncements.map((a) => (
+              <Link
+                key={a.id}
+                href="/announcements"
+                className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-5 py-3 hover:bg-zinc-50"
+              >
+                <span className="truncate text-sm text-zinc-700">{a.title}</span>
+                <span className="shrink-0 text-xs text-zinc-400">
+                  {new Date(a.created_at).toLocaleDateString("ko-KR")}
+                </span>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 

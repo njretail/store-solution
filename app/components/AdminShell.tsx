@@ -13,6 +13,7 @@ type NavItem = NavLink | { label: string; children: NavLink[] };
 
 const ADMIN_LINKS: NavItem[] = [
   { href: "/dashboard", label: "홈" },
+  { href: "/announcements", label: "공지사항" },
   {
     label: "상품관리",
     children: [
@@ -52,6 +53,7 @@ const ADMIN_LINKS: NavItem[] = [
 
 const STAFF_LINKS: NavItem[] = [
   { href: "/sell", label: "판매" },
+  { href: "/announcements", label: "공지사항" },
   { href: "/deliveries", label: "배송주문건" },
   { href: "/stock-in", label: "입고" },
   { href: "/stock-adjust", label: "재고조정" },
