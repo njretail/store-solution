@@ -18,6 +18,7 @@ const ADMIN_LINKS: NavItem[] = [
     label: "상품관리",
     children: [
       { href: "/products/new", label: "상품 추가" },
+      { href: "/products/bulk", label: "상품 일괄 등록" },
       { href: "/products", label: "상품 조회" },
       { href: "/products?view=low-stock", label: "재고소진상품" },
       { href: "/categories", label: "카테고리 관리" },

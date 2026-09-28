@@ -109,7 +109,7 @@ function extractPackInfo(name: string): { packSize: number; cleanName: string } 
 // 바코드 컬럼이 "숫자" 서식으로 저장되어 있으면 xlsx가 JS 숫자로 돌려주는데,
 // String()/toString()은 아주 큰 수에서 지수 표기(예: 8.80927e+12)로 바뀔 수 있어
 // toFixed(0)로 항상 자릿수 그대로의 정수 문자열을 만든다.
-function cellToBarcode(value: unknown): string {
+export function cellToBarcode(value: unknown): string {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value.toFixed(0) : "";
   }
