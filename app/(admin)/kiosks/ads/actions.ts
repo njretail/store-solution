@@ -5,6 +5,8 @@ import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const MAX_AD_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_AD_VIDEO_BYTES = 25 * 1024 * 1024;
+const VIDEO_EXT = /\.(mp4|webm|mov)$/i;
 
 export type KioskAdState = { error: string | null; success: string | null };
 
@@ -19,14 +21,18 @@ export async function uploadKioskAd(
   const kiosk_id = String(formData.get("kiosk_id") ?? "") || null;
   const file = formData.get("image");
   if (!(file instanceof File) || file.size === 0) {
-    return { error: "이미지 파일을 선택하세요.", success: null };
+    return { error: "이미지 또는 영상 파일을 선택하세요.", success: null };
   }
-  if (file.size > MAX_AD_IMAGE_BYTES) {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const isVideo = VIDEO_EXT.test(file.name);
+  if (isVideo && file.size > MAX_AD_VIDEO_BYTES) {
+    return { error: "영상 용량은 25MB 이하로 올려주세요(짧게 압축해서 준비해 주세요).", success: null };
+  }
+  if (!isVideo && file.size > MAX_AD_IMAGE_BYTES) {
     return { error: "이미지 용량은 8MB 이하로 올려주세요.", success: null };
   }
 
   const admin = createAdminClient();
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const path = `kiosk-ads/${store.id}-${Date.now()}.${ext}`;
   const { error: uploadError } = await admin.storage
     .from("product-images")

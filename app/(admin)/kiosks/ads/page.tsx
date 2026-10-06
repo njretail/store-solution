@@ -21,13 +21,14 @@ export default async function KioskAdsPage() {
   const kiosks = (kioskData ?? []) as Kiosk[];
   const ads = (adData ?? []) as KioskAd[];
   const kioskName = (id: string | null) => kiosks.find((k) => k.id === id)?.name ?? null;
+  const isVideo = (url: string) => /\.(mp4|webm|mov)$/i.test(url);
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900">광고 관리</h1>
         <p className="text-sm text-zinc-500">
-          {store.name} · 키오스크 대기화면에 순서대로 돌아가며 노출되는 광고 이미지입니다.
+          {store.name} · 키오스크 대기화면에 순서대로 돌아가며 노출되는 광고 이미지·영상입니다.
         </p>
       </div>
 
@@ -36,8 +37,17 @@ export default async function KioskAdsPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {ads.map((ad) => (
           <div key={ad.id} className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white p-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={ad.image_url} alt="광고 이미지" className="aspect-video w-full rounded object-cover" />
+            {isVideo(ad.image_url) ? (
+              <video
+                src={ad.image_url}
+                className="aspect-video w-full rounded object-cover"
+                muted
+                controls
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={ad.image_url} alt="광고 이미지" className="aspect-video w-full rounded object-cover" />
+            )}
             <p className="text-xs text-zinc-500">
               {ad.kiosk_id ? `${kioskName(ad.kiosk_id) ?? "알 수 없는 키오스크"}만` : "전체 키오스크 공통"}
             </p>

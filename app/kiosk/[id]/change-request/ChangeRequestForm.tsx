@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { KIOSK_STRINGS, type KioskLang } from "@/lib/kiosk-i18n";
 
-export default function ChangeRequestForm({ kioskId }: { kioskId: string }) {
+export default function ChangeRequestForm({ kioskId, lang }: { kioskId: string; lang: KioskLang }) {
+  const t = KIOSK_STRINGS[lang];
   const [amount, setAmount] = useState("");
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
@@ -45,8 +47,8 @@ export default function ChangeRequestForm({ kioskId }: { kioskId: string }) {
   if (done) {
     return (
       <div className="mt-6 flex flex-col items-center gap-2 text-center">
-        <p className="text-lg font-semibold text-green-600">등록되었습니다</p>
-        <p className="text-sm text-zinc-500">입력하신 계좌로 확인 후 입금해 드립니다.</p>
+        <p className="text-lg font-semibold text-green-600">{t.doneTitle}</p>
+        <p className="text-sm text-zinc-500">{t.doneBody}</p>
       </div>
     );
   }
@@ -54,29 +56,28 @@ export default function ChangeRequestForm({ kioskId }: { kioskId: string }) {
   return (
     <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <label className="text-sm text-zinc-600">받지 못한 금액</label>
+        <label className="text-sm text-zinc-600">{t.amountLabel}</label>
         <input
           type="number"
           min={1}
           required
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="예: 1500"
+          placeholder={t.amountPlaceholder}
           className="rounded border border-zinc-300 px-3 py-2 text-base"
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-sm text-zinc-600">은행명</label>
+        <label className="text-sm text-zinc-600">{t.bankNameLabel}</label>
         <input
           required
           value={bankName}
           onChange={(e) => setBankName(e.target.value)}
-          placeholder="예: 국민은행"
           className="rounded border border-zinc-300 px-3 py-2 text-base"
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-sm text-zinc-600">계좌번호</label>
+        <label className="text-sm text-zinc-600">{t.accountNumberLabel}</label>
         <input
           required
           value={accountNumber}
@@ -85,7 +86,7 @@ export default function ChangeRequestForm({ kioskId }: { kioskId: string }) {
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-sm text-zinc-600">예금주</label>
+        <label className="text-sm text-zinc-600">{t.accountHolderLabel}</label>
         <input
           required
           value={accountHolder}
@@ -94,7 +95,7 @@ export default function ChangeRequestForm({ kioskId }: { kioskId: string }) {
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-sm text-zinc-600">연락처 (선택)</label>
+        <label className="text-sm text-zinc-600">{t.phoneLabel}</label>
         <input
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
@@ -108,7 +109,7 @@ export default function ChangeRequestForm({ kioskId }: { kioskId: string }) {
         disabled={pending}
         className="mt-2 rounded bg-[#C8075F] px-4 py-3 text-base font-medium text-white hover:bg-[#a80650] disabled:opacity-50"
       >
-        {pending ? "등록 중..." : "등록하기"}
+        {pending ? t.submitting : t.submit}
       </button>
     </form>
   );

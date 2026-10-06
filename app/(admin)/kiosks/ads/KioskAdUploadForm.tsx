@@ -23,11 +23,13 @@ export default function KioskAdUploadForm({ kiosks }: { kiosks: Kiosk[] }) {
         </select>
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-zinc-500">이미지 (키오스크 화면 크기에 맞춰 준비)</label>
+        <label className="text-xs text-zinc-500">
+          이미지 또는 영상 (키오스크 화면 크기에 맞춰 준비, 영상은 25MB 이하로 짧게)
+        </label>
         <input
           name="image"
           type="file"
-          accept="image/*"
+          accept="image/*,video/mp4,video/webm,video/quicktime"
           required
           className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
         />
