@@ -165,6 +165,13 @@ export default function KioskScreen({
         </div>
       )}
 
+      <a
+        href={`/kiosk/${kiosk.id}/change-request`}
+        className="absolute left-4 top-4 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-zinc-900 shadow"
+      >
+        거스름돈 부족 · 계좌로 받기
+      </a>
+
       {boardProducts.length > 0 && (
         <>
           <button

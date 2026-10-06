@@ -55,10 +55,14 @@ export type Kiosk = {
   // 실제 키오스크 화면 프로그램이 붙기 전까지 미리 설정해두는 화면 문구.
   notice_message: string | null;
   banner_message: string | null;
-  // 원격 명령(지금은 "refresh"만) + 보낸 시각. 키오스크 화면(/kiosk/[id])이 주기적으로
-  // 폴링하다가 이 시각이 바뀐 걸 감지하면 명령을 실행한다.
+  // 원격 명령("refresh"/"restart_program"/"restart_device"/"shutdown_device") + 보낸
+  // 시각. "refresh"는 키오스크 화면(/kiosk/[id])이 직접 폴링해서 처리하고, 나머지는
+  // 브라우저가 할 수 없는 OS 영역이라 PC에 설치된 kiosk-agent(PowerShell)가 폴링해서
+  // 실제로 실행한다 — 에이전트가 없으면 효과 없음.
   remote_command: string | null;
   remote_command_at: string | null;
+  // "HH:MM:SS" 형식(time 컬럼) — kiosk-agent가 매일 이 시각에 기기를 재부팅한다.
+  daily_reboot_time: string | null;
   updated_at: string;
   created_at: string;
 };
@@ -378,6 +382,28 @@ export type SaleItem = {
 export type CartItem = {
   product: Product;
   quantity: number;
+};
+
+export type UrgentAlertType = "theft" | "fridge_power" | "other";
+
+export const URGENT_ALERT_TYPE_LABELS: Record<UrgentAlertType, string> = {
+  theft: "도난·보안",
+  fridge_power: "냉장고 전원",
+  other: "기타 긴급",
+};
+
+// 실제 센서/보안 장비 연동 전까지는 관리자가 "테스트 알림 보내기"로만 만들어진다
+// (/api/alerts/urgent 웹훅이 연동 지점으로 마련돼 있지만 실제 호출하는 장비는 아직 없음).
+export type UrgentAlert = {
+  id: string;
+  store_id: string;
+  type: UrgentAlertType;
+  message: string;
+  source: string | null;
+  resolved: boolean;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  created_at: string;
 };
 
 export type ChangeTransferStatus = "pending" | "paid" | "cancelled";

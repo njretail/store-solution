@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "@/lib/actions";
 import StoreSwitcher from "@/app/components/StoreSwitcher";
 import Logo from "@/app/components/Logo";
+import UrgentAlertBanner from "@/app/components/UrgentAlertBanner";
 import type { Store, UserRole } from "@/lib/types";
 
 type NavLink = { href: string; label: string };
@@ -150,7 +151,9 @@ export default function AdminShell({
   const homeHref = role === "admin" ? "/dashboard" : "/sell";
 
   return (
-    <div className="lg:flex lg:min-h-screen">
+    <div className="flex min-h-screen flex-col">
+      <UrgentAlertBanner storeId={currentStoreId} />
+      <div className="lg:flex lg:flex-1">
       {/* 모바일 상단바 */}
       <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 lg:hidden">
         <button
@@ -250,6 +253,7 @@ export default function AdminShell({
       </aside>
 
       <main className="min-w-0 flex-1 px-4 py-6 lg:px-10 lg:py-8">{children}</main>
+      </div>
     </div>
   );
 }

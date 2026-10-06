@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+import { createTestUrgentAlert } from "../alerts/actions";
 
 // 어제 00:00~오늘 00:00(로컬 기준) 범위 — 대시보드의 dayRangeIso와 같은 방식.
 function yesterdayRangeIso() {
@@ -92,10 +93,28 @@ export default async function DailyReportPage() {
         <p className="text-sm text-zinc-500">{store.name} · 긴급하지 않은 사항을 하루 단위로 모아보는 화면입니다.</p>
       </div>
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        도난·보안 이슈나 냉장고 전원 차단처럼 즉시 대응이 필요한 사항은 센서·보안 연동이 추가되면
-        별도 실시간 알림으로 안내할 예정입니다(현재 미구현). 지금은 그 외 일상적인 운영 사항을
-        하루 한 번 이 화면에서 모아볼 수 있습니다.
+      <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <p>
+          도난·보안 이슈나 냉장고 전원 차단처럼 즉시 대응이 필요한 사항은 어디에 있든 화면
+          위쪽에 빨간 배너로 즉시 뜹니다(15초 안에 반영). 그 외 일상적인 운영 사항은 여기
+          일일 요약에서 하루 한 번 모아볼 수 있고요. 다만 실제 도난감지·전원센서 장비가
+          아직 없어서, 지금은 아래 “테스트 알림 보내기”로만 울려볼 수 있어요 — 실제 장비가
+          연동되면 <span className="font-mono text-xs">/api/alerts/urgent</span>로 그대로
+          들어옵니다.
+        </p>
+        <form action={createTestUrgentAlert} className="flex flex-wrap items-center gap-2">
+          <select name="type" className="rounded border border-amber-300 bg-white px-2 py-1.5 text-sm">
+            <option value="theft">도난·보안</option>
+            <option value="fridge_power">냉장고 전원</option>
+            <option value="other">기타 긴급</option>
+          </select>
+          <button
+            type="submit"
+            className="rounded bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+          >
+            테스트 알림 보내기
+          </button>
+        </form>
       </div>
 
       <div>

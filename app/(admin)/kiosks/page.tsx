@@ -6,7 +6,8 @@ import {
   updateKioskStatus,
   updateKioskDisplay,
   deleteKiosk,
-  sendKioskRefresh,
+  sendKioskCommand,
+  updateDailyRebootTime,
 } from "./actions";
 import { KIOSK_STATUS_LABELS } from "@/lib/types";
 import type { Kiosk } from "@/lib/types";
@@ -109,10 +110,11 @@ export default async function KiosksPage() {
                         >
                           화면 미리보기
                         </Link>
-                        <form action={sendKioskRefresh}>
+                        <form action={sendKioskCommand}>
                           <input type="hidden" name="id" value={k.id} />
+                          <input type="hidden" name="command" value="refresh" />
                           <button type="submit" className="text-sm text-zinc-600 hover:text-zinc-900">
-                            새로고침 명령
+                            새로고침
                           </button>
                         </form>
                         <form action={deleteKiosk}>
@@ -160,6 +162,73 @@ export default async function KiosksPage() {
                     </td>
                   </tr>
                 )}
+                {isAdmin && (
+                  <tr className="border-t border-zinc-100 bg-zinc-50/50">
+                    <td colSpan={4} className="px-4 py-3">
+                      <details>
+                        <summary className="cursor-pointer text-xs font-medium text-zinc-500">
+                          기기 전원 관리 (PC에 kiosk-agent가 설치돼 있어야 실제로 동작해요)
+                        </summary>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <form action={sendKioskCommand}>
+                            <input type="hidden" name="id" value={k.id} />
+                            <input type="hidden" name="command" value="restart_program" />
+                            <button
+                              type="submit"
+                              className="rounded border border-zinc-300 px-3 py-1.5 text-sm hover:bg-white"
+                            >
+                              프로그램 재시작
+                            </button>
+                          </form>
+                          <form action={sendKioskCommand}>
+                            <input type="hidden" name="id" value={k.id} />
+                            <input type="hidden" name="command" value="restart_device" />
+                            <button
+                              type="submit"
+                              className="rounded border border-amber-300 px-3 py-1.5 text-sm text-amber-700 hover:bg-amber-50"
+                            >
+                              기기 재시작
+                            </button>
+                          </form>
+                          <form
+                            action={sendKioskCommand}
+                            onSubmit={(e) => {
+                              if (!confirm(`"${k.name}" 기기를 종료할까요? 매장에 직접 가야 다시 켤 수 있어요.`)) {
+                                e.preventDefault();
+                              }
+                            }}
+                          >
+                            <input type="hidden" name="id" value={k.id} />
+                            <input type="hidden" name="command" value="shutdown_device" />
+                            <button
+                              type="submit"
+                              className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+                            >
+                              기기 종료
+                            </button>
+                          </form>
+                        </div>
+                        <form action={updateDailyRebootTime} className="mt-3 flex flex-wrap items-center gap-2">
+                          <input type="hidden" name="id" value={k.id} />
+                          <label className="text-xs text-zinc-500">매일 자동 재부팅 시각</label>
+                          <input
+                            type="time"
+                            name="daily_reboot_time"
+                            defaultValue={k.daily_reboot_time ?? ""}
+                            className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
+                          />
+                          <button
+                            type="submit"
+                            className="rounded border border-zinc-300 px-3 py-1.5 text-sm hover:bg-white"
+                          >
+                            저장
+                          </button>
+                          <span className="text-xs text-zinc-400">비워두면 자동 재부팅 안 함</span>
+                        </form>
+                      </details>
+                    </td>
+                  </tr>
+                )}
               </Fragment>
             ))}
             {kiosks.length === 0 && (
@@ -179,8 +248,10 @@ export default async function KiosksPage() {
       <p className="text-sm text-zinc-400">
         “화면 미리보기”가 실제 구매자 화면(/kiosk/[id])이에요 — 이 주소를 키오스크
         하드웨어의 브라우저가 전체화면으로 띄우면 그대로 매장에 쓸 수 있습니다.
-        지금은 상태를 직접 등록/변경하는 방식이고, 실제 장비가 자동으로 상태를
-        보고하게 하려면 사용하시는 키오스크 시스템 정보를 알려주세요.
+        “새로고침”은 그 화면 자체가 처리하지만, “기기 전원 관리”의 나머지 명령(프로그램
+        재시작/기기 재시작/종료/매일 자동 재부팅)은 브라우저가 할 수 없는 영역이라
+        키오스크 PC(Windows)에 <span className="font-mono text-xs">kiosk-agent</span>
+        (저장소의 kiosk-agent 폴더, PowerShell 스크립트)를 설치해둬야 실제로 동작합니다.
       </p>
     </div>
   );

@@ -45,16 +45,18 @@ export default async function CashPage() {
 
   // 권종별로 입력된 입출금 기록만 반영된다 — 판매(POS)로 나간 거스름돈은 권종 단위로
   // 기록되지 않으므로 이 숫자는 추정치다(입출금을 꼬박꼬박 권종별로 입력했다는 전제).
-  const changeBalance = (allTxDenomData ?? []).reduce((sum, t) => {
+  // 금액이 아니라 "매수(개수)"로 본다 — 예를 들어 10원짜리 동전 50개는 500원이라
+  // 금액으로는 작아 보여도, 실제로 거슬러 줄 수 있는 개수가 부족한 게 핵심이기 때문.
+  const changeCount = (allTxDenomData ?? []).reduce((sum, t) => {
     if (!t.denominations) return sum;
-    const small = SMALL_DENOMINATIONS.reduce(
-      (s, d) => s + d * (Number(t.denominations?.[String(d)]) || 0),
+    const count = SMALL_DENOMINATIONS.reduce(
+      (s, d) => s + (Number(t.denominations?.[String(d)]) || 0),
       0
     );
-    return sum + (t.type === "deposit" ? small : -small);
+    return sum + (t.type === "deposit" ? count : -count);
   }, 0);
   const isChangeLow =
-    store.change_alert_threshold != null && changeBalance < store.change_alert_threshold;
+    store.change_alert_threshold != null && changeCount <= store.change_alert_threshold;
 
   return (
     <div className="flex flex-col gap-6">
@@ -71,8 +73,8 @@ export default async function CashPage() {
       )}
       {isChangeLow && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          ⚠️ 거스름돈용 소액권(1,000원 이하) 추정 잔액이 알림 기준(
-          {store.change_alert_threshold!.toLocaleString()}원) 아래로 떨어졌습니다 — 잔돈을
+          ⚠️ 거스름돈용 소액권(1,000원 이하) 추정 개수가 알림 기준(
+          {store.change_alert_threshold!.toLocaleString()}매) 이하로 떨어졌습니다 — 잔돈을
           채워두거나, 거스름돈이 모자라면{" "}
           <a href="/change-transfers" className="font-medium underline">
             계좌이체요청내역
@@ -93,13 +95,14 @@ export default async function CashPage() {
           </p>
         </div>
         <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
-          <p className="text-sm text-zinc-500">거스름돈용 소액권 추정 잔액</p>
+          <p className="text-sm text-zinc-500">거스름돈용 소액권 추정 개수</p>
           <p className="text-3xl font-semibold text-zinc-900">
-            {changeBalance.toLocaleString()}원
+            {changeCount.toLocaleString()}매
           </p>
           <p className="mt-1 text-xs text-zinc-400">
-            1,000원권 이하만 집계(동전·1천원권) · 입출금을 권종별로 입력한 기록 기준
-            추정치입니다(판매 중 나간 거스름돈은 권종 단위로 기록되지 않음).
+            1,000원권 이하만 집계(동전·1천원권), 금액이 아니라 매수 기준 · 입출금을
+            권종별로 입력한 기록 기준 추정치입니다(판매 중 나간 거스름돈은 권종 단위로
+            기록되지 않음).
           </p>
         </div>
       </div>
@@ -139,14 +142,15 @@ export default async function CashPage() {
             action={updateChangeThreshold}
             className="mt-3 flex items-center gap-2"
           >
-            <label className="text-xs text-zinc-500">잔돈(소액권) 잔액</label>
+            <label className="text-xs text-zinc-500">잔돈(소액권) 개수</label>
             <input
               name="change_alert_threshold"
               type="number"
-              placeholder="예: 30000"
+              placeholder="예: 50"
               defaultValue={store.change_alert_threshold ?? ""}
               className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
             />
+            <span className="text-xs text-zinc-400">매 이하일 때</span>
             <button
               type="submit"
               className="rounded bg-[#C8075F] px-3 py-1.5 text-sm text-white hover:bg-[#a80650]"
@@ -155,8 +159,9 @@ export default async function CashPage() {
             </button>
           </form>
           <p className="mt-2 text-xs text-zinc-400">
-            1,000원 이하 권종 추정 잔액이 이 금액 아래로 떨어지면 알림이 표시됩니다.
-            입출금 등록 시 “권종별로 입력”을 켜서 기록해야 정확해집니다.
+            1,000원 이하 권종(동전·1천원권) 추정 개수가 이 매수 이하로 떨어지면
+            알림이 표시됩니다(금액이 아니라 개수 기준). 입출금 등록 시 “권종별로
+            입력”을 켜서 기록해야 정확해집니다.
           </p>
         </details>
       )}

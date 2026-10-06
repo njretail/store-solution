@@ -45,17 +45,35 @@ export async function updateKioskDisplay(formData: FormData) {
   revalidatePath("/kiosks");
 }
 
-// 키오스크 화면(/kiosk/[id])이 20초 간격으로 remote_command_at을 폴링하다가
-// 바뀐 걸 감지하면 새로고침한다 — 명령 내용 자체(remote_command)는 지금은 "refresh"
-// 하나뿐이라 큰 의미는 없고, 시각만 "새 명령이 도착했다"는 신호로 쓴다.
-export async function sendKioskRefresh(formData: FormData) {
+const KIOSK_COMMANDS = ["refresh", "restart_program", "restart_device", "shutdown_device"] as const;
+
+// "새로고침"은 키오스크 화면(/kiosk/[id]) 자체가 20초마다 폴링해서 처리하지만,
+// 나머지 셋(프로그램/기기 재시작, 기기 종료)은 브라우저가 할 수 없는 OS 영역이라
+// 그 PC에 설치된 kiosk-agent(PowerShell, kiosk-agent/ 폴더 참고)가 같은 값을
+// 폴링해서 실제로 실행한다 — 에이전트가 없으면 이 버튼들은 아무 효과가 없다.
+export async function sendKioskCommand(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const command = String(formData.get("command") ?? "");
+  if (!id || !KIOSK_COMMANDS.includes(command as (typeof KIOSK_COMMANDS)[number])) return;
+
+  await supabase
+    .from("kiosks")
+    .update({ remote_command: command, remote_command_at: new Date().toISOString() })
+    .eq("id", id);
+
+  revalidatePath("/kiosks");
+}
+
+export async function updateDailyRebootTime(formData: FormData) {
   const { supabase } = await requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
+  const raw = String(formData.get("daily_reboot_time") ?? "").trim();
   await supabase
     .from("kiosks")
-    .update({ remote_command: "refresh", remote_command_at: new Date().toISOString() })
+    .update({ daily_reboot_time: raw || null })
     .eq("id", id);
 
   revalidatePath("/kiosks");

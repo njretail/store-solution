@@ -46,6 +46,10 @@ export default async function ChangeTransfersPage({
         <p className="text-sm text-zinc-500">{store.name}</p>
       </div>
 
+      <p className="text-sm text-zinc-500">
+        무인매장이라 대부분은 고객이 키오스크 화면(거스름돈 부족 · 계좌로 받기)에서
+        직접 등록합니다. 아래 등록 폼은 전화 접수 등 예외 상황에 쓰는 보조 수단입니다.
+      </p>
       <ChangeTransferForm />
 
       <div className="flex shrink-0 self-start rounded-md border border-zinc-300 text-sm">
