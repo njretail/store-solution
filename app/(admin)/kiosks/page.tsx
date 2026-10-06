@@ -1,6 +1,13 @@
 import { Fragment } from "react";
+import Link from "next/link";
 import { requireProfile, getCurrentStore } from "@/lib/session";
-import { createKiosk, updateKioskStatus, updateKioskDisplay, deleteKiosk } from "./actions";
+import {
+  createKiosk,
+  updateKioskStatus,
+  updateKioskDisplay,
+  deleteKiosk,
+  sendKioskRefresh,
+} from "./actions";
 import { KIOSK_STATUS_LABELS } from "@/lib/types";
 import type { Kiosk } from "@/lib/types";
 
@@ -76,7 +83,7 @@ export default async function KiosksPage() {
                   </td>
                   {isAdmin && (
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
                         <form action={updateKioskStatus} className="flex items-center gap-2">
                           <input type="hidden" name="id" value={k.id} />
                           <select
@@ -93,6 +100,19 @@ export default async function KiosksPage() {
                             className="text-sm text-zinc-600 hover:text-zinc-900"
                           >
                             변경
+                          </button>
+                        </form>
+                        <Link
+                          href={`/kiosk/${k.id}`}
+                          target="_blank"
+                          className="text-sm text-[#C8075F] underline"
+                        >
+                          화면 미리보기
+                        </Link>
+                        <form action={sendKioskRefresh}>
+                          <input type="hidden" name="id" value={k.id} />
+                          <button type="submit" className="text-sm text-zinc-600 hover:text-zinc-900">
+                            새로고침 명령
                           </button>
                         </form>
                         <form action={deleteKiosk}>
@@ -157,9 +177,10 @@ export default async function KiosksPage() {
       </div>
 
       <p className="text-sm text-zinc-400">
-        지금은 상태를 직접 등록/변경하는 방식이에요. 실제 키오스크 장비가
-        자동으로 상태를 보고하게 하려면 사용하시는 키오스크 시스템 정보를
-        알려주세요.
+        “화면 미리보기”가 실제 구매자 화면(/kiosk/[id])이에요 — 이 주소를 키오스크
+        하드웨어의 브라우저가 전체화면으로 띄우면 그대로 매장에 쓸 수 있습니다.
+        지금은 상태를 직접 등록/변경하는 방식이고, 실제 장비가 자동으로 상태를
+        보고하게 하려면 사용하시는 키오스크 시스템 정보를 알려주세요.
       </p>
     </div>
   );

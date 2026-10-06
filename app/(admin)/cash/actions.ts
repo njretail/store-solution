@@ -72,3 +72,20 @@ export async function updateCashThreshold(formData: FormData) {
   revalidatePath("/cash");
   revalidatePath("/dashboard");
 }
+
+export async function updateChangeThreshold(formData: FormData) {
+  const { supabase, profile } = await requireAdmin();
+  const store = await getCurrentStore(supabase, profile);
+  if (!store) return;
+
+  const raw = String(formData.get("change_alert_threshold") ?? "").trim();
+  const threshold = raw ? Number(raw) : null;
+
+  await supabase
+    .from("stores")
+    .update({ change_alert_threshold: threshold })
+    .eq("id", store.id);
+
+  revalidatePath("/cash");
+  revalidatePath("/dashboard");
+}

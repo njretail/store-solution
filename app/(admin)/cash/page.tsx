@@ -1,14 +1,18 @@
 import { requireProfile, getCurrentStore } from "@/lib/session";
-import { updateCashThreshold } from "./actions";
+import { updateCashThreshold, updateChangeThreshold } from "./actions";
 import CashForm from "./CashForm";
 import type { CashTransaction } from "@/lib/types";
+
+// 거스름돈으로 쓰는 소액권(1,000원 이하) — 전체 현금 잔액과 별개로 이 권종들만
+// 얼마나 남았는지 따로 추적해서, 잔돈이 떨어져 거스름돈을 못 주는 상황을 미리 안다.
+const SMALL_DENOMINATIONS = [1000, 500, 100, 50, 10];
 
 export default async function CashPage() {
   const { supabase, profile } = await requireProfile();
   const store = await getCurrentStore(supabase, profile);
   if (!store) return null;
 
-  const [{ data: cashSalesData }, { data: txData }] = await Promise.all([
+  const [{ data: cashSalesData }, { data: txData }, { data: allTxDenomData }] = await Promise.all([
     supabase
       .from("sales")
       .select("total_amount")
@@ -20,6 +24,8 @@ export default async function CashPage() {
       .eq("store_id", store.id)
       .order("created_at", { ascending: false })
       .limit(30),
+    // 잔돈 추정치는 최근 30건이 아니라 전체 입출금 기록을 다 더해야 정확해서 따로 조회한다.
+    supabase.from("cash_transactions").select("type, denominations").eq("store_id", store.id),
   ]);
 
   const cashSalesTotal = (cashSalesData ?? []).reduce(
@@ -37,6 +43,19 @@ export default async function CashPage() {
   const isLow =
     store.cash_alert_threshold != null && balance < store.cash_alert_threshold;
 
+  // 권종별로 입력된 입출금 기록만 반영된다 — 판매(POS)로 나간 거스름돈은 권종 단위로
+  // 기록되지 않으므로 이 숫자는 추정치다(입출금을 꼬박꼬박 권종별로 입력했다는 전제).
+  const changeBalance = (allTxDenomData ?? []).reduce((sum, t) => {
+    if (!t.denominations) return sum;
+    const small = SMALL_DENOMINATIONS.reduce(
+      (s, d) => s + d * (Number(t.denominations?.[String(d)]) || 0),
+      0
+    );
+    return sum + (t.type === "deposit" ? small : -small);
+  }, 0);
+  const isChangeLow =
+    store.change_alert_threshold != null && changeBalance < store.change_alert_threshold;
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -50,16 +69,39 @@ export default async function CashPage() {
           {store.cash_alert_threshold!.toLocaleString()}원) 아래로 떨어졌습니다.
         </div>
       )}
+      {isChangeLow && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          ⚠️ 거스름돈용 소액권(1,000원 이하) 추정 잔액이 알림 기준(
+          {store.change_alert_threshold!.toLocaleString()}원) 아래로 떨어졌습니다 — 잔돈을
+          채워두거나, 거스름돈이 모자라면{" "}
+          <a href="/change-transfers" className="font-medium underline">
+            계좌이체요청내역
+          </a>
+          으로 처리하세요.
+        </div>
+      )}
 
-      <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
-        <p className="text-sm text-zinc-500">현재 현금 잔액</p>
-        <p className="text-3xl font-semibold text-[#C8075F]">
-          {balance.toLocaleString()}원
-        </p>
-        <p className="mt-1 text-xs text-zinc-400">
-          현금 매출 누적({cashSalesTotal.toLocaleString()}원) + 투입(
-          {deposits.toLocaleString()}원) - 출금({withdrawals.toLocaleString()}원)
-        </p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
+          <p className="text-sm text-zinc-500">현재 현금 잔액</p>
+          <p className="text-3xl font-semibold text-[#C8075F]">
+            {balance.toLocaleString()}원
+          </p>
+          <p className="mt-1 text-xs text-zinc-400">
+            현금 매출 누적({cashSalesTotal.toLocaleString()}원) + 투입(
+            {deposits.toLocaleString()}원) - 출금({withdrawals.toLocaleString()}원)
+          </p>
+        </div>
+        <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
+          <p className="text-sm text-zinc-500">거스름돈용 소액권 추정 잔액</p>
+          <p className="text-3xl font-semibold text-zinc-900">
+            {changeBalance.toLocaleString()}원
+          </p>
+          <p className="mt-1 text-xs text-zinc-400">
+            1,000원권 이하만 집계(동전·1천원권) · 입출금을 권종별로 입력한 기록 기준
+            추정치입니다(판매 중 나간 거스름돈은 권종 단위로 기록되지 않음).
+          </p>
+        </div>
       </div>
 
       <CashForm />
@@ -73,6 +115,7 @@ export default async function CashPage() {
             action={updateCashThreshold}
             className="mt-3 flex items-center gap-2"
           >
+            <label className="text-xs text-zinc-500">전체 잔액</label>
             <input
               name="cash_alert_threshold"
               type="number"
@@ -90,6 +133,30 @@ export default async function CashPage() {
           <p className="mt-2 text-xs text-zinc-400">
             잔액이 이 금액 아래로 떨어지면 이 페이지와 홈 화면에 알림 배너가
             표시됩니다.
+          </p>
+
+          <form
+            action={updateChangeThreshold}
+            className="mt-3 flex items-center gap-2"
+          >
+            <label className="text-xs text-zinc-500">잔돈(소액권) 잔액</label>
+            <input
+              name="change_alert_threshold"
+              type="number"
+              placeholder="예: 30000"
+              defaultValue={store.change_alert_threshold ?? ""}
+              className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded bg-[#C8075F] px-3 py-1.5 text-sm text-white hover:bg-[#a80650]"
+            >
+              저장
+            </button>
+          </form>
+          <p className="mt-2 text-xs text-zinc-400">
+            1,000원 이하 권종 추정 잔액이 이 금액 아래로 떨어지면 알림이 표시됩니다.
+            입출금 등록 시 “권종별로 입력”을 켜서 기록해야 정확해집니다.
           </p>
         </details>
       )}

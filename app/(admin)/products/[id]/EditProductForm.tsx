@@ -175,6 +175,19 @@ export default function EditProductForm({
           />
         </Field>
 
+        <Field label="키오스크 바코드판 노출">
+          <label className="flex items-center gap-2 text-sm text-zinc-700">
+            <input
+              type="checkbox"
+              name="show_on_kiosk_board"
+              value="true"
+              defaultChecked={product.show_on_kiosk_board}
+              className="h-4 w-4 rounded border-zinc-300"
+            />
+            물리적 바코드가 없는 상품이에요 (키오스크 화면에 이 상품의 바코드를 띄워요)
+          </label>
+        </Field>
+
         <Field label="실재고">
           <input
             name="stock_qty"

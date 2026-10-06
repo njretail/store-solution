@@ -148,6 +148,7 @@ export async function updateProduct(
   const sell_price = Number(formData.get("sell_price") ?? 0) || 0;
   const low_stock_threshold =
     Number(formData.get("low_stock_threshold") ?? 0) || 0;
+  const show_on_kiosk_board = formData.get("show_on_kiosk_board") === "true";
   const stockInput = formData.get("stock_qty");
   if (!name) return { error: "상품명을 입력하세요.", success: null };
 
@@ -156,6 +157,7 @@ export async function updateProduct(
     category_id,
     is_tax_exempt,
     low_stock_threshold,
+    show_on_kiosk_board,
     updated_at: new Date().toISOString(),
   };
 

@@ -37,6 +37,7 @@ const ADMIN_LINKS: NavItem[] = [
       { href: "/sell", label: "실시간 장바구니" },
       { href: "/sales", label: "판매내역" },
       { href: "/deliveries", label: "배송주문건" },
+      { href: "/change-transfers", label: "계좌이체요청내역" },
     ],
   },
   {
@@ -49,7 +50,14 @@ const ADMIN_LINKS: NavItem[] = [
   { href: "/customers", label: "고객관리" },
   { href: "/coupons", label: "쿠폰관리" },
   { href: "/cash", label: "현금관리" },
-  { href: "/kiosks", label: "키오스크 관리" },
+  {
+    label: "키오스크 관리",
+    children: [
+      { href: "/kiosks", label: "키오스크 목록" },
+      { href: "/kiosks/ads", label: "광고 관리" },
+      { href: "/kiosks/announcements", label: "안내멘트 관리" },
+    ],
+  },
   { href: "/cameras", label: "카메라보기" },
   { href: "/staff", label: "직원관리" },
   { href: "/control-settings", label: "정책 설정" },

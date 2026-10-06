@@ -18,6 +18,8 @@ export type Store = {
   name: string;
   address: string | null;
   cash_alert_threshold: number | null;
+  // 거스름돈용 소액권(1,000원 이하)이 부족해지는 걸 따로 감지하는 기준.
+  change_alert_threshold: number | null;
   default_margin_percent: number;
   default_delivery_fee: number;
   free_shipping_threshold: number | null;
@@ -53,7 +55,36 @@ export type Kiosk = {
   // 실제 키오스크 화면 프로그램이 붙기 전까지 미리 설정해두는 화면 문구.
   notice_message: string | null;
   banner_message: string | null;
+  // 원격 명령(지금은 "refresh"만) + 보낸 시각. 키오스크 화면(/kiosk/[id])이 주기적으로
+  // 폴링하다가 이 시각이 바뀐 걸 감지하면 명령을 실행한다.
+  remote_command: string | null;
+  remote_command_at: string | null;
   updated_at: string;
+  created_at: string;
+};
+
+// kiosk_id가 null이면 그 매장의 모든 키오스크에 공통으로 노출된다.
+export type KioskAd = {
+  id: string;
+  store_id: string;
+  kiosk_id: string | null;
+  image_url: string;
+  sort_order: number;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+};
+
+// audio_url이 있으면 그 파일을 재생하고, 없으면 브라우저 TTS(speechSynthesis)로 message를 읽는다.
+export type KioskAnnouncement = {
+  id: string;
+  store_id: string;
+  kiosk_id: string | null;
+  message: string;
+  audio_url: string | null;
+  sort_order: number;
+  active: boolean;
+  created_by: string | null;
   created_at: string;
 };
 
@@ -102,6 +133,9 @@ export type Product = {
   auto_order_enabled: boolean;
   reorder_qty: number;
   coupang_product_url: string | null;
+  // 물리적 바코드가 없는 상품(생물·즉석조리 등)을 키오스크 화면의 "바코드판"에
+  // 띄워서, 손님이 그 화면의 바코드를 스캐너에 대고 결제할 수 있게 한다.
+  show_on_kiosk_board: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -344,4 +378,33 @@ export type SaleItem = {
 export type CartItem = {
   product: Product;
   quantity: number;
+};
+
+export type ChangeTransferStatus = "pending" | "paid" | "cancelled";
+
+export const CHANGE_TRANSFER_STATUS_LABELS: Record<ChangeTransferStatus, string> = {
+  pending: "지급대기",
+  paid: "지급완료",
+  cancelled: "지급취소",
+};
+
+// 거스름돈이 모자라 고객에게 현금으로 다 돌려주지 못했을 때, 고객 계좌로 나중에
+// 송금하기 위해 등록하는 요청. sale_id는 특정 판매 건에 연결하고 싶을 때만 쓰고
+// (지금은 연결 화면이 없어 항상 null), 직원이 이 화면에서 직접 등록하는 게 기본 경로.
+export type ChangeTransferRequest = {
+  id: string;
+  store_id: string;
+  sale_id: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  bank_name: string;
+  account_number: string;
+  account_holder: string;
+  amount: number;
+  status: ChangeTransferStatus;
+  memo: string | null;
+  requested_by: string | null;
+  paid_by: string | null;
+  paid_at: string | null;
+  created_at: string;
 };
