@@ -27,9 +27,13 @@ function Field({
 export default function EditProductForm({
   product,
   categories,
+  costLocked,
+  sellLocked,
 }: {
   product: Product;
   categories: Category[];
+  costLocked: boolean;
+  sellLocked: boolean;
 }) {
   const [state, formAction, pending] = useActionState(updateProduct, initialState);
   const [preview, setPreview] = useState<string | null>(product.image_url);
@@ -121,21 +125,45 @@ export default function EditProductForm({
         </Field>
 
         <Field label="입고가 (원가)">
-          <input
-            name="cost_price"
-            type="number"
-            defaultValue={product.cost_price}
-            className={inputClass}
-          />
+          {costLocked ? (
+            <>
+              <input type="hidden" name="cost_price" value={product.cost_price} />
+              <p className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-base text-zinc-500">
+                {product.cost_price.toLocaleString()}원
+              </p>
+              <p className="text-xs text-amber-600">
+                본사 정책(본사 고정)으로 설정돼 있어 여기서 바꿀 수 없어요 — 상품 일괄 등록에서 갱신해주세요.
+              </p>
+            </>
+          ) : (
+            <input
+              name="cost_price"
+              type="number"
+              defaultValue={product.cost_price}
+              className={inputClass}
+            />
+          )}
         </Field>
 
         <Field label="판매가">
-          <input
-            name="sell_price"
-            type="number"
-            defaultValue={product.sell_price}
-            className={inputClass}
-          />
+          {sellLocked ? (
+            <>
+              <input type="hidden" name="sell_price" value={product.sell_price} />
+              <p className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-base text-zinc-500">
+                {product.sell_price.toLocaleString()}원
+              </p>
+              <p className="text-xs text-amber-600">
+                본사 정책(본사 고정)으로 설정돼 있어 여기서 바꿀 수 없어요 — 상품 일괄 등록에서 갱신해주세요.
+              </p>
+            </>
+          ) : (
+            <input
+              name="sell_price"
+              type="number"
+              defaultValue={product.sell_price}
+              className={inputClass}
+            />
+          )}
         </Field>
 
         <Field label="재고부족 기준">

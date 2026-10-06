@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchControlSettings, resolveControlLevel } from "@/lib/control-settings";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -136,7 +137,7 @@ export async function updateProduct(
   _prevState: ProductFormState,
   formData: FormData
 ): Promise<ProductFormState> {
-  const { supabase } = await requireAdmin();
+  const { supabase, profile } = await requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "잘못된 요청입니다.", success: null };
 
@@ -154,11 +155,24 @@ export async function updateProduct(
     name,
     category_id,
     is_tax_exempt,
-    cost_price,
-    sell_price,
     low_stock_threshold,
     updated_at: new Date().toISOString(),
   };
+
+  // 정책 설정(2-1)에서 "① 본사 고정"으로 정해둔 항목은 화면에서 이미 입력칸을
+  // 막아두지만, 폼을 직접 조작해서 우회하는 경우까지 막으려면 서버에서도 다시
+  // 확인해야 한다 — 잠겨있으면 폼 값을 무시하고 기존 값을 그대로 둔다.
+  const store = await getCurrentStore(supabase, profile);
+  if (store) {
+    const controlSettings = await fetchControlSettings(supabase);
+    const costLocked = resolveControlLevel(controlSettings, "supply_price", store) === "hq_fixed";
+    const sellLocked = resolveControlLevel(controlSettings, "sell_price", store) === "hq_fixed";
+    if (!costLocked) updatePayload.cost_price = cost_price;
+    if (!sellLocked) updatePayload.sell_price = sell_price;
+  } else {
+    updatePayload.cost_price = cost_price;
+    updatePayload.sell_price = sell_price;
+  }
 
   const imageFile = formData.get("image");
   if (imageFile instanceof File && imageFile.size > 0) {
