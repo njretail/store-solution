@@ -338,9 +338,20 @@ export type Customer = {
   name: string | null;
   first_seen_at: string;
   created_at: string;
+  // 결제 중 식별을 위해 그냥 받은 번호와, 실제로 "마케팅 소식 받기"에 동의한 번호를
+  // 구분한다 — 전화번호를 받았다고 전부 마케팅에 써도 되는 게 아니기 때문.
+  marketing_opt_in: boolean;
+  marketing_consent_at: string | null;
 };
 
-export type CampaignType = "routine" | "clearance" | "deadtime" | "winback" | "welcome" | "manual";
+export type CampaignType =
+  | "routine"
+  | "clearance"
+  | "deadtime"
+  | "winback"
+  | "welcome"
+  | "manual"
+  | "marketing_optin";
 
 export const CAMPAIGN_TYPE_LABELS: Record<CampaignType, string> = {
   routine: "루틴 리마인드",
@@ -349,6 +360,7 @@ export const CAMPAIGN_TYPE_LABELS: Record<CampaignType, string> = {
   winback: "재방문 유도",
   welcome: "첫 방문 환영",
   manual: "수동 발급",
+  marketing_optin: "마케팅 수신동의",
 };
 
 export type CustomerCoupon = {

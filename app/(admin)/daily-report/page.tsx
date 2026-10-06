@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
-import { createTestUrgentAlert } from "../alerts/actions";
+import TestAlertForm from "../alerts/TestAlertForm";
 
 // 어제 00:00~오늘 00:00(로컬 기준) 범위 — 대시보드의 dayRangeIso와 같은 방식.
 function yesterdayRangeIso() {
@@ -102,19 +102,7 @@ export default async function DailyReportPage() {
           연동되면 <span className="font-mono text-xs">/api/alerts/urgent</span>로 그대로
           들어옵니다.
         </p>
-        <form action={createTestUrgentAlert} className="flex flex-wrap items-center gap-2">
-          <select name="type" className="rounded border border-amber-300 bg-white px-2 py-1.5 text-sm">
-            <option value="theft">도난·보안</option>
-            <option value="fridge_power">냉장고 전원</option>
-            <option value="other">기타 긴급</option>
-          </select>
-          <button
-            type="submit"
-            className="rounded bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
-          >
-            테스트 알림 보내기
-          </button>
-        </form>
+        <TestAlertForm />
       </div>
 
       <div>

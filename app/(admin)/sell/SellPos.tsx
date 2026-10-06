@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
+import MarketingOptIn from "./MarketingOptIn";
 import { checkout, type SellState } from "./actions";
 import { PAYMENT_METHODS, type CartItem, type Product } from "@/lib/types";
 
@@ -17,6 +18,8 @@ export default function SellPos({ storeId }: { storeId: string }) {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [customerPhone, setCustomerPhone] = useState("");
   const [state, formAction, pending] = useActionState(checkout, initialState);
+  const [showOptIn, setShowOptIn] = useState(false);
+  const [optInPhone, setOptInPhone] = useState("");
 
   // 결제가 성공하면(액션 state가 바뀌면) 렌더 중에 장바구니를 비운다.
   // (useEffect에서 setState하면 불필요한 추가 렌더가 발생하므로 React가 권장하는 방식)
@@ -27,7 +30,9 @@ export default function SellPos({ storeId }: { storeId: string }) {
       setCart([]);
       setCouponCode("");
       setDiscountAmount(0);
+      setOptInPhone(customerPhone);
       setCustomerPhone("");
+      setShowOptIn(true);
     }
   }
 
@@ -265,6 +270,10 @@ export default function SellPos({ storeId }: { storeId: string }) {
             {pending ? "처리 중..." : "결제하기"}
           </button>
         </form>
+
+        {showOptIn && (
+          <MarketingOptIn defaultPhone={optInPhone} onClose={() => setShowOptIn(false)} />
+        )}
       </div>
     </div>
   );
