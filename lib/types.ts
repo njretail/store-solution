@@ -21,6 +21,7 @@ export type Store = {
   default_margin_percent: number;
   default_delivery_fee: number;
   free_shipping_threshold: number | null;
+  store_type: "direct" | "franchise";
   created_at: string;
 };
 

@@ -51,6 +51,7 @@ const ADMIN_LINKS: NavItem[] = [
   { href: "/kiosks", label: "키오스크 관리" },
   { href: "/cameras", label: "카메라보기" },
   { href: "/staff", label: "직원관리" },
+  { href: "/control-settings", label: "정책 설정" },
 ];
 
 const STAFF_LINKS: NavItem[] = [
