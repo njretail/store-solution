@@ -24,7 +24,7 @@ export default async function SaleDetailPage({
     supabase.from("sales").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("sale_items")
-      .select("id, quantity, unit_price, subtotal, products(name, barcode)")
+      .select("id, quantity, unit_price, subtotal, unit_cost, products(name, barcode)")
       .eq("sale_id", id),
   ]);
 
@@ -36,6 +36,7 @@ export default async function SaleDetailPage({
     quantity: number;
     unit_price: number;
     subtotal: number;
+    unit_cost: number;
     products: { name: string; barcode: string } | null;
   }>;
 
@@ -163,6 +164,8 @@ export default async function SaleDetailPage({
                 <th className="px-5 py-2">단가</th>
                 <th className="px-5 py-2">할인</th>
                 <th className="px-5 py-2">금액</th>
+                <th className="px-5 py-2">원가</th>
+                <th className="px-5 py-2">마진</th>
               </tr>
             </thead>
             <tbody>
@@ -177,6 +180,12 @@ export default async function SaleDetailPage({
                   {/* 할인은 상품별이 아니라 판매 전체 단위로만 기록돼서(discount_amount) 0으로 고정 표시 */}
                   <td className="px-5 py-2 text-zinc-500">0</td>
                   <td className="px-5 py-2">{it.subtotal.toLocaleString()}원</td>
+                  <td className="px-5 py-2 text-zinc-500">
+                    {(it.unit_cost * it.quantity).toLocaleString()}원
+                  </td>
+                  <td className="px-5 py-2 text-zinc-500">
+                    {(it.subtotal - it.unit_cost * it.quantity).toLocaleString()}원
+                  </td>
                 </tr>
               ))}
             </tbody>

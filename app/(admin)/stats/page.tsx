@@ -173,6 +173,7 @@ export default async function StatsPage({
   type SaleItemRow = {
     quantity: number;
     subtotal: number;
+    unit_cost: number;
     sales: { created_at: string } | null;
     products: { categories: { name: string } | null } | null;
   };
@@ -192,7 +193,7 @@ export default async function StatsPage({
     fetchAllPages<SaleItemRow>((from, to) =>
       supabase
         .from("sale_items")
-        .select("quantity, subtotal, sales!inner(created_at, status), products(categories(name))")
+        .select("quantity, subtotal, unit_cost, sales!inner(created_at, status), products(categories(name))")
         .eq("store_id", store.id)
         .eq("sales.status", "completed")
         .gte("sales.created_at", fromIso)
@@ -222,6 +223,16 @@ export default async function StatsPage({
   const totalRevenue = salesData.reduce((sum, s) => sum + s.total_amount, 0);
   const totalCount = salesData.length;
   const avgOrderValue = totalCount > 0 ? Math.round(totalRevenue / totalCount) : 0;
+
+  // 매출총이익 — 상품 판매가(subtotal) 기준으로 원가를 뺀 값. 쿠폰·신규고객 할인 등
+  // 판매 전체 단위 할인(sales.discount_amount)은 품목별로 나뉘어 있지 않아 반영하지
+  // 않는다(판매내역 상세 화면의 할인 0원 표시와 같은 단순화). unit_cost는 판매 당시
+  // 스냅샷이라 이후 공급가가 바뀌어도 과거 기간 집계는 그대로 유지된다.
+  const totalItemRevenue = itemsData.reduce((sum, it) => sum + it.subtotal, 0);
+  const totalCost = itemsData.reduce((sum, it) => sum + it.unit_cost * it.quantity, 0);
+  const grossProfit = totalItemRevenue - totalCost;
+  const grossMarginPct =
+    totalItemRevenue > 0 ? Math.round((grossProfit / totalItemRevenue) * 1000) / 10 : 0;
 
   const byMethod = new Map<string, number>();
   for (const s of salesData) {
@@ -286,7 +297,7 @@ export default async function StatsPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
           <p className="text-sm text-zinc-500">{RANGE_LABELS[range]} 매출</p>
           <p className="text-3xl font-semibold text-[#C8075F]">{totalRevenue.toLocaleString()}원</p>
@@ -298,6 +309,13 @@ export default async function StatsPage({
         <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
           <p className="text-sm text-zinc-500">건당 평균(객단가)</p>
           <p className="text-3xl font-semibold text-zinc-900">{avgOrderValue.toLocaleString()}원</p>
+        </div>
+        <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4">
+          <p className="text-sm text-zinc-500">매출총이익(마진율)</p>
+          <p className="text-3xl font-semibold text-zinc-900">
+            {grossProfit.toLocaleString()}원
+            <span className="ml-1 text-base font-normal text-zinc-500">({grossMarginPct}%)</span>
+          </p>
         </div>
       </div>
 

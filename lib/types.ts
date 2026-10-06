@@ -335,6 +335,10 @@ export type SaleItem = {
   quantity: number;
   unit_price: number;
   subtotal: number;
+  // 판매 당시 products.cost_price 스냅샷. 이후 공급가가 바뀌어도 이미 끝난
+  // 판매의 마진은 이 값으로 고정된다 — 0028_sale_item_cost.sql 이전 판매 건은
+  // 그 시점의 현재 원가로 근사치 채움(정확한 과거 원가 아님).
+  unit_cost: number;
 };
 
 export type CartItem = {
