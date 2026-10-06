@@ -3,11 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { createCoupangDeepLink, buildCoupangSearchUrl } from "@/lib/coupang-partners";
-import { setPurchaseOrderStatus } from "@/lib/purchase-order-status";
+import { setPurchaseOrderStatus, type TransitionOptions } from "@/lib/purchase-order-status";
 
 export type OrderActionState = { error: string | null; link: string | null };
 
-// 본부 발주: 외부 결제가 필요 없어 바로 발주완료 상태로 기록한다.
+// 본부 발주: 검토대기 상태로 접수한다 — 본사 역할(지금은 같은 관리자)이 재고소진상품/
+// 발주관리에서 승인해야 발주완료로 넘어간다.
 export async function createHqOrder(
   _prevState: OrderActionState,
   formData: FormData
@@ -28,7 +29,7 @@ export async function createHqOrder(
     quantity,
     channel: "hq",
     source: "manual",
-    status: "confirmed",
+    status: "requested",
     created_by: profile.id,
   });
   if (error) return { error: error.message, link: null };
@@ -55,7 +56,7 @@ export async function createBulkHqOrders(formData: FormData) {
       quantity: Number(formData.get(`bulk_qty_${id}`) ?? 0) || 0,
       channel: "hq" as const,
       source: "manual" as const,
-      status: "confirmed" as const,
+      status: "requested" as const,
       created_by: profile.id,
     }))
     .filter((r) => r.quantity > 0);
@@ -95,7 +96,7 @@ export async function createCoupangOrder(
     quantity,
     channel: "coupang",
     source: "manual",
-    status: "confirmed",
+    status: "requested",
     coupang_link: link,
     created_by: profile.id,
   });
@@ -106,18 +107,48 @@ export async function createCoupangOrder(
   return { error: null, link };
 }
 
-// 발주완료 -> 상품준비중 -> 배송중 -> 배송완료로 한 단계씩 넘긴다. 실제 전환 규칙과
-// (배송완료 시 본부 발주 재고 자동반영) 로직은 lib/purchase-order-status.ts에
-// 모아뒀다 — 나중에 붙을 본부 솔루션 웹훅(app/api/purchase-orders/status)도
-// 같은 함수를 거치므로 여기서 버튼으로 바꾸든 그쪽에서 바꾸든 동작이 갈라지지 않는다.
-async function advance(id: string, next: "preparing" | "shipping" | "delivered" | "cancelled") {
-  const { supabase } = await requireAdmin();
-  const result = await setPurchaseOrderStatus(supabase, id, next);
+// 검토대기 -> 발주완료 -> 상품준비중 -> 배송중 -> 배송완료로 한 단계씩 넘긴다. 실제
+// 전환 규칙과 (검토 승인 시 수량조정, 배송완료 시 입고검수 수량만 재고반영) 로직은
+// lib/purchase-order-status.ts에 모아뒀다 — 나중에 붙을 본부 솔루션 웹훅
+// (app/api/purchase-orders/status)도 같은 함수를 거치므로 여기서 버튼으로 바꾸든
+// 그쪽에서 바꾸든 동작이 갈라지지 않는다.
+async function advance(
+  id: string,
+  next: "confirmed" | "preparing" | "shipping" | "delivered" | "rejected" | "cancelled",
+  options?: TransitionOptions
+) {
+  const { supabase, profile } = await requireAdmin();
+  const result = await setPurchaseOrderStatus(supabase, id, next, {
+    ...options,
+    actorId: profile.id,
+  });
   if (result.ok && next === "delivered") {
     revalidatePath("/products");
   }
   revalidatePath("/purchase-orders");
   return result;
+}
+
+// 상품 검토 — 승인: 요청 수량을 그대로 쓰거나(quantity 비우면) 본사가 수량을 조정해서
+// 승인할 수 있다. 승인되면 발주완료로 넘어간다.
+export async function approveOrder(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const quantityRaw = String(formData.get("quantity") ?? "").trim();
+  const memo = String(formData.get("memo") ?? "").trim() || undefined;
+  await advance(id, "confirmed", {
+    approvedQuantity: quantityRaw ? Number(quantityRaw) || undefined : undefined,
+    memo,
+  });
+}
+
+// 상품 검토 — 반려: 검토대기 단계에서만 가능하고, 발주 자체가 취소된다(재고는 아직
+// 전혀 반영되지 않은 시점이라 원복할 것도 없음).
+export async function rejectOrder(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const memo = String(formData.get("memo") ?? "").trim() || undefined;
+  await advance(id, "rejected", { memo });
 }
 
 export async function startPreparing(formData: FormData) {
@@ -132,10 +163,18 @@ export async function startShipping(formData: FormData) {
   await advance(id, "shipping");
 }
 
+// 입고 검수 — 본부 채널은 예정(발주) 수량과 실제 수령 수량을 비교해서, 오차가 있으면
+// 실제 수령 수량만큼만 재고에 반영한다(모자라게 와도 온 만큼만, 더 와도 온 만큼만).
+// 쿠팡 채널은 수량 입력칸 자체가 없으므로 기존처럼 상태만 바뀐다.
 export async function markOrderDelivered(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await advance(id, "delivered");
+  const quantityRaw = String(formData.get("received_quantity") ?? "").trim();
+  const memo = String(formData.get("receiving_memo") ?? "").trim() || undefined;
+  await advance(id, "delivered", {
+    receivedQuantity: quantityRaw ? Number(quantityRaw) || undefined : undefined,
+    receivingMemo: memo,
+  });
 }
 
 // 발주완료 단계에서만 취소할 수 있다 — 준비가 시작된 뒤에는 취소 버튼 자체가

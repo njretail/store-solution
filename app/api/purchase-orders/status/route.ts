@@ -4,10 +4,12 @@ import { setPurchaseOrderStatus } from "@/lib/purchase-order-status";
 import type { PurchaseOrderStatus } from "@/lib/types";
 
 const VALID_STATUSES: PurchaseOrderStatus[] = [
+  "requested",
   "confirmed",
   "preparing",
   "shipping",
   "delivered",
+  "rejected",
   "cancelled",
 ];
 
@@ -21,7 +23,13 @@ const VALID_STATUSES: PurchaseOrderStatus[] = [
 // 없어 값이 비어있는 동안은 이 엔드포인트 자체를 막아둔다(빈 시크릿으로 우회
 // 호출되는 걸 막기 위함).
 //
-// 요청 형식: POST { "order_id": "<purchase_orders.id>", "status": "confirmed" | "preparing" | "shipping" | "delivered" | "cancelled" }
+// 요청 형식: POST {
+//   "order_id": "<purchase_orders.id>",
+//   "status": "requested" | "confirmed" | "preparing" | "shipping" | "delivered" | "rejected" | "cancelled",
+//   "approved_quantity": 10,   // 선택, status가 confirmed(검토 승인)일 때만 의미있음
+//   "received_quantity": 8,    // 선택, status가 delivered(입고 검수)일 때만 의미있음 — 안 보내면 발주 수량 전량 반영
+//   "memo": "..."              // 선택, 검토/입고검수 메모
+// }
 export async function POST(request: NextRequest) {
   const secret = process.env.HQ_WEBHOOK_SECRET;
   const authHeader = request.headers.get("authorization");
@@ -44,7 +52,11 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const result = await setPurchaseOrderStatus(supabase, orderId, status as PurchaseOrderStatus);
+  const result = await setPurchaseOrderStatus(supabase, orderId, status as PurchaseOrderStatus, {
+    approvedQuantity: typeof body?.approved_quantity === "number" ? body.approved_quantity : undefined,
+    receivedQuantity: typeof body?.received_quantity === "number" ? body.received_quantity : undefined,
+    memo: typeof body?.memo === "string" ? body.memo : undefined,
+  });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

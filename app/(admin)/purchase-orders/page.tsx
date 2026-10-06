@@ -1,5 +1,12 @@
+import {
+  startPreparing,
+  startShipping,
+  markOrderDelivered,
+  cancelOrder,
+  approveOrder,
+  rejectOrder,
+} from "./actions";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
-import { startPreparing, startShipping, markOrderDelivered, cancelOrder } from "./actions";
 import {
   PURCHASE_ORDER_CHANNEL_LABELS,
   PURCHASE_ORDER_STATUS_LABELS,
@@ -11,6 +18,7 @@ import {
 type OrderRow = {
   id: string;
   quantity: number;
+  received_quantity: number | null;
   channel: PurchaseOrderChannel;
   source: PurchaseOrderSource;
   status: PurchaseOrderStatus;
@@ -36,14 +44,21 @@ export default async function PurchaseOrdersPage() {
 
   const { data } = await supabase
     .from("purchase_orders")
-    .select("id, quantity, channel, source, status, coupang_link, created_at, products(name, barcode)")
+    .select(
+      "id, quantity, received_quantity, channel, source, status, coupang_link, created_at, products(name, barcode)"
+    )
     .eq("store_id", store.id)
     .order("created_at", { ascending: false })
     .limit(200);
 
   const orders = (data ?? []) as unknown as OrderRow[];
-  const open = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled");
-  const closed = orders.filter((o) => o.status === "delivered" || o.status === "cancelled");
+  const review = orders.filter((o) => o.status === "requested");
+  const open = orders.filter((o) =>
+    ["confirmed", "preparing", "shipping"].includes(o.status)
+  );
+  const closed = orders.filter((o) =>
+    ["delivered", "rejected", "cancelled"].includes(o.status)
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -54,16 +69,104 @@ export default async function PurchaseOrdersPage() {
 
       <p className="text-sm text-zinc-500">
         자동발주(재고가 기준 이하로 떨어진 상품 중 자동발주가 켜진 상품)와 수동발주 내역이에요.
-        발주완료 → 상품준비중 → 배송중 → 배송완료 순서로 진행되고, 발주완료 단계에서만
-        취소할 수 있어요. 본부 발주가 배송완료로 넘어가면 상품·수량을 정확히 알고 있어
-        재고에도 바로 더해지지만, 쿠팡 발주는 실제로 무엇이 왔는지 시스템이 알 수 없어(바코드
-        미연동) 상태만 바뀌고 재고는 자동으로 반영되지 않으니{" "}
+        검토대기 → 발주완료 → 상품준비중 → 배송중 → 배송완료 순서로 진행돼요. 검토대기
+        단계에서는 수량을 조정해서 승인하거나 반려할 수 있고, 발주완료 단계에서만 취소할 수
+        있어요. 본부 발주가 배송완료로 넘어갈 땐 실제로 몇 개가 왔는지 입력해서(입고 검수)
+        그 수량만 재고에 반영돼요 — 예정 수량을 그대로 믿지 않아요. 쿠팡 발주는 실제로 무엇이
+        왔는지 시스템이 알 수 없어(바코드 미연동) 상태만 바뀌고 재고는 자동으로 반영되지
+        않으니{" "}
         <a href="/stock-in" className="text-[#C8075F] underline">
           입고 등록
         </a>
         에서 직접 등록해주세요. (여러 매장을 취합 관리하는 본부 솔루션이 따로 개발되면, 그쪽에서
         상태를 바꿔도 여기 자동으로 반영되도록 연동 지점을 미리 만들어뒀어요.)
       </p>
+
+      <div>
+        <h2 className="mb-2 text-sm font-medium text-zinc-700">검토대기 ({review.length})</h2>
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+          <table className="w-full whitespace-nowrap text-base">
+            <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
+              <tr>
+                <th className="px-4 py-3">채널</th>
+                <th className="px-4 py-3">출처</th>
+                <th className="px-4 py-3">상품</th>
+                <th className="px-4 py-3">요청 수량</th>
+                <th className="px-4 py-3">요청일</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {review.map((o) => {
+                const approveFormId = `approve-${o.id}`;
+                const rejectFormId = `reject-${o.id}`;
+                return (
+                  <tr key={o.id} className="border-t border-zinc-100">
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-semibold ${CHANNEL_STYLE[o.channel]}`}
+                      >
+                        {PURCHASE_ORDER_CHANNEL_LABELS[o.channel]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500">{SOURCE_LABEL[o.source]}</td>
+                    <td className="px-4 py-3">{o.products?.name ?? "-"}</td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="number"
+                        min={1}
+                        name="quantity"
+                        form={approveFormId}
+                        defaultValue={o.quantity}
+                        className="w-20 rounded border border-zinc-300 px-2 py-1 text-sm"
+                      />
+                      <span className="ml-1 text-xs text-zinc-400">요청 {o.quantity}개</span>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500">
+                      {new Date(o.created_at).toLocaleDateString("ko-KR")}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <form id={approveFormId} action={approveOrder}>
+                          <input type="hidden" name="id" value={o.id} />
+                          <button
+                            type="submit"
+                            className="rounded bg-[#C8075F] px-2 py-1 text-xs font-medium text-white hover:bg-[#a80650]"
+                          >
+                            승인
+                          </button>
+                        </form>
+                        <form
+                          id={rejectFormId}
+                          action={rejectOrder}
+                          className="flex items-center gap-1"
+                        >
+                          <input type="hidden" name="id" value={o.id} />
+                          <input
+                            name="memo"
+                            placeholder="반려 사유(선택)"
+                            className="w-28 rounded border border-zinc-300 px-1.5 py-1 text-xs"
+                          />
+                          <button type="submit" className="text-xs text-red-500 hover:text-red-700">
+                            반려
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {review.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-zinc-400">
+                    검토 대기중인 발주가 없습니다.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div>
         <h2 className="mb-2 text-sm font-medium text-zinc-700">진행중 ({open.length})</h2>
@@ -81,81 +184,114 @@ export default async function PurchaseOrdersPage() {
               </tr>
             </thead>
             <tbody>
-              {open.map((o) => (
-                <tr key={o.id} className="border-t border-zinc-100">
-                  <td className="px-4 py-3">
-                    <span className={`rounded px-2 py-0.5 text-xs font-semibold ${CHANNEL_STYLE[o.channel]}`}>
-                      {PURCHASE_ORDER_CHANNEL_LABELS[o.channel]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-500">{SOURCE_LABEL[o.source]}</td>
-                  <td className="px-4 py-3">
-                    <div>
-                      {o.products?.name ?? "-"}
-                      {o.coupang_link && (
-                        <a
-                          href={o.coupang_link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="ml-2 text-xs text-[#C8075F] underline"
-                        >
-                          쿠팡에서 결제하기
-                        </a>
+              {open.map((o) => {
+                const deliverFormId = `deliver-${o.id}`;
+                return (
+                  <tr key={o.id} className="border-t border-zinc-100">
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-semibold ${CHANNEL_STYLE[o.channel]}`}
+                      >
+                        {PURCHASE_ORDER_CHANNEL_LABELS[o.channel]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500">{SOURCE_LABEL[o.source]}</td>
+                    <td className="px-4 py-3">
+                      <div>
+                        {o.products?.name ?? "-"}
+                        {o.coupang_link && (
+                          <a
+                            href={o.coupang_link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="ml-2 text-xs text-[#C8075F] underline"
+                          >
+                            쿠팡에서 결제하기
+                          </a>
+                        )}
+                      </div>
+                      {o.channel === "coupang" && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          ⚠ 바코드 연동이 안 돼 입고가 자동 반영되지 않아요 — 상품 도착 후{" "}
+                          <a href="/stock-in" className="underline">
+                            입고 등록
+                          </a>
+                          에서 직접 등록해주세요.
+                        </p>
                       )}
-                    </div>
-                    {o.channel === "coupang" && (
-                      <p className="mt-1 text-xs text-amber-600">
-                        ⚠ 바코드 연동이 안 돼 입고가 자동 반영되지 않아요 — 상품 도착 후{" "}
-                        <a href="/stock-in" className="underline">
-                          입고 등록
-                        </a>
-                        에서 직접 등록해주세요.
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">{o.quantity}</td>
-                  <td className="px-4 py-3 text-zinc-500">{PURCHASE_ORDER_STATUS_LABELS[o.status]}</td>
-                  <td className="px-4 py-3 text-zinc-500">
-                    {new Date(o.created_at).toLocaleDateString("ko-KR")}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-3">
-                      {o.status === "confirmed" && (
-                        <>
-                          <form action={startPreparing}>
+                    </td>
+                    <td className="px-4 py-3">{o.quantity}</td>
+                    <td className="px-4 py-3 text-zinc-500">{PURCHASE_ORDER_STATUS_LABELS[o.status]}</td>
+                    <td className="px-4 py-3 text-zinc-500">
+                      {new Date(o.created_at).toLocaleDateString("ko-KR")}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        {o.status === "confirmed" && (
+                          <>
+                            <form action={startPreparing}>
+                              <input type="hidden" name="id" value={o.id} />
+                              <button type="submit" className="text-zinc-600 hover:text-zinc-900">
+                                준비 시작
+                              </button>
+                            </form>
+                            <form action={cancelOrder}>
+                              <input type="hidden" name="id" value={o.id} />
+                              <button type="submit" className="text-red-500 hover:text-red-700">
+                                취소
+                              </button>
+                            </form>
+                          </>
+                        )}
+                        {o.status === "preparing" && (
+                          <form action={startShipping}>
                             <input type="hidden" name="id" value={o.id} />
                             <button type="submit" className="text-zinc-600 hover:text-zinc-900">
-                              준비 시작
+                              배송 시작
                             </button>
                           </form>
-                          <form action={cancelOrder}>
+                        )}
+                        {o.status === "shipping" && o.channel === "hq" && (
+                          <>
+                            <input
+                              type="number"
+                              min={1}
+                              max={o.quantity}
+                              name="received_quantity"
+                              form={deliverFormId}
+                              defaultValue={o.quantity}
+                              className="w-20 rounded border border-zinc-300 px-2 py-1 text-sm"
+                            />
+                            <form
+                              id={deliverFormId}
+                              action={markOrderDelivered}
+                              className="flex items-center gap-1"
+                            >
+                              <input type="hidden" name="id" value={o.id} />
+                              <input
+                                name="receiving_memo"
+                                placeholder="오차 사유(선택)"
+                                className="w-28 rounded border border-zinc-300 px-1.5 py-1 text-xs"
+                              />
+                              <button type="submit" className="text-zinc-600 hover:text-zinc-900">
+                                입고 확정 (검수)
+                              </button>
+                            </form>
+                          </>
+                        )}
+                        {o.status === "shipping" && o.channel === "coupang" && (
+                          <form action={markOrderDelivered}>
                             <input type="hidden" name="id" value={o.id} />
-                            <button type="submit" className="text-red-500 hover:text-red-700">
-                              취소
+                            <button type="submit" className="text-zinc-600 hover:text-zinc-900">
+                              배송완료
                             </button>
                           </form>
-                        </>
-                      )}
-                      {o.status === "preparing" && (
-                        <form action={startShipping}>
-                          <input type="hidden" name="id" value={o.id} />
-                          <button type="submit" className="text-zinc-600 hover:text-zinc-900">
-                            배송 시작
-                          </button>
-                        </form>
-                      )}
-                      {o.status === "shipping" && (
-                        <form action={markOrderDelivered}>
-                          <input type="hidden" name="id" value={o.id} />
-                          <button type="submit" className="text-zinc-600 hover:text-zinc-900">
-                            {o.channel === "hq" ? "배송완료 (재고 자동반영)" : "배송완료"}
-                          </button>
-                        </form>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {open.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
@@ -169,7 +305,7 @@ export default async function PurchaseOrdersPage() {
       </div>
 
       <div>
-        <h2 className="mb-2 text-sm font-medium text-zinc-700">완료/취소</h2>
+        <h2 className="mb-2 text-sm font-medium text-zinc-700">완료/반려/취소</h2>
         <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
           <table className="w-full whitespace-nowrap text-base">
             <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
@@ -188,7 +324,14 @@ export default async function PurchaseOrdersPage() {
                   <td className="px-4 py-3">{PURCHASE_ORDER_CHANNEL_LABELS[o.channel]}</td>
                   <td className="px-4 py-3">{SOURCE_LABEL[o.source]}</td>
                   <td className="px-4 py-3">{o.products?.name ?? "-"}</td>
-                  <td className="px-4 py-3">{o.quantity}</td>
+                  <td className="px-4 py-3">
+                    {o.quantity}
+                    {o.received_quantity != null && o.received_quantity !== o.quantity && (
+                      <span className="ml-1 text-xs text-amber-600">
+                        (실입고 {o.received_quantity})
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">{PURCHASE_ORDER_STATUS_LABELS[o.status]}</td>
                   <td className="px-4 py-3">{new Date(o.created_at).toLocaleDateString("ko-KR")}</td>
                 </tr>
@@ -196,7 +339,7 @@ export default async function PurchaseOrdersPage() {
               {closed.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-6 text-center text-zinc-400">
-                    완료/취소된 발주가 없습니다.
+                    완료/반려/취소된 발주가 없습니다.
                   </td>
                 </tr>
               )}
