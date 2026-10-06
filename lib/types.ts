@@ -88,6 +88,10 @@ export type Product = {
   store_id: string;
   barcode: string;
   name: string;
+  // 'hq' = 본사 상품 일괄 등록으로 생성/갱신됨(통제수준 ①본사고정이 적용될 수 있음).
+  // 'store' = 점포가 직접 만든 상품(상품 추가, 대량매입 신규등록) — 본사가 가격을
+  // 정해준 적이 없어 정책과 무관하게 항상 점포가 수정할 수 있다.
+  origin: "hq" | "store";
   category_id: string | null;
   is_tax_exempt: boolean;
   cost_price: number;

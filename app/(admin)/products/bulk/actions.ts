@@ -174,6 +174,9 @@ export async function registerProducts(
         barcode: r.barcode,
         name: r.name,
         sell_price: r.sell_price,
+        // 이 화면(본사 일괄 등록)으로 들어오거나 갱신되는 상품은 "본사 등록"으로
+        // 표시한다 — 공급가/판매가 통제수준이 ①본사고정일 때 이 상품만 잠긴다.
+        origin: "hq",
         updated_at: now,
       };
       if (r.category) payload.category_id = categoryIds.get(r.category) ?? null;

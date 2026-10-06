@@ -161,9 +161,18 @@ export async function updateProduct(
 
   // 정책 설정(2-1)에서 "① 본사 고정"으로 정해둔 항목은 화면에서 이미 입력칸을
   // 막아두지만, 폼을 직접 조작해서 우회하는 경우까지 막으려면 서버에서도 다시
-  // 확인해야 한다 — 잠겨있으면 폼 값을 무시하고 기존 값을 그대로 둔다.
+  // 확인해야 한다 — 잠겨있으면 폼 값을 무시하고 기존 값을 그대로 둔다. 단, 점포가
+  // 직접 만든 상품(origin='store')은 본사가 가격을 정해준 적이 없으니 정책과
+  // 무관하게 항상 수정할 수 있다 — 본사가 등록한 상품(origin='hq')만 잠길 수 있다.
   const store = await getCurrentStore(supabase, profile);
-  if (store) {
+  const { data: existingProduct } = await supabase
+    .from("products")
+    .select("origin")
+    .eq("id", id)
+    .single();
+  const isHqOrigin = existingProduct?.origin === "hq";
+
+  if (store && isHqOrigin) {
     const controlSettings = await fetchControlSettings(supabase);
     const costLocked = resolveControlLevel(controlSettings, "supply_price", store) === "hq_fixed";
     const sellLocked = resolveControlLevel(controlSettings, "sell_price", store) === "hq_fixed";

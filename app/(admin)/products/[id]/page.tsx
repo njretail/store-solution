@@ -30,9 +30,14 @@ export default async function EditProductPage({
 
   // 정책 설정(2-1)에서 "① 본사 고정"으로 정해둔 항목은 개별 상품 수정 화면에서
   // 바꿀 수 없게 한다 — 공급가/판매가는 본사 일괄 등록(/products/bulk)으로만
-  // 바꾸도록 채널을 분리한다(역할 분리 없이도 바로 적용 가능한 부분).
-  const costLocked = resolveControlLevel(controlSettings, "supply_price", store) === "hq_fixed";
-  const sellLocked = resolveControlLevel(controlSettings, "sell_price", store) === "hq_fixed";
+  // 바꾸도록 채널을 분리한다(역할 분리 없이도 바로 적용 가능한 부분). 단, 이건
+  // "본사가 등록한 상품"(origin='hq')에만 해당 — 점포가 직접 만든 상품은 본사가
+  // 가격을 정해준 적이 없으니 정책과 무관하게 항상 점포가 수정할 수 있다.
+  const isHqOrigin = (product as Product).origin === "hq";
+  const costLocked =
+    isHqOrigin && resolveControlLevel(controlSettings, "supply_price", store) === "hq_fixed";
+  const sellLocked =
+    isHqOrigin && resolveControlLevel(controlSettings, "sell_price", store) === "hq_fixed";
 
   return (
     <div className="flex flex-col gap-6">
