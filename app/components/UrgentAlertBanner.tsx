@@ -35,14 +35,12 @@ export default function UrgentAlertBanner({ storeId }: { storeId: string | null 
       const newOnes = rows.filter((a) => !seenIds.current.has(a.id));
       for (const a of rows) seenIds.current.add(a.id);
 
+      // 첫 폴링(페이지 막 열었을 때)은 기존에 밀려있던 알림까지 "새 알림"으로
+      // 취급해 매번 소리가 나는 걸 막기 위해, 두 번째 폴링부터만 울린다.
+      // 브라우저 알림(Notification API)은 쓰지 않는다 — 유저 클릭 없이 자동으로
+      // 권한을 요청하면 브라우저가 스팸으로 보고 전체 알림을 막아버릴 수 있어서
+      // (실제로 겪음), 화면 안의 빨간 배너 + 소리만으로 충분히 눈에 띄게 한다.
       if (newOnes.length > 0 && notifiedOnce.current) {
-        // 첫 폴링(페이지 막 열었을 때)은 기존에 밀려있던 알림까지 "새 알림"으로
-        // 취급해 매번 소리/알림이 뜨는 걸 막기 위해, 두 번째 폴링부터만 알린다.
-        if ("Notification" in window && Notification.permission === "granted") {
-          for (const a of newOnes) {
-            new Notification("긴급 알림", { body: a.message });
-          }
-        }
         try {
           const ctx = new AudioContext();
           const osc = ctx.createOscillator();
@@ -59,10 +57,6 @@ export default function UrgentAlertBanner({ storeId }: { storeId: string | null 
       }
       notifiedOnce.current = true;
       setAlerts(rows);
-    }
-
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission().catch(() => {});
     }
 
     poll();
