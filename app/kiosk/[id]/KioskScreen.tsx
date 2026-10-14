@@ -156,14 +156,29 @@ export default function KioskScreen({
   useEffect(() => {
     const timer = setInterval(async () => {
       try {
-        const res = await fetch(`/api/kiosk/${kiosk.id}/state`, { cache: "no-store" });
+        // hb=screen — 이 폴링이 곧 화면의 생존 신호(5분 넘게 없으면 "응답 없음" 알림).
+        const res = await fetch(`/api/kiosk/${kiosk.id}/state?hb=screen`, { cache: "no-store" });
         if (!res.ok) return;
         const data = (await res.json()) as {
           status: KioskStatus;
+          remote_command: string | null;
           remote_command_at: string | null;
         };
         setStatus(data.status);
         if (data.remote_command_at && data.remote_command_at !== lastCommandAtRef.current) {
+          lastCommandAtRef.current = data.remote_command_at;
+          // 상태 점검은 PC의 kiosk-agent가 처리하는 명령이라 화면은 그대로 둔다.
+          if (data.remote_command === "health_check") return;
+          // "다시 로그인" — 화면에 남은 세션·설정(언어, 큰글씨 등)을 비우고 처음 상태로 다시 연다.
+          // (PC의 브라우저 프로필 초기화·재실행은 kiosk-agent가 같은 명령으로 따로 처리)
+          if (data.remote_command === "relogin") {
+            try {
+              localStorage.clear();
+              sessionStorage.clear();
+            } catch {
+              // 저장소 접근이 막혀 있어도 새로고침은 진행
+            }
+          }
           location.reload();
         }
       } catch {

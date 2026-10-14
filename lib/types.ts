@@ -46,6 +46,19 @@ export const KIOSK_STATUS_LABELS: Record<KioskStatus, string> = {
   maintenance: "점검중",
 };
 
+// kiosk-agent가 "상태 점검" 명령(또는 30분 주기)으로 보내는 기기 상태.
+export type KioskHealth = {
+  uptime_hours?: number;
+  cpu_percent?: number;
+  memory_used_percent?: number;
+  disk_free_gb?: number;
+  browser_running?: boolean;
+  network_ms?: number | null;
+  device_errors?: string[];
+  problems?: string[];
+  agent_version?: string;
+};
+
 export type Kiosk = {
   id: string;
   store_id: string;
@@ -63,6 +76,12 @@ export type Kiosk = {
   remote_command_at: string | null;
   // "HH:MM:SS" 형식(time 컬럼) — kiosk-agent가 매일 이 시각에 기기를 재부팅한다.
   daily_reboot_time: string | null;
+  // 생존 신호 — 화면과 kiosk-agent가 상태를 폴링할 때마다 갱신(0035). 5분 넘게 없으면 응답 없음 알림.
+  screen_last_seen_at: string | null;
+  agent_last_seen_at: string | null;
+  // kiosk-agent의 최근 상태 점검 결과와 시각
+  last_health: KioskHealth | null;
+  last_health_at: string | null;
   updated_at: string;
   created_at: string;
 };
@@ -396,13 +415,25 @@ export type CartItem = {
   quantity: number;
 };
 
-export type UrgentAlertType = "theft" | "fridge_power" | "other";
+export type UrgentAlertType =
+  | "theft"
+  | "fridge_power"
+  | "other"
+  // 키오스크 장비 알림(0035) — 응답 없음 / 기기 오류(상태 점검 이상·외부 장비 보고) / 거스름돈 미지급
+  | "kiosk_offline"
+  | "kiosk_error"
+  | "change_failed";
 
 export const URGENT_ALERT_TYPE_LABELS: Record<UrgentAlertType, string> = {
   theft: "도난·보안",
   fridge_power: "냉장고 전원",
   other: "기타 긴급",
+  kiosk_offline: "키오스크 응답 없음",
+  kiosk_error: "키오스크 오류",
+  change_failed: "거스름돈 미지급",
 };
+
+export const KIOSK_ALERT_TYPES: UrgentAlertType[] = ["kiosk_offline", "kiosk_error", "change_failed"];
 
 // 실제 센서/보안 장비 연동 전까지는 관리자가 "테스트 알림 보내기"로만 만들어진다
 // (/api/alerts/urgent 웹훅이 연동 지점으로 마련돼 있지만 실제 호출하는 장비는 아직 없음).
@@ -412,6 +443,7 @@ export type UrgentAlert = {
   type: UrgentAlertType;
   message: string;
   source: string | null;
+  kiosk_id: string | null;
   resolved: boolean;
   resolved_by: string | null;
   resolved_at: string | null;

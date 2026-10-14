@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BANK_NAMES } from "@/lib/types";
+import { raiseKioskAlert } from "@/lib/kiosk-alerts";
 
 // 무인매장이라 거스름돈을 못 받은 순간 그 자리에 직원이 없다 — 그래서 고객이
 // 키오스크 화면(/kiosk/[id]/change-request)에서 직접 받지 못한 금액과 계좌를 입력해서
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const { data: kiosk } = await admin.from("kiosks").select("store_id").eq("id", kiosk_id).maybeSingle();
+  const { data: kiosk } = await admin.from("kiosks").select("id, store_id, name").eq("id", kiosk_id).maybeSingle();
   if (!kiosk) {
     return NextResponse.json({ error: "키오스크를 찾을 수 없습니다." }, { status: 404 });
   }
@@ -67,6 +68,19 @@ export async function POST(request: NextRequest) {
   if (error) {
     console.error("change request insert failed", error.message);
     return NextResponse.json({ error: "등록에 실패했습니다. 잠시 후 다시 시도해 주세요." }, { status: 500 });
+  }
+
+  // 거스름돈을 못 준 것 자체가 장비 이상 신호(잔돈 부족·배출 오류)라 알림도 같이 띄운다.
+  // 계좌번호 같은 개인정보는 알림 문구에 넣지 않는다.
+  try {
+    await raiseKioskAlert(
+      admin,
+      kiosk,
+      "change_failed",
+      `거스름돈 ${amount.toLocaleString()}원 미지급(${reason === "change_shortage" ? "잔돈 부족" : "배출 오류"}) — 계좌이체 요청이 접수되었습니다.`
+    );
+  } catch (e) {
+    console.error("change_failed alert failed", e);
   }
 
   return NextResponse.json({ ok: true });

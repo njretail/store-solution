@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import TestAlertForm from "../alerts/TestAlertForm";
+import { KIOSK_ALERT_TYPES, URGENT_ALERT_TYPE_LABELS, type UrgentAlert } from "@/lib/types";
 
 // 어제 00:00~오늘 00:00(로컬 기준) 범위 — 대시보드의 dayRangeIso와 같은 방식.
 function yesterdayRangeIso() {
@@ -42,6 +43,8 @@ export default async function DailyReportPage() {
     productRows,
     { data: expiryData },
     { data: reviewOrders },
+    { data: kioskAlertData },
+    { data: openKioskAlertData },
   ] = await Promise.all([
     supabase
       .from("sales")
@@ -72,6 +75,21 @@ export default async function DailyReportPage() {
       .lte("expiry_date", weekAheadStr)
       .order("expiry_date", { ascending: true }),
     supabase.from("purchase_orders").select("id").eq("store_id", store.id).eq("status", "requested"),
+    // 키오스크·장비 알림 — 배너에서 이미 "확인(해결)"한 건도 하루 기록으로는 모두 남겨 보여준다.
+    supabase
+      .from("urgent_alerts")
+      .select("*")
+      .eq("store_id", store.id)
+      .in("type", KIOSK_ALERT_TYPES)
+      .gte("created_at", fromIso)
+      .lt("created_at", toIso)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("urgent_alerts")
+      .select("id")
+      .eq("store_id", store.id)
+      .in("type", KIOSK_ALERT_TYPES)
+      .eq("resolved", false),
   ]);
 
   const yesterdayRevenue = (ySalesData ?? []).reduce((sum, s) => sum + s.total_amount, 0);
@@ -85,6 +103,13 @@ export default async function DailyReportPage() {
 
   const expiringSoon = (expiryData ?? []) as unknown as ExpiryRow[];
   const reviewCount = (reviewOrders ?? []).length;
+
+  const kioskAlerts = (kioskAlertData ?? []) as UrgentAlert[];
+  const openKioskAlertCount = (openKioskAlertData ?? []).length;
+  const kioskAlertCounts = KIOSK_ALERT_TYPES.map((type) => ({
+    type,
+    count: kioskAlerts.filter((a) => a.type === type).length,
+  }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -124,6 +149,69 @@ export default async function DailyReportPage() {
             <p className="text-sm text-zinc-500">취소 건수</p>
             <p className="text-3xl font-semibold text-zinc-900">{yesterdayCancelCount.toLocaleString()}건</p>
           </div>
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-base font-medium text-zinc-700">
+            어제 키오스크·장비 알림 ({kioskAlerts.length}건)
+            {openKioskAlertCount > 0 && (
+              <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                지금 미해결 {openKioskAlertCount}건
+              </span>
+            )}
+          </h2>
+          <Link href="/kiosks" className="text-sm text-[#C8075F] underline">
+            키오스크 관리
+          </Link>
+        </div>
+        <div className="mb-3 grid grid-cols-3 gap-4">
+          {kioskAlertCounts.map((c) => (
+            <div key={c.type} className="rounded-lg border border-zinc-200 bg-white px-5 py-3">
+              <p className="text-sm text-zinc-500">{URGENT_ALERT_TYPE_LABELS[c.type]}</p>
+              <p className={`text-2xl font-semibold ${c.count > 0 ? "text-red-600" : "text-zinc-900"}`}>{c.count}건</p>
+            </div>
+          ))}
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+          <table className="w-full whitespace-nowrap text-base">
+            <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
+              <tr>
+                <th className="px-4 py-3">시각</th>
+                <th className="px-4 py-3">종류</th>
+                <th className="px-4 py-3">기기</th>
+                <th className="px-4 py-3">내용</th>
+                <th className="px-4 py-3">처리</th>
+              </tr>
+            </thead>
+            <tbody>
+              {kioskAlerts.map((a) => (
+                <tr key={a.id} className="border-t border-zinc-100">
+                  <td className="px-4 py-3 text-zinc-500">
+                    {new Date(a.created_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                  </td>
+                  <td className="px-4 py-3">{URGENT_ALERT_TYPE_LABELS[a.type]}</td>
+                  <td className="px-4 py-3">{a.source ?? "-"}</td>
+                  <td className="whitespace-normal px-4 py-3 text-sm text-zinc-600">{a.message}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {a.resolved ? (
+                      <span className="text-green-700">해결</span>
+                    ) : (
+                      <span className="text-red-600">미해결</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {kioskAlerts.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-zinc-400">
+                    어제는 키오스크·장비 이상이 없었어요.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

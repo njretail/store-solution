@@ -45,7 +45,16 @@ export async function updateKioskDisplay(formData: FormData) {
   revalidatePath("/kiosks");
 }
 
-const KIOSK_COMMANDS = ["refresh", "restart_program", "restart_device", "shutdown_device"] as const;
+// relogin(다시 로그인): 화면은 저장된 세션·설정을 비우고 다시 열고, kiosk-agent는 브라우저 프로필을
+// 초기화한 뒤 재실행한다. health_check(상태 점검): kiosk-agent가 기기 상태를 점검해 /health로 보고한다.
+const KIOSK_COMMANDS = [
+  "refresh",
+  "relogin",
+  "health_check",
+  "restart_program",
+  "restart_device",
+  "shutdown_device",
+] as const;
 
 // "새로고침"은 키오스크 화면(/kiosk/[id]) 자체가 20초마다 폴링해서 처리하지만,
 // 나머지 셋(프로그램/기기 재시작, 기기 종료)은 브라우저가 할 수 없는 OS 영역이라

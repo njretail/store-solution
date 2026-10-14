@@ -23,6 +23,12 @@ export default function UrgentAlertBanner({ storeId }: { storeId: string | null 
     let cancelled = false;
 
     async function poll() {
+      // 응답 없는 키오스크 감지(5분 기준) — pg_cron이 없어도 관리자 화면이 열려 있는 동안은
+      // 이 폴링으로 감지된다. 실패해도(마이그레이션 전 등) 기존 알림 조회는 그대로 진행.
+      await supabase.rpc("detect_offline_kiosks", { p_threshold_minutes: 5 }).then(
+        () => undefined,
+        () => undefined
+      );
       const { data } = await supabase
         .from("urgent_alerts")
         .select("*")
