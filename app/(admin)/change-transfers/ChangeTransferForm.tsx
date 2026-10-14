@@ -57,10 +57,9 @@ export default function ChangeTransferForm() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-500">예금주</label>
+            <label className="text-xs text-zinc-500">예금주 (선택)</label>
             <input
               name="account_holder"
-              required
               className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
             />
           </div>

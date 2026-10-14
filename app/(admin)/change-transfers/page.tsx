@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { requireProfile, getCurrentStore } from "@/lib/session";
-import { CHANGE_TRANSFER_STATUS_LABELS, type ChangeTransferRequest, type ChangeTransferStatus } from "@/lib/types";
+import {
+  CHANGE_TRANSFER_REASON_LABELS,
+  CHANGE_TRANSFER_STATUS_LABELS,
+  type ChangeTransferRequest,
+  type ChangeTransferStatus,
+} from "@/lib/types";
 import { setChangeTransferStatus } from "./actions";
 import ChangeTransferForm from "./ChangeTransferForm";
 
@@ -50,6 +55,11 @@ export default async function ChangeTransfersPage({
         무인매장이라 대부분은 고객이 키오스크 화면(거스름돈 부족 · 계좌로 받기)에서
         직접 등록합니다. 아래 등록 폼은 전화 접수 등 예외 상황에 쓰는 보조 수단입니다.
       </p>
+      <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
+        개인정보 최소 수집: 키오스크에서는 은행·계좌번호만 받고 이름·연락처는 받지 않습니다(고객 동의
+        완료). 송금 전 은행 앱의 예금주 조회로 확인하세요. 지급완료·지급취소로 바꾸는 즉시 계좌번호는
+        끝 4자리만 남기고 자동 파기됩니다.
+      </p>
       <ChangeTransferForm />
 
       <div className="flex shrink-0 self-start rounded-md border border-zinc-300 text-sm">
@@ -71,6 +81,7 @@ export default async function ChangeTransfersPage({
           <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
             <tr>
               <th className="px-4 py-3">요청일시</th>
+              <th className="px-4 py-3">사유</th>
               <th className="px-4 py-3">고객</th>
               <th className="px-4 py-3">계좌정보</th>
               <th className="px-4 py-3">금액</th>
@@ -86,6 +97,10 @@ export default async function ChangeTransfersPage({
                   {new Date(r.created_at).toLocaleString("ko-KR")}
                 </td>
                 <td className="px-4 py-3">
+                  {r.reason ? CHANGE_TRANSFER_REASON_LABELS[r.reason] : "-"}
+                  {r.kiosk_id && <p className="text-xs text-zinc-400">키오스크 등록</p>}
+                </td>
+                <td className="px-4 py-3">
                   {r.customer_name ?? "-"}
                   {r.customer_phone && (
                     <p className="text-xs text-zinc-400">{r.customer_phone}</p>
@@ -93,7 +108,10 @@ export default async function ChangeTransfersPage({
                 </td>
                 <td className="px-4 py-3">
                   {r.bank_name} {r.account_number}
-                  <p className="text-xs text-zinc-400">예금주: {r.account_holder}</p>
+                  {r.account_holder && <p className="text-xs text-zinc-400">예금주: {r.account_holder}</p>}
+                  {r.privacy_consent_at && r.status === "pending" && (
+                    <p className="text-xs text-zinc-400">개인정보 동의 {new Date(r.privacy_consent_at).toLocaleString("ko-KR")}</p>
+                  )}
                 </td>
                 <td className="px-4 py-3 font-medium">{r.amount.toLocaleString()}원</td>
                 <td className="px-4 py-3">
@@ -140,7 +158,7 @@ export default async function ChangeTransfersPage({
             ))}
             {requests.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
+                <td colSpan={8} className="px-4 py-6 text-center text-zinc-400">
                   해당하는 계좌이체 요청이 없습니다.
                 </td>
               </tr>

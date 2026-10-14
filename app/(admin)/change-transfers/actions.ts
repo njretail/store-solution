@@ -17,12 +17,13 @@ export async function createChangeTransferRequest(
   const customer_phone = String(formData.get("customer_phone") ?? "").trim() || null;
   const bank_name = String(formData.get("bank_name") ?? "").trim();
   const account_number = String(formData.get("account_number") ?? "").trim();
-  const account_holder = String(formData.get("account_holder") ?? "").trim();
+  const account_holder = String(formData.get("account_holder") ?? "").trim() || null;
   const amount = Number(formData.get("amount") ?? 0);
   const memo = String(formData.get("memo") ?? "").trim() || null;
 
-  if (!bank_name || !account_number || !account_holder) {
-    return { error: "은행명 · 계좌번호 · 예금주를 입력하세요.", success: null };
+  // 예금주는 선택 — 개인정보 최소 수집(키오스크 등록과 같은 기준). 송금 시 은행 예금주 조회로 확인.
+  if (!bank_name || !account_number) {
+    return { error: "은행명 · 계좌번호를 입력하세요.", success: null };
   }
   if (!amount || amount <= 0) {
     return { error: "이체할 금액을 확인하세요.", success: null };

@@ -420,6 +420,41 @@ export type UrgentAlert = {
 
 export type ChangeTransferStatus = "pending" | "paid" | "cancelled";
 
+// 계좌로 받게 된 사유 — 현금(잔돈) 부족 / 잔돈은 있었지만 기기 배출 오류.
+export type ChangeTransferReason = "change_shortage" | "dispense_error";
+
+export const CHANGE_TRANSFER_REASON_LABELS: Record<ChangeTransferReason, string> = {
+  change_shortage: "잔돈 부족",
+  dispense_error: "배출 오류",
+};
+
+// 키오스크 계좌 입력 화면의 은행 선택 목록(자유 입력 대신 선택 — 오타로 송금 실패하는 걸 막는다).
+export const BANK_NAMES = [
+  "KB국민은행",
+  "신한은행",
+  "우리은행",
+  "하나은행",
+  "NH농협은행",
+  "IBK기업은행",
+  "카카오뱅크",
+  "토스뱅크",
+  "케이뱅크",
+  "SC제일은행",
+  "한국씨티은행",
+  "iM뱅크(대구)",
+  "부산은행",
+  "경남은행",
+  "광주은행",
+  "전북은행",
+  "제주은행",
+  "SH수협은행",
+  "KDB산업은행",
+  "새마을금고",
+  "신협",
+  "우체국",
+  "저축은행",
+] as const;
+
 export const CHANGE_TRANSFER_STATUS_LABELS: Record<ChangeTransferStatus, string> = {
   pending: "지급대기",
   paid: "지급완료",
@@ -436,10 +471,14 @@ export type ChangeTransferRequest = {
   customer_name: string | null;
   customer_phone: string | null;
   bank_name: string;
+  // 지급완료/지급취소 후에는 DB 트리거가 끝 4자리만 남긴다("****1234").
   account_number: string;
-  account_holder: string;
+  account_holder: string | null;
   amount: number;
   status: ChangeTransferStatus;
+  reason: ChangeTransferReason | null;
+  kiosk_id: string | null;
+  privacy_consent_at: string | null;
   memo: string | null;
   requested_by: string | null;
   paid_by: string | null;
