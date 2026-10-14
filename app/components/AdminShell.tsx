@@ -62,6 +62,7 @@ const ADMIN_LINKS: NavItem[] = [
   },
   { href: "/cameras", label: "카메라보기" },
   { href: "/staff", label: "직원관리" },
+  { href: "/agency", label: "대행 신청" },
   { href: "/control-settings", label: "정책 설정" },
 ];
 
