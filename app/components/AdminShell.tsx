@@ -39,7 +39,6 @@ const ADMIN_LINKS: NavItem[] = [
       { href: "/sell", label: "실시간 장바구니" },
       { href: "/sales", label: "판매내역" },
       { href: "/deliveries", label: "배송주문건" },
-      { href: "/change-transfers", label: "계좌이체요청내역" },
     ],
   },
   {
@@ -51,7 +50,14 @@ const ADMIN_LINKS: NavItem[] = [
   },
   { href: "/customers", label: "고객관리" },
   { href: "/coupons", label: "쿠폰관리" },
-  { href: "/cash", label: "현금관리" },
+  {
+    label: "현금관리",
+    children: [
+      { href: "/cash", label: "현금 현황" },
+      // 거스름돈 미지급 건(잔돈 부족·배출 오류)을 계좌이체로 지급 처리하는 곳
+      { href: "/change-transfers", label: "계좌이체(거스름돈)" },
+    ],
+  },
   {
     label: "키오스크 관리",
     children: [

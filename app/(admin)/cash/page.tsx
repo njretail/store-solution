@@ -77,7 +77,7 @@ export default async function CashPage() {
           {store.change_alert_threshold!.toLocaleString()}매) 이하로 떨어졌습니다 — 잔돈을
           채워두거나, 거스름돈이 모자라면{" "}
           <a href="/change-transfers" className="font-medium underline">
-            계좌이체요청내역
+            계좌이체(거스름돈)
           </a>
           으로 처리하세요.
         </div>

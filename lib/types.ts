@@ -452,6 +452,12 @@ export type UrgentAlert = {
 
 export type ChangeTransferStatus = "pending" | "paid" | "cancelled";
 
+// 화면에 보여주는 요청번호 — 결제 연동 전이라 실제 주문번호(sale_id)가 없어서, 요청 id 앞 8자리를
+// 대문자로 쓴다(고객 문의·송금 메모에 적어 대조할 때 사용).
+export function changeTransferCode(id: string): string {
+  return id.replace(/-/g, "").slice(0, 8).toUpperCase();
+}
+
 // 계좌로 받게 된 사유 — 현금(잔돈) 부족 / 잔돈은 있었지만 기기 배출 오류.
 export type ChangeTransferReason = "change_shortage" | "dispense_error";
 

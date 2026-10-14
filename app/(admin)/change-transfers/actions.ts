@@ -67,4 +67,5 @@ export async function setChangeTransferStatus(formData: FormData) {
     .eq("status", "pending");
 
   revalidatePath("/change-transfers");
+  revalidatePath(`/change-transfers/${id}`);
 }
