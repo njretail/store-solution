@@ -28,7 +28,7 @@ export default async function AskPage({ searchParams }: { searchParams: Promise<
           입력해도 매장 데이터가 외부로 전송되지 않습니다.
         </p>
       )}
-      {/* 사이드바 검색창에서 다른 질문으로 다시 들어오면 새 대화로 시작하도록 key로 초기화 */}
+      {/* /ask?q=... 링크로 다른 질문을 들고 들어오면 새 대화로 시작하도록 key로 초기화 */}
       <AskClient key={initialQuestion} initialQuestion={initialQuestion} />
     </div>
   );

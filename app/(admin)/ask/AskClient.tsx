@@ -111,7 +111,7 @@ function ResultTable({ table }: { table: AnswerTable }) {
 }
 
 export default function AskClient({ initialQuestion }: { initialQuestion: string }) {
-  // 사이드바 검색창(/ask?q=...)으로 들어오면 그 질문을 첫 대화로 바로 조회한다.
+  // /ask?q=... 링크로 들어오면 그 질문을 첫 대화로 바로 조회한다.
   const [turns, setTurns] = useState<Turn[]>(() =>
     initialQuestion ? [{ question: initialQuestion, answer: null, tables: [], error: null }] : []
   );
