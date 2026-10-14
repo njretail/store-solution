@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import Form from "next/form";
 import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "@/lib/actions";
 import StoreSwitcher from "@/app/components/StoreSwitcher";
@@ -14,6 +15,7 @@ type NavItem = NavLink | { label: string; children: NavLink[] };
 
 const ADMIN_LINKS: NavItem[] = [
   { href: "/dashboard", label: "홈" },
+  { href: "/ask", label: "AI 통합 검색" },
   { href: "/daily-report", label: "일일 요약" },
   { href: "/announcements", label: "공지사항" },
   {
@@ -46,7 +48,6 @@ const ADMIN_LINKS: NavItem[] = [
     children: [
       { href: "/stats", label: "매출통계" },
       { href: "/statistics/products", label: "상품통계" },
-      { href: "/ask", label: "AI 매출 질문" },
     ],
   },
   { href: "/customers", label: "고객관리" },
@@ -204,6 +205,25 @@ export default function AdminShell({
             {storeName ?? "무인편의점 관리"}
           </p>
         </Link>
+
+        {/* AI 통합 검색 — 어느 화면에서든 질문을 입력하면 /ask에서 바로 조회한다(관리자 전용) */}
+        {role === "admin" && (
+          <Form action="/ask" onSubmit={() => setOpen(false)} className="border-b border-zinc-200 px-3 py-3">
+            <div className="flex items-center gap-2 rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 focus-within:border-[#C8075F] focus-within:bg-white">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4 shrink-0 text-zinc-400">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+              </svg>
+              <input
+                name="q"
+                required
+                maxLength={500}
+                placeholder="AI에게 무엇이든 물어보세요"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+              />
+            </div>
+          </Form>
+        )}
 
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
           {links.map((item) => {

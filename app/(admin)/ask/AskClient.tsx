@@ -12,11 +12,27 @@ type Turn = {
   error: string | null;
 };
 
-const EXAMPLES = [
-  "7월 한 달 동안 가장 많이 팔린 품목 알려줘",
-  "지난주 매출을 그 전주랑 비교해줘",
-  "이번 달 카테고리별 매출 비중은?",
-  "최근 30일 요일별·시간대별로 언제 제일 잘 팔려?",
+const EXAMPLE_GROUPS: { label: string; questions: string[] }[] = [
+  {
+    label: "매출·판매",
+    questions: ["7월 한 달 동안 가장 많이 팔린 품목 알려줘", "지난주 매출을 그 전주랑 비교해줘"],
+  },
+  {
+    label: "상품·재고",
+    questions: ["재고가 5개 이하로 남은 상품 목록 보여줘", "이번 주 안에 소비기한 끝나는 상품 있어?"],
+  },
+  {
+    label: "발주·입고",
+    questions: ["이번 달 발주했는데 아직 입고 안 된 건 뭐야?", "지난달 매입 금액 합계 알려줘"],
+  },
+  {
+    label: "고객·쿠폰",
+    questions: ["최근 한 달간 가장 많이 구매한 고객 5명은?", "발급한 쿠폰 중 아직 안 쓴 게 몇 장이야?"],
+  },
+  {
+    label: "현금·키오스크",
+    questions: ["지금 키오스크별 현금 잔액이랑 거스름돈 상태 알려줘", "어제 계좌이체 요청 들어온 거 있어?"],
+  },
 ];
 
 // 브라우저 음성 인식(Web Speech API) — 크롬/엣지/사파리에서 지원, 타입은 TS 기본 lib에 없어서 최소한만 선언.
@@ -94,8 +110,11 @@ function ResultTable({ table }: { table: AnswerTable }) {
   );
 }
 
-export default function AskClient() {
-  const [turns, setTurns] = useState<Turn[]>([]);
+export default function AskClient({ initialQuestion }: { initialQuestion: string }) {
+  // 사이드바 검색창(/ask?q=...)으로 들어오면 그 질문을 첫 대화로 바로 조회한다.
+  const [turns, setTurns] = useState<Turn[]>(() =>
+    initialQuestion ? [{ question: initialQuestion, answer: null, tables: [], error: null }] : []
+  );
   const [input, setInput] = useState("");
   const [pending, startTransition] = useTransition();
   const [listening, setListening] = useState(false);
@@ -113,18 +132,15 @@ export default function AskClient() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns]);
 
-  function submit(question: string) {
-    const q = question.trim();
-    if (!q || pending) return;
-    recognitionRef.current?.stop();
+  const initialSent = useRef(false);
+  useEffect(() => {
+    if (!initialQuestion || initialSent.current) return;
+    initialSent.current = true;
+    runQuery(initialQuestion, [], 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 처음 한 번만 실행
+  }, []);
 
-    const previous = turns
-      .filter((t) => t.answer)
-      .map((t) => ({ question: t.question, answer: t.answer as string }));
-    const index = turns.length;
-    setTurns((prev) => [...prev, { question: q, answer: null, tables: [], error: null }]);
-    setInput("");
-
+  function runQuery(q: string, previous: { question: string; answer: string }[], index: number) {
     startTransition(async () => {
       let result: Awaited<ReturnType<typeof askQuestion>>;
       try {
@@ -142,6 +158,20 @@ export default function AskClient() {
         )
       );
     });
+  }
+
+  function submit(question: string) {
+    const q = question.trim();
+    if (!q || pending) return;
+    recognitionRef.current?.stop();
+
+    const previous = turns
+      .filter((t) => t.answer)
+      .map((t) => ({ question: t.question, answer: t.answer as string }));
+    const index = turns.length;
+    setTurns((prev) => [...prev, { question: q, answer: null, tables: [], error: null }]);
+    setInput("");
+    runQuery(q, previous, index);
   }
 
   function toggleMic() {
@@ -190,20 +220,23 @@ export default function AskClient() {
   return (
     <div className="flex flex-col gap-6">
       {turns.length === 0 && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           <p className="text-sm text-zinc-500">이렇게 물어보세요</p>
-          <div className="flex flex-wrap gap-2">
-            {EXAMPLES.map((ex) => (
-              <button
-                key={ex}
-                type="button"
-                onClick={() => submit(ex)}
-                className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:border-[#C8075F] hover:text-[#C8075F]"
-              >
-                {ex}
-              </button>
-            ))}
-          </div>
+          {EXAMPLE_GROUPS.map((group) => (
+            <div key={group.label} className="flex flex-wrap items-center gap-2">
+              <span className="w-24 shrink-0 text-xs font-medium text-zinc-400">{group.label}</span>
+              {group.questions.map((ex) => (
+                <button
+                  key={ex}
+                  type="button"
+                  onClick={() => submit(ex)}
+                  className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:border-[#C8075F] hover:text-[#C8075F]"
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
+          ))}
         </div>
       )}
 
@@ -216,7 +249,7 @@ export default function AskClient() {
             {t.error ? (
               <p className="text-sm text-red-600">{t.error}</p>
             ) : t.answer === null ? (
-              <p className="animate-pulse text-sm text-zinc-400">매출 데이터를 조회하고 있어요...</p>
+              <p className="animate-pulse text-sm text-zinc-400">매장 데이터를 찾고 있어요...</p>
             ) : (
               <>
                 <p className="whitespace-pre-wrap text-base leading-relaxed text-zinc-800">{t.answer}</p>
@@ -258,7 +291,7 @@ export default function AskClient() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={listening ? "듣고 있어요... 말씀하세요" : "예: 7월 한 달 가장 많이 팔린 품목 알려줘"}
+            placeholder={listening ? "듣고 있어요... 말씀하세요" : "무엇이든 물어보세요 — 예: 재고 5개 이하 상품 보여줘"}
             maxLength={500}
             className="min-w-0 flex-1 px-2 py-2 text-base outline-none"
           />
