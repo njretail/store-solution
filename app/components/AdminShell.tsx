@@ -30,6 +30,7 @@ const ADMIN_LINKS: NavItem[] = [
       { href: "/promotions", label: "기간한정 할인" },
       { href: "/stock-in", label: "입고" },
       { href: "/stock-adjust", label: "재고조정" },
+      { href: "/store-transfers", label: "매장 간 재고이동" },
       { href: "/expiry", label: "소비기한 등록" },
     ],
   },

@@ -23,7 +23,14 @@ function Field({
   );
 }
 
-export default function ProductForm({ categories }: { categories: Category[] }) {
+export default function ProductForm({
+  categories,
+  otherStores = [],
+}: {
+  categories: Category[];
+  // 같이 등록할 수 있는 다른 매장 — 여러 매장을 운영할 때 신상품을 한 번에 등록한다.
+  otherStores?: { id: string; name: string }[];
+}) {
   const [state, formAction, pending] = useActionState(createProduct, initialState);
   const [barcode, setBarcode] = useState("");
   const [showScanner, setShowScanner] = useState(false);
@@ -145,6 +152,23 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
           <Field label="⑩ 상품 이미지 (선택, 5MB 이하)">
             <ImageUploadButton name="image" placeholder="사진 선택" />
           </Field>
+
+          {otherStores.length > 0 && (
+            <Field label="⑪ 다른 매장에도 함께 등록 (선택)">
+              <div className="flex flex-col gap-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2">
+                {otherStores.map((s) => (
+                  <label key={s.id} className="flex items-center gap-2 text-sm text-zinc-700">
+                    <input type="checkbox" name="also_store_ids" value={s.id} className="h-4 w-4 accent-[#C8075F]" />
+                    {s.name}
+                  </label>
+                ))}
+                <p className="text-xs text-zinc-400">
+                  상품 정보·가격·이미지가 같이 등록되고, 재고는 0개로 시작해요(입고 수량·소비기한은 이 매장에만 반영).
+                  이미 같은 바코드가 있는 매장은 건너뜁니다.
+                </p>
+              </div>
+            </Field>
+          )}
 
           <button
             type="submit"

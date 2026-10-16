@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin, getCurrentStore } from "@/lib/session";
+import { requireAdmin, getCurrentStore, getAccessibleStores } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchControlSettings, resolveControlLevel } from "@/lib/control-settings";
 
@@ -72,10 +72,11 @@ export async function createProduct(
     return { error: message, success: null };
   }
 
+  let image_url: string | null = null;
   const imageFile = formData.get("image");
   if (imageFile instanceof File && imageFile.size > 0) {
     try {
-      const image_url = await uploadProductImage(created.id, imageFile);
+      image_url = await uploadProductImage(created.id, imageFile);
       await supabase.from("products").update({ image_url }).eq("id", created.id);
     } catch (e) {
       return {
@@ -84,6 +85,36 @@ export async function createProduct(
       };
     }
   }
+
+  // 다른 매장에도 함께 등록 — 같은 상품 정보로 재고 0개에서 시작한다. 접근 가능한 매장만
+  // 허용하고, 이미 같은 바코드가 있는 매장은 건너뛴다(기존 상품을 덮어쓰지 않음).
+  const alsoStoreIds = formData.getAll("also_store_ids").map(String);
+  const alsoResults: string[] = [];
+  if (alsoStoreIds.length > 0) {
+    const accessible = await getAccessibleStores(supabase);
+    for (const sid of alsoStoreIds) {
+      const target = accessible.find((s) => s.id === sid);
+      if (!target || target.id === store.id) continue;
+      const { error: alsoError } = await supabase.from("products").insert({
+        store_id: target.id,
+        barcode,
+        name,
+        category_id,
+        is_tax_exempt,
+        cost_price,
+        sell_price,
+        stock_qty: 0,
+        low_stock_threshold,
+        image_url,
+      });
+      alsoResults.push(
+        alsoError
+          ? `${target.name}: ${alsoError.message.includes("duplicate") ? "이미 등록된 바코드라 건너뜀" : "등록 실패"}`
+          : `${target.name}: 등록됨`
+      );
+    }
+  }
+  const alsoNote = alsoResults.length > 0 ? ` (함께 등록 — ${alsoResults.join(", ")})` : "";
 
   if (initialQuantity > 0) {
     const { error: stockInError } = await supabase.rpc("record_stock_in", {
@@ -121,7 +152,7 @@ export async function createProduct(
   revalidatePath("/stock-in");
   revalidatePath("/expiry");
   revalidatePath("/dashboard");
-  return { error: null, success: `${name} 상품이 등록되었습니다.` };
+  return { error: null, success: `${name} 상품이 등록되었습니다.${alsoNote}` };
 }
 
 export async function createCategory(formData: FormData) {

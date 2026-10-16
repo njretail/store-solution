@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdmin, getCurrentStore } from "@/lib/session";
+import { requireAdmin, getCurrentStore, getAccessibleStores } from "@/lib/session";
 import { fetchControlSettings, resolveControlLevel } from "@/lib/control-settings";
 import EditProductForm from "./EditProductForm";
 import type { Category, Product } from "@/lib/types";
@@ -28,6 +29,18 @@ export default async function EditProductPage({
 
   if (!product) notFound();
 
+  // 같은 바코드 상품의 매장별 재고·판매가 — 여러 매장을 운영할 때 어디에 몇 개, 얼마에 있는지 본다.
+  const stores = await getAccessibleStores(supabase);
+  const { data: siblingData } = await supabase
+    .from("products")
+    .select("store_id, stock_qty, sell_price, cost_price")
+    .eq("barcode", (product as Product).barcode)
+    .in(
+      "store_id",
+      stores.map((s) => s.id)
+    );
+  const siblings = (siblingData ?? []) as { store_id: string; stock_qty: number; sell_price: number; cost_price: number }[];
+
   // 정책 설정(2-1)에서 "① 본사 고정"으로 정해둔 항목은 개별 상품 수정 화면에서
   // 바꿀 수 없게 한다 — 공급가/판매가는 본사 일괄 등록(/products/bulk)으로만
   // 바꾸도록 채널을 분리한다(역할 분리 없이도 바로 적용 가능한 부분). 단, 이건
@@ -52,6 +65,48 @@ export default async function EditProductPage({
         costLocked={costLocked}
         sellLocked={sellLocked}
       />
+
+      {stores.length > 1 && (
+        <div>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-base font-medium text-zinc-700">매장별 재고·가격</h2>
+            <Link href="/store-transfers" className="text-sm text-[#C8075F] underline">
+              다른 매장으로 옮기기
+            </Link>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+            <table className="w-full whitespace-nowrap text-sm">
+              <thead className="bg-zinc-50 text-left text-xs text-zinc-500">
+                <tr>
+                  <th className="px-4 py-2">매장</th>
+                  <th className="px-4 py-2 text-right">재고</th>
+                  <th className="px-4 py-2 text-right">판매가</th>
+                  <th className="px-4 py-2 text-right">원가</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stores.map((s) => {
+                  const p = siblings.find((x) => x.store_id === s.id);
+                  const isCurrent = s.id === store.id;
+                  return (
+                    <tr key={s.id} className={`border-t border-zinc-100 ${isCurrent ? "bg-[#C8075F]/5" : ""}`}>
+                      <td className="px-4 py-2">
+                        {s.name}
+                        {isCurrent && <span className="ml-1 text-xs text-[#C8075F]">(현재 매장)</span>}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">{p ? `${p.stock_qty.toLocaleString()}개` : "미등록"}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">{p ? `${p.sell_price.toLocaleString()}원` : "-"}</td>
+                      <td className="px-4 py-2 text-right tabular-nums text-zinc-500">
+                        {p ? `${p.cost_price.toLocaleString()}원` : "-"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

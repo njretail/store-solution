@@ -1,4 +1,4 @@
-import { requireAdmin, getCurrentStore } from "@/lib/session";
+import { requireAdmin, getCurrentStore, getAccessibleStores } from "@/lib/session";
 import ProductForm from "../ProductForm";
 import type { Category } from "@/lib/types";
 
@@ -7,8 +7,12 @@ export default async function ProductNewPage() {
   const store = await getCurrentStore(supabase, profile);
   if (!store) return null;
 
-  const { data } = await supabase.from("categories").select("*").order("name");
+  const [{ data }, stores] = await Promise.all([
+    supabase.from("categories").select("*").order("name"),
+    getAccessibleStores(supabase),
+  ]);
   const categories = (data ?? []) as Category[];
+  const otherStores = stores.filter((s) => s.id !== store.id).map((s) => ({ id: s.id, name: s.name }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -17,7 +21,7 @@ export default async function ProductNewPage() {
         <p className="text-sm text-zinc-500">{store.name}</p>
       </div>
 
-      <ProductForm categories={categories} />
+      <ProductForm categories={categories} otherStores={otherStores} />
     </div>
   );
 }

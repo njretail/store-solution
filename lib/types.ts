@@ -163,6 +163,33 @@ export type Product = {
   updated_at: string;
 };
 
+// 매장 간 재고이동(0036) — 소비기한 임박 상품이나 많이 사입한 재고를 다른 매장으로 나눌 때.
+export type StockTransferReason = "expiry" | "overstock" | "request" | "other";
+
+export const STOCK_TRANSFER_REASON_LABELS: Record<StockTransferReason, string> = {
+  expiry: "소비기한 임박",
+  overstock: "재고 분산",
+  request: "다른 매장 요청",
+  other: "기타",
+};
+
+export type StockTransfer = {
+  id: string;
+  from_store_id: string;
+  to_store_id: string;
+  from_product_id: string;
+  to_product_id: string;
+  barcode: string;
+  product_name: string;
+  quantity: number;
+  expiry_date: string | null;
+  reason: StockTransferReason;
+  memo: string | null;
+  created_product: boolean;
+  created_by: string | null;
+  created_at: string;
+};
+
 export type PurchaseOrderChannel = "hq" | "coupang";
 export type PurchaseOrderSource = "auto" | "manual";
 // 요청 -> 검토 -> 발주완료 -> 상품준비중 -> 배송중 -> 배송완료 + 반려/취소.
