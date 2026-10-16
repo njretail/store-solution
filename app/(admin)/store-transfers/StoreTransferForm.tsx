@@ -82,7 +82,8 @@ export default function StoreTransferForm({ currentStore, stores }: { currentSto
         <input
           value={manualBarcode}
           onChange={(e) => setManualBarcode(e.target.value)}
-          placeholder="바코드 직접 입력"
+          autoFocus
+          placeholder="바코드 직접 입력 (USB 리더기로 찍어도 됨)"
           className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm"
         />
         <button type="submit" className="rounded border border-zinc-300 px-3 py-1.5 text-sm">
