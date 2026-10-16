@@ -9,18 +9,25 @@ const initialOrderState: OrderActionState = { error: null, link: null };
 // 체크박스 + 수량이 전부 이 폼 하나로 들어가 한 번에 제출된다.
 export const BULK_HQ_ORDER_FORM_ID = "bulk-hq-order-form";
 
-// 쿠팡 발주는 클릭하는 순간(사용자 동작 안에서) 쿠팡 메인을 새 탭으로 연다 — 서버 처리(발주 기록)가
+// 쿠팡 발주는 클릭하는 순간(사용자 동작 안에서) 쿠팡을 새 탭으로 연다 — 서버 처리(발주 기록)가
 // 끝난 뒤에 열면 브라우저가 팝업으로 보고 막아버린다. 발주 기록은 폼 제출로 그대로 남는다.
-const COUPANG_MAIN_URL = "https://www.coupang.com/";
+// 상품에 쿠팡 상품 주소가 등록돼 있으면 그 상품 페이지를, 없으면 상품명 검색 결과를 연다.
+// (검색 주소 형식은 lib/coupang-partners.ts의 buildCoupangSearchUrl과 같다 — 그 파일은 서버 전용이라 여기서 따로 만든다)
+function coupangUrlFor(productName: string, productUrl: string | null): string {
+  if (productUrl && /^https:\/\/(www\.|m\.)?coupang\.com\//.test(productUrl)) return productUrl;
+  return `https://www.coupang.com/np/search?component=&q=${encodeURIComponent(productName)}&channel=user`;
+}
 
 export default function ProductOrderCell({
   productId,
   productName,
+  coupangProductUrl = null,
   stockQty,
   lowStockThreshold,
 }: {
   productId: string;
   productName: string;
+  coupangProductUrl?: string | null;
   stockQty: number;
   lowStockThreshold: number;
 }) {
@@ -91,7 +98,7 @@ export default function ProductOrderCell({
         <form
           action={coupangAction}
           onSubmit={() => {
-            window.open(COUPANG_MAIN_URL, "_blank", "noopener,noreferrer");
+            window.open(coupangUrlFor(productName, coupangProductUrl), "_blank", "noopener,noreferrer");
           }}
         >
           <input type="hidden" name="product_id" value={productId} />
@@ -112,7 +119,7 @@ export default function ProductOrderCell({
       )}
       {coupangState.link && !coupangState.error && (
         <p className="text-xs text-amber-600">
-          ⚠ 새 탭에 열린 쿠팡에서 상품을 찾아 결제를 완료해주세요. 바코드 연동이 안 돼 입고가 자동
+          ⚠ 새 탭에 열린 쿠팡 검색 결과에서 상품을 확인하고 결제를 완료해주세요. 바코드 연동이 안 돼 입고가 자동
           반영되지 않으니, 상품 도착 후 입고 등록에서 직접 등록해주세요.
         </p>
       )}

@@ -40,6 +40,7 @@ type Row = {
   category: string | null;
   auto_order_enabled: boolean;
   grade: Grade | null;
+  coupang_product_url: string | null;
 };
 
 export default async function ProductsPage({
@@ -104,7 +105,7 @@ export default async function ProductsPage({
   }
 
   const columns =
-    "id, barcode, name, sell_price, cost_price, stock_qty, low_stock_threshold, auto_order_enabled, categories(name)";
+    "id, barcode, name, sell_price, cost_price, stock_qty, low_stock_threshold, auto_order_enabled, coupang_product_url, categories(name)";
   type ProductRow = {
     id: string;
     barcode: string;
@@ -114,6 +115,7 @@ export default async function ProductsPage({
     stock_qty: number;
     low_stock_threshold: number;
     auto_order_enabled: boolean;
+    coupang_product_url: string | null;
     categories: { name: string } | null;
   };
 
@@ -181,6 +183,7 @@ export default async function ProductsPage({
       auto_order_enabled: p.auto_order_enabled,
       category: p.categories?.name ?? null,
       grade: gradeMap.get(p.id) ?? null,
+      coupang_product_url: p.coupang_product_url,
     }))
     .sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name, "ko") * dirMul;
@@ -293,6 +296,7 @@ export default async function ProductsPage({
                     <ProductOrderCell
                       productId={p.id}
                       productName={p.name}
+                      coupangProductUrl={p.coupang_product_url}
                       stockQty={p.stock_qty}
                       lowStockThreshold={p.low_stock_threshold}
                     />
