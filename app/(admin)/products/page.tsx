@@ -6,6 +6,7 @@ import SelectAllCheckbox from "./SelectAllCheckbox";
 import CategorySelectAllCheckbox from "./CategorySelectAllCheckbox";
 import ProductOrderCell, { BULK_HQ_ORDER_FORM_ID } from "./ProductOrderCell";
 import AutoOrderForm from "./AutoOrderForm";
+import ProductSearchBar from "./ProductSearchBar";
 import { createBulkHqOrders } from "../purchase-orders/actions";
 import { buildGradeMap, GRADE_STYLE, type Grade } from "@/lib/grade";
 
@@ -332,30 +333,7 @@ export default async function ProductsPage({
         </div>
       </div>
 
-      <form className="flex gap-2">
-        <input type="hidden" name="sort" value={sort} />
-        <input type="hidden" name="dir" value={dir} />
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="상품명 또는 바코드로 검색"
-          className="w-full max-w-sm rounded border border-zinc-300 px-3 py-1.5 text-sm"
-        />
-        <button
-          type="submit"
-          className="rounded border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
-        >
-          검색
-        </button>
-        {q && (
-          <Link
-            href="/products"
-            className="rounded border border-zinc-300 px-3 py-1.5 text-sm text-zinc-500 hover:bg-zinc-50"
-          >
-            초기화
-          </Link>
-        )}
-      </form>
+      <ProductSearchBar q={q} sort={sort} dir={dir} />
 
       <p className="text-xs text-zinc-400">
         표 머리글(상품명/판매가/입고가/재고/적정재고)을 클릭하면 그 기준으로 정렬돼요.

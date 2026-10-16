@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { createHqOrder, createCoupangOrder, type OrderActionState } from "@/app/(admin)/purchase-orders/actions";
 
 const initialOrderState: OrderActionState = { error: null, link: null };
@@ -8,6 +8,10 @@ const initialOrderState: OrderActionState = { error: null, link: null };
 // 상품 조회 화면 상단의 "전체 발주" 버튼이 참조하는 폼 id. 여러 상품의 발주선택
 // 체크박스 + 수량이 전부 이 폼 하나로 들어가 한 번에 제출된다.
 export const BULK_HQ_ORDER_FORM_ID = "bulk-hq-order-form";
+
+// 쿠팡 발주는 클릭하는 순간(사용자 동작 안에서) 쿠팡 메인을 새 탭으로 연다 — 서버 처리(발주 기록)가
+// 끝난 뒤에 열면 브라우저가 팝업으로 보고 막아버린다. 발주 기록은 폼 제출로 그대로 남는다.
+const COUPANG_MAIN_URL = "https://www.coupang.com/";
 
 export default function ProductOrderCell({
   productId,
@@ -32,12 +36,6 @@ export default function ProductOrderCell({
 
   const hqFormId = `hq-order-${productId}`;
 
-  // 쿠팡 발주 액션이 딥링크를 반환하면 새 탭으로 열어 직원이 바로 검색/결제를 이어가게 한다.
-  useEffect(() => {
-    if (coupangState.link) {
-      window.open(coupangState.link, "_blank", "noopener,noreferrer");
-    }
-  }, [coupangState.link]);
 
   return (
     <div className="flex flex-col gap-1 py-1">
@@ -90,7 +88,12 @@ export default function ProductOrderCell({
             {hqPending ? "발주중..." : "본부 발주"}
           </button>
         </form>
-        <form action={coupangAction}>
+        <form
+          action={coupangAction}
+          onSubmit={() => {
+            window.open(COUPANG_MAIN_URL, "_blank", "noopener,noreferrer");
+          }}
+        >
           <input type="hidden" name="product_id" value={productId} />
           <input type="hidden" name="product_name" value={productName} />
           <input type="hidden" name="quantity" value={qty} />
@@ -109,7 +112,7 @@ export default function ProductOrderCell({
       )}
       {coupangState.link && !coupangState.error && (
         <p className="text-xs text-amber-600">
-          ⚠ 새 탭에서 상품을 찾아 결제를 완료해주세요. 바코드 연동이 안 돼 입고가 자동
+          ⚠ 새 탭에 열린 쿠팡에서 상품을 찾아 결제를 완료해주세요. 바코드 연동이 안 돼 입고가 자동
           반영되지 않으니, 상품 도착 후 입고 등록에서 직접 등록해주세요.
         </p>
       )}
