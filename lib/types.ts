@@ -550,3 +550,56 @@ export type ChangeTransferRequest = {
   paid_at: string | null;
   created_at: string;
 };
+
+// 고객의 소리 — 키오스크에서 고객이 직접 남기는 익명 의견(이름·연락처 없음).
+export type CustomerVoiceKind = "product_request" | "complaint" | "compliment" | "other";
+export type CustomerVoiceStatus = "new" | "reviewed" | "done";
+
+export const CUSTOMER_VOICE_KIND_LABELS: Record<CustomerVoiceKind, string> = {
+  product_request: "상품 요청",
+  complaint: "불편 사항",
+  compliment: "칭찬",
+  other: "기타 의견",
+};
+
+export const CUSTOMER_VOICE_STATUS_LABELS: Record<CustomerVoiceStatus, string> = {
+  new: "새 의견",
+  reviewed: "확인함",
+  done: "반영 완료",
+};
+
+// 키오스크에서 타이핑 없이 누를 수 있는 분류 버튼. DB에는 키(영문)를 저장하고, 화면에는
+// 관리자용 한글 라벨(여기)과 키오스크용 다국어 라벨(lib/kiosk-voice-i18n.ts)을 따로 붙인다.
+export const CUSTOMER_VOICE_TAGS: Record<"product_request" | "complaint", readonly string[]> = {
+  product_request: ["drinks", "snacks", "icecream", "instant", "fresh", "household", "stationery"],
+  complaint: ["soldout", "clean", "price", "kiosk_error", "temperature"],
+};
+
+export const CUSTOMER_VOICE_TAG_LABELS: Record<string, string> = {
+  drinks: "음료",
+  snacks: "과자·간식",
+  icecream: "아이스크림",
+  instant: "라면·간편식",
+  fresh: "신선식품",
+  household: "생활용품",
+  stationery: "문구·완구",
+  soldout: "품절·재고 부족",
+  clean: "청결",
+  price: "가격",
+  kiosk_error: "키오스크·결제 오류",
+  temperature: "냉난방·냉장고",
+};
+
+export type CustomerVoice = {
+  id: string;
+  store_id: string;
+  kiosk_id: string | null;
+  kind: CustomerVoiceKind;
+  tags: string[];
+  message: string | null;
+  status: CustomerVoiceStatus;
+  admin_note: string | null;
+  handled_by: string | null;
+  handled_at: string | null;
+  created_at: string;
+};

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import JsBarcode from "jsbarcode";
 import type { Kiosk, KioskAd, KioskAnnouncement, KioskStatus, Product, Store } from "@/lib/types";
 import { KIOSK_LANGS, KIOSK_LANG_LABELS, KIOSK_STRINGS, type KioskLang } from "@/lib/kiosk-i18n";
+import { KIOSK_VOICE_STRINGS } from "@/lib/kiosk-voice-i18n";
 
 const AD_INTERVAL_MS = 7000;
 const ANNOUNCEMENT_INTERVAL_MS = 20000;
@@ -279,6 +280,12 @@ export default function KioskScreen({
           className="rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-zinc-900 shadow"
         >
           {t.changeRequestButton}
+        </a>
+        <a
+          href={`/kiosk/${kiosk.id}/voice?lang=${lang}`}
+          className="rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-zinc-900 shadow"
+        >
+          {KIOSK_VOICE_STRINGS[lang].button}
         </a>
         <button
           type="button"

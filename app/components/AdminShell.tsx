@@ -50,6 +50,8 @@ const ADMIN_LINKS: NavItem[] = [
     ],
   },
   { href: "/customers", label: "고객관리" },
+  // 키오스크에서 고객이 남긴 원하는 상품 요청·불편 사항
+  { href: "/customer-voice", label: "고객의 소리" },
   { href: "/coupons", label: "쿠폰관리" },
   {
     label: "현금관리",
@@ -82,6 +84,7 @@ const STAFF_LINKS: NavItem[] = [
   { href: "/expiry", label: "소비기한 등록" },
   { href: "/cash", label: "현금관리" },
   { href: "/kiosks", label: "키오스크 관리" },
+  { href: "/customer-voice", label: "고객의 소리" },
   { href: "/cameras", label: "카메라보기" },
 ];
 
