@@ -63,7 +63,7 @@ export default async function KioskBgmPage() {
             type="number"
             min={0}
             max={300}
-            defaultValue={store.announcement_gap_seconds ?? 7}
+            defaultValue={store.announcement_gap_seconds ?? 5}
             className="w-24 rounded border border-zinc-300 px-2 py-1.5 text-sm"
           />
         </div>

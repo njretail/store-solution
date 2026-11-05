@@ -25,5 +25,5 @@ create policy "kiosk_bgm_tracks staff select" on public.kiosk_bgm_tracks for sel
 alter table public.stores
   add column if not exists bgm_enabled boolean not null default true,
   add column if not exists bgm_volume integer not null default 40 check (bgm_volume between 0 and 100),
-  add column if not exists announcement_gap_seconds integer not null default 7
+  add column if not exists announcement_gap_seconds integer not null default 5
     check (announcement_gap_seconds between 0 and 300);

@@ -287,9 +287,9 @@ export default function KioskScreen({
   useEffect(() => {
     warmUpVoices();
   }, []);
-  // 멘트 하나가 끝나면 매장 설정의 쉬는 시간(기본 7초) 동안 BGM만 흐르게 한 뒤 다음 멘트를 읽는다.
+  // 멘트 하나가 끝나면 매장 설정의 쉬는 시간(기본 5초) 동안 BGM만 흐르게 한 뒤 다음 멘트를 읽는다.
   // (예전엔 20초마다 무조건 읽어서 멘트가 길면 BGM이 나올 틈이 없었다)
-  const gapMs = Math.min(300, Math.max(0, store?.announcement_gap_seconds ?? 7)) * 1000;
+  const gapMs = Math.min(300, Math.max(0, store?.announcement_gap_seconds ?? 5)) * 1000;
   useEffect(() => {
     if (idleAnnouncements.length === 0) return;
     let i = 0;
