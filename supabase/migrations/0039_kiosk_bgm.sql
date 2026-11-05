@@ -14,6 +14,9 @@ create table if not exists public.kiosk_bgm_tracks (
 
 alter table public.kiosk_bgm_tracks enable row level security;
 
+-- 다시 실행해도 오류가 나지 않도록 기존 정책을 먼저 지우고 만든다
+drop policy if exists "kiosk_bgm_tracks admin all" on public.kiosk_bgm_tracks;
+drop policy if exists "kiosk_bgm_tracks staff select" on public.kiosk_bgm_tracks;
 create policy "kiosk_bgm_tracks admin all" on public.kiosk_bgm_tracks for all
   using (exists (select 1 from public.current_profile() cp where cp.role = 'admin'))
   with check (exists (select 1 from public.current_profile() cp where cp.role = 'admin'));
