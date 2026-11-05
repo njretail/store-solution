@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>키오스크 화면 미리보기</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<style>
+  body { font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; }
+  .frame { aspect-ratio: 9 / 16; height: min(82vh, 900px); }
+  .slide { transition: opacity .7s; }
+</style>
+</head>
+<body class="min-h-screen bg-zinc-200 text-zinc-900">
+<div class="mx-auto flex max-w-6xl flex-col gap-4 p-4 lg:flex-row lg:items-start">
+
+  <!-- 미리보기 조작 패널 (실제 화면에는 없음) -->
+  <aside class="flex w-full flex-col gap-4 rounded-xl bg-white p-4 text-sm shadow lg:w-72">
+    <div>
+      <h1 class="text-base font-bold">키오스크 화면 미리보기</h1>
+      <p class="mt-1 text-xs text-zinc-500">app/kiosk/[id]/KioskScreen.tsx 기준 · 광고·상품은 예시 데이터</p>
+    </div>
+    <div>
+      <p class="mb-1 font-semibold">키오스크 상태 (status)</p>
+      <div id="statusBtns" class="grid grid-cols-3 gap-1"></div>
+    </div>
+    <div>
+      <p class="mb-1 font-semibold">화면 단계</p>
+      <div class="grid grid-cols-2 gap-1">
+        <button data-stage="start" class="stageBtn rounded border px-2 py-1">시작 화면</button>
+        <button data-stage="main" class="stageBtn rounded border px-2 py-1">메인 화면</button>
+      </div>
+    </div>
+    <div class="flex flex-col gap-1">
+      <p class="mb-1 font-semibold">관리자 입력값</p>
+      <label class="flex items-center gap-2"><input type="checkbox" id="optBanner" checked /> 배너 문구 (banner_message)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" id="optNotice" checked /> 공지 문구 (notice_message)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" id="optAds" checked /> 광고 있음</label>
+      <label class="flex items-center gap-2"><input type="checkbox" id="optBoard" checked /> 바코드 없는 상품 있음</label>
+    </div>
+    <p class="rounded bg-zinc-100 p-2 text-xs text-zinc-600">키오스크 화면 안의 버튼(언어, A+, 상품 찾기, 시작 터치)도 실제처럼 작동합니다. 변경 요청·고객의 소리 버튼은 다른 화면으로 이동하는 링크라 여기서는 안내만 표시합니다. ※ 실제 코드처럼 상품 찾기 화면이 닫기 버튼을 덮으므로, 닫을 땐 왼쪽의 "메인 화면" 버튼을 누르세요.</p>
+  </aside>
+
+  <!-- 키오스크 화면 -->
+  <main class="flex flex-1 justify-center">
+    <div class="frame relative overflow-hidden rounded-[28px] border-[10px] border-zinc-800 bg-black shadow-2xl">
+      <div id="screen" class="h-full w-full"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const LANGS = ["ko", "en", "zh", "ja"];
+const LANG_LABELS = { ko: "한국어", en: "English", zh: "中文", ja: "日本語" };
+const S = {
+  ko: { tapToStart: "화면을 터치하여 시작하세요", maintenanceTitle: "점검 중입니다", maintenanceBody: "잠시 후 다시 이용해 주세요.", offlineTitle: "일시 이용 불가", changeRequestButton: "거스름돈 못 받으셨나요? 계좌로 받기", boardFind: "바코드 없는 상품 찾기", boardClose: "닫기", boardInstruction: "바코드가 없는 상품은 아래 바코드를 스캔해 주세요", voice: "고객의 소리 · 원하는 상품 요청" },
+  en: { tapToStart: "Touch the screen to start", maintenanceTitle: "Under maintenance", maintenanceBody: "Please try again shortly.", offlineTitle: "Temporarily unavailable", changeRequestButton: "Didn't get your change? Get a bank transfer", boardFind: "Find a barcode-less item", boardClose: "Close", boardInstruction: "For items without a barcode, scan the barcode below", voice: "Customer voice · Request a product" },
+  zh: { tapToStart: "请触摸屏幕开始", maintenanceTitle: "维护中", maintenanceBody: "请稍后再试。", offlineTitle: "暂时无法使用", changeRequestButton: "没收到找零？转账领取", boardFind: "查找无条码商品", boardClose: "关闭", boardInstruction: "没有条码的商品请扫描下方条码", voice: "顾客之声 · 商品需求" },
+  ja: { tapToStart: "画面にタッチして開始してください", maintenanceTitle: "メンテナンス中です", maintenanceBody: "しばらくしてから再度お試しください。", offlineTitle: "一時的にご利用いただけません", changeRequestButton: "お釣りを受け取れませんでしたか？口座で受け取る", boardFind: "バーコードのない商品を探す", boardClose: "閉じる", boardInstruction: "バーコードのない商品は下のバーコードをスキャンしてください", voice: "お客様の声 · 商品リクエスト" },
+};
+
+// 예시 데이터
+const STORE_NAME = "NJ 무인매장 강남점";
+const BANNER = "오늘의 행사: 음료 2+1";
+const NOTICE = "매장 내 CCTV 녹화 중입니다 · 문의 010-0000-0000";
+const ADS = [
+  { bg: "linear-gradient(135deg,#C8075F,#6b0333)", title: "신상품 출시", sub: "프리미엄 아이스크림 20% 할인" },
+  { bg: "linear-gradient(135deg,#0f766e,#064e3b)", title: "음료 2+1", sub: "11월 한 달간 전 품목" },
+  { bg: "linear-gradient(135deg,#1d4ed8,#1e1b4b)", title: "포인트 적립", sub: "앱 회원 결제 시 5% 적립" },
+];
+const BOARD = [
+  { id: 1, barcode: "2000000000011", name: "군고구마", price: 3000 },
+  { id: 2, barcode: "2000000000028", name: "삶은 계란 (2입)", price: 1500 },
+  { id: 3, barcode: "2000000000035", name: "수제 샌드위치", price: 4500 },
+  { id: 4, barcode: "2000000000042", name: "생과일 컵", price: 3500 },
+  { id: 5, barcode: "2000000000059", name: "봉투(중)", price: 100 },
+];
+
+const st = { status: "active", started: false, lang: "ko", large: false, board: false, adIndex: 0, toast: "" };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const opt = (id) => $(id).checked;
+
+function langSwitcher() {
+  return `<div class="flex gap-1 rounded-full bg-white/90 p-1 shadow">${LANGS.map((l) =>
+    `<button data-lang="${l}" class="rounded-full px-2.5 py-1 text-xs font-medium ${l === st.lang ? "bg-[#C8075F] text-white" : "text-zinc-600"}">${LANG_LABELS[l]}</button>`).join("")}</div>`;
+}
+
+function render() {
+  const t = S[st.lang];
+  const zoom = st.large ? 1.25 : 1;
+  let html;
+
+  if (st.status === "maintenance" || st.status === "offline") {
+    html = `<div class="flex h-full flex-col items-center justify-center gap-3 bg-zinc-900 text-white">
+      <p class="text-3xl font-semibold">${st.status === "maintenance" ? t.maintenanceTitle : t.offlineTitle}</p>
+      <p class="text-zinc-400">${t.maintenanceBody}</p></div>`;
+  } else if (!st.started) {
+    html = `<div class="relative h-full" style="zoom:${zoom}">
+      <div class="absolute right-4 top-4 z-10">${langSwitcher()}</div>
+      <button id="startBtn" class="flex h-full w-full flex-col items-center justify-center gap-4 bg-[#C8075F] text-white">
+        <p class="text-4xl font-bold">${esc(STORE_NAME)}</p>
+        <p class="text-xl">${t.tapToStart}</p>
+      </button></div>`;
+  } else {
+    const ads = opt("optAds") ? ADS : [];
+    const board = opt("optBoard") ? BOARD : [];
+    const adsHtml = ads.length
+      ? ads.map((a, i) => `<div class="slide absolute inset-0 flex flex-col items-center justify-center gap-2 ${i === st.adIndex % ads.length ? "opacity-100" : "opacity-0"}" style="background:${a.bg}">
+          <p class="text-4xl font-bold">${a.title}</p><p class="text-lg text-white/80">${a.sub}</p>
+          <p class="absolute bottom-3 text-xs text-white/40">광고 ${i + 1}/${ads.length} (예시)</p></div>`).join("")
+      : `<p class="text-2xl text-zinc-500">${esc(STORE_NAME)}</p>`;
+    const pill = "rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-zinc-900 shadow";
+
+    html = `<div class="relative flex h-full flex-col bg-zinc-950 text-white" style="zoom:${zoom}">
+      ${opt("optBanner") ? `<div class="bg-[#C8075F] px-6 py-2 text-center text-lg font-medium">${esc(BANNER)}</div>` : ""}
+      <div class="relative flex flex-1 items-center justify-center overflow-hidden">${adsHtml}</div>
+      ${opt("optNotice") ? `<div class="bg-zinc-900 px-6 py-3 text-center text-sm text-zinc-300">${esc(NOTICE)}</div>` : ""}
+      <div class="absolute left-4 top-4 flex max-w-[60%] flex-wrap items-center gap-2">
+        <a href="#" data-link="change-request" class="${pill}">${t.changeRequestButton}</a>
+        <a href="#" data-link="voice" class="${pill}">${t.voice}</a>
+        <button id="largeBtn" class="rounded-full bg-white/90 px-3 py-2 text-sm font-medium text-zinc-900 shadow">${st.large ? "A−" : "A+"}</button>
+      </div>
+      <div class="absolute right-4 top-4 flex flex-col items-end gap-2">
+        ${langSwitcher()}
+        ${board.length ? `<button id="boardBtn" class="${pill}">${st.board ? t.boardClose : t.boardFind}</button>` : ""}
+      </div>
+      ${st.board && board.length ? `<div class="absolute inset-0 flex flex-col gap-4 overflow-y-auto bg-black/90 p-6">
+          <p class="text-lg font-semibold">${t.boardInstruction}</p>
+          <div class="grid grid-cols-2 gap-4">${board.map((p) => `
+            <div class="flex flex-col items-center gap-1 rounded-lg bg-white p-4 text-zinc-900">
+              <p class="text-base font-semibold">${esc(p.name)}</p>
+              <p class="text-sm text-zinc-500">${p.price.toLocaleString()}원</p>
+              <svg class="bc max-w-full" data-code="${p.barcode}"></svg>
+              <p class="font-mono text-xs text-zinc-400">${p.barcode}</p></div>`).join("")}</div></div>` : ""}
+      ${st.toast ? `<div class="absolute inset-x-6 bottom-20 rounded-lg bg-white px-4 py-3 text-center text-sm text-zinc-900 shadow-lg">${st.toast}</div>` : ""}
+    </div>`;
+  }
+
+  $("screen").innerHTML = html;
+  document.querySelectorAll("svg.bc").forEach((el) => {
+    try { JsBarcode(el, el.dataset.code, { format: "CODE128", height: 60, displayValue: false, margin: 4 }); } catch (e) {}
+  });
+  syncPanel();
+}
+
+function syncPanel() {
+  $("statusBtns").innerHTML = [["active", "정상"], ["maintenance", "점검"], ["offline", "오프라인"]].map(([v, l]) =>
+    `<button data-status="${v}" class="rounded border px-2 py-1 ${st.status === v ? "border-[#C8075F] bg-[#C8075F] text-white" : ""}">${l}</button>`).join("");
+  document.querySelectorAll(".stageBtn").forEach((b) => {
+    const on = (b.dataset.stage === "main") === st.started;
+    b.className = `stageBtn rounded border px-2 py-1 ${on ? "border-[#C8075F] bg-[#C8075F] text-white" : ""}`;
+  });
+}
+
+let toastTimer;
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-lang],[data-status],[data-stage],[data-link],#startBtn,#largeBtn,#boardBtn");
+  if (!el) return;
+  e.preventDefault();
+  if (el.dataset.lang) st.lang = el.dataset.lang;
+  else if (el.dataset.status) st.status = el.dataset.status;
+  else if (el.dataset.stage) { st.started = el.dataset.stage === "main"; st.board = false; }
+  else if (el.dataset.link) {
+    st.toast = `→ /kiosk/[id]/${el.dataset.link}?lang=${st.lang} 화면으로 이동`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { st.toast = ""; render(); }, 2000);
+  }
+  else if (el.id === "startBtn") st.started = true;
+  else if (el.id === "largeBtn") st.large = !st.large;
+  else if (el.id === "boardBtn") st.board = !st.board;
+  render();
+});
+["optBanner", "optNotice", "optAds", "optBoard"].forEach((id) => $(id).addEventListener("change", () => { st.board = st.board && opt("optBoard"); render(); }));
+
+// 광고 슬라이드쇼 — 실제와 같이 7초 간격
+setInterval(() => {
+  if (!st.started || st.board || !opt("optAds")) return;
+  st.adIndex = (st.adIndex + 1) % ADS.length;
+  document.querySelectorAll(".slide").forEach((s, i) => {
+    s.classList.toggle("opacity-100", i === st.adIndex);
+    s.classList.toggle("opacity-0", i !== st.adIndex);
+  });
+}, 7000);
+
+render();
+</script>
+</body>
+</html>

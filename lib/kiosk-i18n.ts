@@ -54,7 +54,13 @@ type KioskStringKey =
   | "submit"
   | "submitting"
   | "doneTitle"
-  | "doneBody";
+  | "doneBody"
+  | "boardFindDesc"
+  | "boardIdleNote"
+  | "changeRequestDesc"
+  | "voiceDesc"
+  | "largeText"
+  | "bannerTag";
 
 export const KIOSK_STRINGS: Record<KioskLang, Record<KioskStringKey, string>> = {
   ko: {
@@ -98,6 +104,12 @@ export const KIOSK_STRINGS: Record<KioskLang, Record<KioskStringKey, string>> = 
     submitting: "등록 중...",
     doneTitle: "신청되었습니다",
     doneBody: "매장에서 확인 후 입력하신 계좌로 송금해 드립니다. 송금이 끝나면 계좌번호는 즉시 파기됩니다.",
+    boardFindDesc: "군고구마·계란 등 바코드가 없는 상품",
+    boardIdleNote: "60초 동안 터치가 없으면 자동으로 닫힙니다",
+    changeRequestDesc: "계좌이체로 돌려드려요",
+    voiceDesc: "의견·상품 요청 남기기",
+    largeText: "큰글씨",
+    bannerTag: "오늘의 소식",
   },
   en: {
     tapToStart: "Touch the screen to start",
@@ -140,6 +152,12 @@ export const KIOSK_STRINGS: Record<KioskLang, Record<KioskStringKey, string>> = 
     submitting: "Submitting...",
     doneTitle: "Request submitted",
     doneBody: "The store will verify and transfer the amount to your account. Your account number is deleted right after the transfer.",
+    boardFindDesc: "Items without a barcode, like sweet potatoes or eggs",
+    boardIdleNote: "Closes automatically after 60 seconds without a touch",
+    changeRequestDesc: "Refunded by bank transfer",
+    voiceDesc: "Leave feedback or a product request",
+    largeText: "Large text",
+    bannerTag: "Today",
   },
   zh: {
     tapToStart: "请触摸屏幕开始",
@@ -182,6 +200,12 @@ export const KIOSK_STRINGS: Record<KioskLang, Record<KioskStringKey, string>> = 
     submitting: "提交中...",
     doneTitle: "已提交申请",
     doneBody: "门店确认后会将款项转入您的账户。转账完成后，账号将立即销毁。",
+    boardFindDesc: "烤红薯、鸡蛋等无条码商品",
+    boardIdleNote: "60秒内无操作将自动关闭",
+    changeRequestDesc: "通过银行转账退还",
+    voiceDesc: "留下意见或商品需求",
+    largeText: "大字",
+    bannerTag: "今日消息",
   },
   ja: {
     tapToStart: "画面にタッチして開始してください",
@@ -224,5 +248,11 @@ export const KIOSK_STRINGS: Record<KioskLang, Record<KioskStringKey, string>> = 
     submitting: "登録中...",
     doneTitle: "申請されました",
     doneBody: "店舗で確認後、ご入力の口座にお振込みします。振込完了後、口座番号は直ちに破棄されます。",
+    boardFindDesc: "焼き芋・卵などバーコードのない商品",
+    boardIdleNote: "60秒間操作がないと自動で閉じます",
+    changeRequestDesc: "口座振込でお返しします",
+    voiceDesc: "ご意見・リクエストを送る",
+    largeText: "大きな文字",
+    bannerTag: "お知らせ",
   },
 };

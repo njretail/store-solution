@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>포스 키오스크 화면 — 이상적 디자인안</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" />
+<style>
+  :root { --brand: #C8075F; --brand-dark: #9a0549; --ink: #18181b; --muted: #71717a; --line: #e4e4e7; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { word-break: keep-all; font-family: "Noto Sans KR", system-ui, sans-serif; background: #d4d4d8; color: var(--ink); }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+
+  /* 미리보기 레이아웃 */
+  .wrap { display: flex; gap: 16px; padding: 16px; min-height: 100vh; }
+  .panel { width: 300px; flex: none; background: #fff; border-radius: 12px; padding: 16px; font-size: 13px; display: flex; flex-direction: column; gap: 16px; align-self: flex-start; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .panel h1 { font-size: 16px; }
+  .panel h2 { font-size: 13px; margin-bottom: 6px; }
+  .seg { display: grid; gap: 4px; }
+  .seg button { border: 1px solid var(--line); border-radius: 6px; padding: 6px 4px; font-size: 12px; }
+  .seg button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .panel label { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+  .spec { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .spec td { border-top: 1px solid var(--line); padding: 4px 2px; }
+  .spec td:last-child { text-align: right; font-weight: 700; white-space: nowrap; }
+  .note { font-size: 12px; color: var(--muted); background: #f4f4f5; border-radius: 6px; padding: 8px; line-height: 1.5; }
+  .stage { flex: 1; display: flex; align-items: flex-start; justify-content: center; overflow: hidden; }
+  .bezel { background: #111; border-radius: 22px; padding: 14px; box-shadow: 0 20px 50px rgba(0,0,0,.35); }
+  .res { text-align: center; font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+  /* ===== 실제 화면 캔버스 (실제 픽셀 크기로 그리고 축소해서 보여줌) ===== */
+  .canvas { position: relative; overflow: hidden; background: #fafafa; display: flex; flex-direction: column; font-size: 20px; transform-origin: top left; }
+  .canvas.large { font-size: 24px; }              /* 큰글씨 = 1.2배 */
+  .canvas.portrait { width: 1080px; height: 1920px; }
+  .canvas.landscape { width: 1920px; height: 1080px; }
+
+  .hdr { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; height: 140px; background: #fff; border-bottom: 1px solid var(--line); }
+  .landscape .hdr { height: 120px; }
+  .store { font-size: 2.2em; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+  .clock { font-size: 1.2em; color: var(--muted); font-weight: 500; margin-top: 4px; }
+  .langs { display: flex; gap: 8px; background: #f4f4f5; border-radius: 999px; padding: 6px; }
+  .langs button { height: 64px; min-width: 120px; padding: 0 22px; border-radius: 999px; font-size: 1.2em; font-weight: 700; color: #52525b; }
+  .langs button.on { background: var(--brand); color: #fff; }
+
+  .banner { flex: none; height: 88px; background: var(--brand); color: #fff; display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 1.6em; font-weight: 700; padding: 0 40px; }
+  .banner .tag { font-size: .6em; background: rgba(255,255,255,.2); border-radius: 999px; padding: 6px 16px; }
+
+  .body { flex: 1; display: flex; min-height: 0; }
+  .portrait .body { flex-direction: column; }
+  .ad { position: relative; flex: 1; overflow: hidden; background: #000; min-height: 0; }
+  .portrait .ad { flex: none; height: 860px; }
+  .slide { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: #fff; transition: opacity .7s; text-align: center; }
+  .slide h3 { font-size: 4em; font-weight: 800; letter-spacing: -0.02em; }
+  .slide p { font-size: 1.8em; opacity: .85; }
+  .dots { position: absolute; bottom: 28px; left: 0; right: 0; display: flex; justify-content: center; gap: 12px; }
+  .dots i { width: 14px; height: 14px; border-radius: 999px; background: rgba(255,255,255,.4); }
+  .dots i.on { background: #fff; width: 40px; }
+  .adEmpty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #27272a; color: #a1a1aa; font-size: 2.4em; font-weight: 700; }
+
+  .actions { flex: 1; display: flex; flex-direction: column; gap: 24px; padding: 36px 40px; background: #fafafa; }
+  .landscape .actions { flex: none; width: 680px; padding: 36px; border-left: 1px solid var(--line); }
+  .act { display: flex; align-items: center; gap: 28px; text-align: left; border-radius: 28px; padding: 0 36px; background: #fff; border: 2px solid var(--line); box-shadow: 0 2px 6px rgba(0,0,0,.04); }
+  .act:active { transform: scale(.98); }
+  .act .ic { flex: none; width: 96px; height: 96px; border-radius: 24px; display: flex; align-items: center; justify-content: center; background: #fdf2f7; color: var(--brand); }
+  .act .ic svg { width: 56px; height: 56px; }
+  .act b { display: block; font-size: 1.6em; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25; }
+  .act small { display: block; font-size: 1.1em; color: var(--muted); margin-top: 6px; line-height: 1.35; }
+  .act.primary { background: var(--brand); border-color: var(--brand); color: #fff; min-height: 200px; }
+  .act.primary .ic { background: rgba(255,255,255,.18); color: #fff; width: 120px; height: 120px; }
+  .act.primary .ic svg { width: 68px; height: 68px; }
+  .act.primary b { font-size: 2.2em; }
+  .act.primary small { color: rgba(255,255,255,.85); font-size: 1.2em; }
+  .act.sec { min-height: 150px; }
+  .landscape .act.sec { min-height: 168px; }
+  .row2 { display: grid; grid-template-columns: 1fr; gap: 24px; }
+  .landscape .act.primary b { font-size: 2em; }
+  .util { display: flex; gap: 16px; margin-top: auto; }
+  .util button { flex: 1; height: 96px; border-radius: 24px; background: #fff; border: 2px solid var(--line); font-size: 1.3em; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .util button.on { border-color: var(--brand); color: var(--brand); background: #fdf2f7; }
+
+  .notice { flex: none; height: 88px; background: var(--ink); color: #d4d4d8; display: flex; align-items: center; justify-content: center; font-size: 1.3em; padding: 0 40px; }
+
+  /* 시작(대기) 화면 */
+  .attract { position: absolute; inset: 0; background: #000; color: #fff; text-align: center; }
+  .attract .shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,.25) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,.75) 75%); }
+  .attract .top { position: absolute; top: 40px; left: 40px; right: 40px; display: flex; justify-content: space-between; align-items: center; z-index: 2; }
+  .attract .top .langs { background: rgba(255,255,255,.9); }
+  .attract .store { font-size: 2em; text-shadow: 0 2px 8px rgba(0,0,0,.4); }
+  .attract .cta { position: absolute; left: 0; right: 0; bottom: 120px; display: flex; flex-direction: column; align-items: center; gap: 28px; z-index: 2; }
+  .landscape .attract .cta { bottom: 80px; }
+  .attract .pill { background: var(--brand); border-radius: 999px; padding: 36px 80px; font-size: 2.4em; font-weight: 800; box-shadow: 0 0 0 0 rgba(200,7,95,.7); animation: pulse 2s infinite; }
+  .attract .multi { font-size: 1.3em; opacity: .85; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(200,7,95,.7); } 70% { box-shadow: 0 0 0 40px rgba(200,7,95,0); } 100% { box-shadow: 0 0 0 0 rgba(200,7,95,0); } }
+
+  /* 점검/오프라인 */
+  .down { position: absolute; inset: 0; background: #18181b; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; }
+  .down .ic { width: 160px; height: 160px; border-radius: 999px; background: #27272a; display: flex; align-items: center; justify-content: center; color: #fbbf24; margin-bottom: 20px; }
+  .down .ic svg { width: 88px; height: 88px; }
+  .down h2 { font-size: 3.2em; font-weight: 800; }
+  .down p { font-size: 1.6em; color: #a1a1aa; }
+  .down .others { margin-top: 40px; display: flex; flex-direction: column; gap: 10px; font-size: 1.3em; color: #71717a; }
+
+  /* 바코드 없는 상품 — 닫기 버튼을 시트 안에 둬서 절대 가려지지 않게 */
+  .sheet { position: absolute; inset: 0; z-index: 20; background: #fafafa; display: flex; flex-direction: column; }
+  .sheet .shdr { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 0 40px; height: 160px; background: #fff; border-bottom: 1px solid var(--line); }
+  .sheet .shdr h2 { font-size: 2.2em; font-weight: 800; }
+  .sheet .shdr p { font-size: 1.2em; color: var(--muted); margin-top: 4px; }
+  .close { flex: none; height: 96px; padding: 0 40px; border-radius: 24px; background: var(--ink); color: #fff; font-size: 1.5em; font-weight: 800; display: flex; align-items: center; gap: 12px; }
+  .grid { flex: 1; overflow-y: auto; padding: 32px 40px; display: grid; gap: 24px; align-content: start; }
+  .portrait .grid { grid-template-columns: 1fr 1fr; }
+  .landscape .grid { grid-template-columns: repeat(4, 1fr); }
+  .card { background: #fff; border: 2px solid var(--line); border-radius: 24px; padding: 28px 24px 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .card b { font-size: 1.6em; font-weight: 800; text-align: center; }
+  .card .price { font-size: 1.5em; font-weight: 800; color: var(--brand); }
+  .card svg { width: 100%; height: 130px; margin-top: 8px; }
+  .card code { font-size: 1em; color: #a1a1aa; letter-spacing: .08em; }
+  .idle { flex: none; text-align: center; font-size: 1.1em; color: var(--muted); padding: 16px; border-top: 1px solid var(--line); background: #fff; }
+
+  .toast { position: absolute; left: 50%; bottom: 140px; transform: translateX(-50%); z-index: 30; background: var(--ink); color: #fff; border-radius: 20px; padding: 24px 40px; font-size: 1.3em; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside class="panel">
+    <div>
+      <h1>포스 키오스크 화면 — 디자인안</h1>
+      <p class="note" style="margin-top:8px">실제 모니터 픽셀 크기로 그린 뒤 화면에 맞게 줄여서 보여줍니다. 글자 크기는 표의 값 그대로 포스에 표시됩니다.</p>
+    </div>
+    <div><h2>모니터 방향</h2><div class="seg" id="oriBtns" style="grid-template-columns:1fr 1fr"></div></div>
+    <div><h2>화면</h2><div class="seg" id="viewBtns" style="grid-template-columns:1fr 1fr"></div></div>
+    <div>
+      <h2>관리자 입력값</h2>
+      <label><input type="checkbox" id="optBanner" checked /> 배너 문구</label>
+      <label><input type="checkbox" id="optNotice" checked /> 공지 문구</label>
+      <label><input type="checkbox" id="optAds" checked /> 광고 있음</label>
+      <label><input type="checkbox" id="optBoard" checked /> 바코드 없는 상품 있음</label>
+    </div>
+    <div>
+      <h2>글자 크기 기준 (보통 / 큰글씨)</h2>
+      <table class="spec">
+        <tr><td>대기화면 시작 버튼</td><td>48 / 58px</td></tr>
+        <tr><td>매장명 · 주요 버튼 제목</td><td>44 / 53px</td></tr>
+        <tr><td>배너 문구</td><td>32 / 38px</td></tr>
+        <tr><td>보조 버튼 제목 · 상품명</td><td>32 / 38px</td></tr>
+        <tr><td>언어 · 공지 · 설명</td><td>24~26 / 29~31px</td></tr>
+        <tr><td>최소 글자</td><td>20 / 24px</td></tr>
+        <tr><td>터치 영역 최소</td><td>64px</td></tr>
+      </table>
+    </div>
+    <p class="note">광고·상품·매장명은 예시 데이터입니다. 화면 안의 버튼도 실제처럼 눌러볼 수 있습니다.</p>
+  </aside>
+  <section class="stage" id="stage">
+    <div>
+      <div class="bezel" id="bezel"><div id="scaler"><div id="canvas" class="canvas"></div></div></div>
+      <p class="res" id="res"></p>
+    </div>
+  </section>
+</div>
+
+<script>
+const LANGS = ["ko", "en", "zh", "ja"];
+const LANG_LABELS = { ko: "한국어", en: "English", zh: "中文", ja: "日本語" };
+const S = {
+  ko: { tapToStart: "화면을 터치하여 시작하세요", maintenanceTitle: "점검 중입니다", maintenanceBody: "잠시 후 다시 이용해 주세요.", offlineTitle: "일시 이용 불가",
+        change: "거스름돈 못 받으셨나요? 계좌로 받기", boardFind: "바코드 없는 상품 찾기", boardClose: "닫기", boardInstruction: "바코드가 없는 상품은 아래 바코드를 스캔해 주세요",
+        voice: "고객의 소리 · 원하는 상품 요청", boardSub: "군고구마·계란 등 바코드 없는 상품", changeSub: "계좌이체로 돌려드려요", voiceSub: "의견·상품 요청 남기기",
+        large: "큰글씨", today: "오늘의 소식", idle: "60초 동안 터치가 없으면 자동으로 닫힙니다", go: "화면으로 이동" },
+  en: { tapToStart: "Touch the screen to start", maintenanceTitle: "Under maintenance", maintenanceBody: "Please try again shortly.", offlineTitle: "Temporarily unavailable",
+        change: "Didn't get your change? Get a bank transfer", boardFind: "Find a barcode-less item", boardClose: "Close", boardInstruction: "For items without a barcode, scan the barcode below",
+        voice: "Feedback · Request a product", boardSub: "Sweet potatoes, eggs and more", changeSub: "Refunded by bank transfer", voiceSub: "Leave feedback or a request",
+        large: "Large text", today: "Today", idle: "Closes automatically after 60 seconds of no touch", go: "opens" },
+  zh: { tapToStart: "请触摸屏幕开始", maintenanceTitle: "维护中", maintenanceBody: "请稍后再试。", offlineTitle: "暂时无法使用",
+        change: "没收到找零？转账领取", boardFind: "查找无条码商品", boardClose: "关闭", boardInstruction: "没有条码的商品请扫描下方条码",
+        voice: "顾客意见 · 想要的商品", boardSub: "烤红薯、鸡蛋等无条码商品", changeSub: "通过银行转账退还", voiceSub: "留下意见或商品需求",
+        large: "大字", today: "今日消息", idle: "60秒无操作将自动关闭", go: "页面" },
+  ja: { tapToStart: "画面にタッチして開始してください", maintenanceTitle: "メンテナンス中です", maintenanceBody: "しばらくしてから再度お試しください。", offlineTitle: "一時的にご利用いただけません",
+        change: "お釣りを受け取れませんでしたか？口座で受け取る", boardFind: "バーコードのない商品を探す", boardClose: "閉じる", boardInstruction: "バーコードのない商品は下のバーコードをスキャンしてください",
+        voice: "お客様の声 · ほしい商品のリクエスト", boardSub: "焼き芋・卵などバーコードのない商品", changeSub: "口座振込でお返しします", voiceSub: "ご意見・リクエストを送る",
+        large: "大きな文字", today: "お知らせ", idle: "60秒間操作がないと自動で閉じます", go: "画面へ" },
+};
+
+const STORE = "NJ 무인매장 강남점";
+const BANNER = "음료 전 품목 2+1 행사 중";
+const NOTICE = "매장 내 CCTV 녹화 중 · 문의 010-0000-0000";
+const ADS = [
+  { bg: "linear-gradient(135deg,#C8075F,#5c0230)", h: "신상품 출시", p: "프리미엄 아이스크림 20% 할인" },
+  { bg: "linear-gradient(135deg,#0f766e,#052e2b)", h: "음료 2+1", p: "11월 한 달간 전 품목" },
+  { bg: "linear-gradient(135deg,#1d4ed8,#14123a)", h: "포인트 적립", p: "앱 회원 결제 시 5% 적립" },
+];
+const BOARD = [
+  ["2000000000011", "군고구마", 3000], ["2000000000028", "삶은 계란 (2입)", 1500], ["2000000000035", "수제 샌드위치", 4500],
+  ["2000000000042", "생과일 컵", 3500], ["2000000000059", "봉투 (중)", 100], ["2000000000066", "얼음컵", 500],
+];
+
+const IC = {
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  coin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5c-.5-1-1.5-1.5-2.5-1.5-1.4 0-2.5.8-2.5 2s1 1.6 2.5 2 2.5.8 2.5 2-1.1 2-2.5 2c-1 0-2-.5-2.5-1.5M12 6.5V8m0 8v1.5"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5" stroke-linecap="round"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>',
+};
+
+const st = { ori: "portrait", view: "attract", lang: "ko", large: false, board: false, ad: 0, toast: "" };
+const $ = (id) => document.getElementById(id);
+const opt = (id) => $(id).checked;
+const t = () => S[st.lang];
+
+function langs() {
+  return `<div class="langs">${LANGS.map((l) => `<button data-lang="${l}" class="${l === st.lang ? "on" : ""}">${LANG_LABELS[l]}</button>`).join("")}</div>`;
+}
+function slides(withText = true) {
+  if (!opt("optAds")) return `<div class="adEmpty">${STORE}</div>`;
+  return ADS.map((a, i) => `<div class="slide" style="background:${a.bg};opacity:${i === st.ad ? 1 : 0}">${withText ? `<h3>${a.h}</h3><p>${a.p}</p>` : ""}</div>`).join("")
+    + (withText ? `<div class="dots">${ADS.map((_, i) => `<i class="${i === st.ad ? "on" : ""}"></i>`).join("")}</div>` : "");
+}
+function clock() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${"일월화수목금토"[d.getDay()]}요일 · ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function render() {
+  const s = t();
+  let h = "";
+  if (st.view === "maintenance" || st.view === "offline") {
+    const key = st.view === "maintenance" ? "maintenanceTitle" : "offlineTitle";
+    h = `<div class="down"><div class="ic">${IC.warn}</div><h2>${S.ko[key]}</h2><p>${S.ko.maintenanceBody}</p>
+      <div class="others">${["en", "zh", "ja"].map((l) => `<span>${S[l][key]} · ${S[l].maintenanceBody}</span>`).join("")}</div></div>`;
+  } else if (st.view === "attract") {
+    h = `<div class="attract" data-start>${opt("optAds") ? slides(true) : `<div class="adEmpty" style="background:var(--brand);color:#fff"></div>`}<div class="shade"></div>
+      <div class="top"><div class="store" style="color:#fff">${STORE}</div>${langs()}</div>
+      <div class="cta"><div class="pill">${s.tapToStart}</div>
+      <div class="multi">${LANGS.filter((l) => l !== st.lang).map((l) => S[l].tapToStart).join("  ·  ")}</div></div></div>`;
+  } else {
+    const board = opt("optBoard");
+    h = `<header class="hdr"><div><div class="store">${STORE}</div><div class="clock">${clock()}</div></div>${langs()}</header>
+      ${opt("optBanner") ? `<div class="banner"><span class="tag">${s.today}</span>${BANNER}</div>` : ""}
+      <div class="body">
+        <div class="ad">${slides(true)}</div>
+        <div class="actions">
+          ${board ? `<button class="act primary" data-board><span class="ic">${IC.search}</span><span><b>${s.boardFind}</b><small>${s.boardSub}</small></span></button>` : ""}
+          <div class="row2">
+            <button class="act sec" data-link="change-request"><span class="ic">${IC.coin}</span><span><b>${s.change}</b><small>${s.changeSub}</small></span></button>
+            <button class="act sec" data-link="voice"><span class="ic">${IC.chat}</span><span><b>${s.voice}</b><small>${s.voiceSub}</small></span></button>
+          </div>
+          <div class="util"><button data-large class="${st.large ? "on" : ""}"><span style="font-size:1.3em">${st.large ? "가" : "가<sup>+</sup>"}</span>${s.large} ${st.large ? "ON" : "OFF"}</button></div>
+        </div>
+      </div>
+      ${opt("optNotice") ? `<footer class="notice">${NOTICE}</footer>` : ""}
+      ${st.board && board ? `<div class="sheet">
+          <div class="shdr"><div><h2>${s.boardFind}</h2><p>${s.boardInstruction}</p></div>
+          <button class="close" data-board>✕ ${s.boardClose}</button></div>
+          <div class="grid">${BOARD.map(([code, name, price]) => `<div class="card"><b>${name}</b><span class="price">${price.toLocaleString()}원</span>
+            <svg class="bc" data-code="${code}"></svg><code>${code}</code></div>`).join("")}</div>
+          <div class="idle">${s.idle}</div></div>` : ""}`;
+  }
+  if (st.toast) h += `<div class="toast">${st.toast}</div>`;
+
+  const c = $("canvas");
+  c.className = `canvas ${st.ori}${st.large ? " large" : ""}`;
+  c.innerHTML = h;
+  c.querySelectorAll("svg.bc").forEach((el) => {
+    try { JsBarcode(el, el.dataset.code, { format: "CODE128", height: 110, width: 2.6, displayValue: false, margin: 0 }); el.setAttribute("preserveAspectRatio", "xMidYMid meet"); } catch (e) {}
+  });
+  panel();
+  fit();
+}
+
+function panel() {
+  $("oriBtns").innerHTML = [["portrait", "세로 1080×1920"], ["landscape", "가로 1920×1080"]]
+    .map(([v, l]) => `<button data-ori="${v}" class="${st.ori === v ? "on" : ""}">${l}</button>`).join("");
+  $("viewBtns").innerHTML = [["attract", "대기(시작)"], ["main", "메인"], ["board", "상품 찾기"], ["maintenance", "점검"], ["offline", "오프라인"]]
+    .map(([v, l]) => {
+      const on = v === "board" ? st.view === "main" && st.board : v === "main" ? st.view === "main" && !st.board : st.view === v;
+      return `<button data-view="${v}" class="${on ? "on" : ""}">${l}</button>`;
+    }).join("");
+  $("res").textContent = `${st.ori === "portrait" ? "1080 × 1920" : "1920 × 1080"} 실제 픽셀 기준 · 축소 표시`;
+}
+
+function fit() {
+  const w = st.ori === "portrait" ? 1080 : 1920, hgt = st.ori === "portrait" ? 1920 : 1080;
+  const stage = $("stage");
+  const sc = Math.min((stage.clientWidth - 40) / w, (window.innerHeight - 90) / hgt, 1);
+  $("canvas").style.transform = `scale(${sc})`;
+  $("scaler").style.width = w * sc + "px";
+  $("scaler").style.height = hgt * sc + "px";
+}
+
+let idleTimer, toastTimer;
+function armIdle() { clearTimeout(idleTimer); if (st.board) idleTimer = setTimeout(() => { st.board = false; render(); }, 60000); }
+
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-lang],[data-ori],[data-view],[data-board],[data-link],[data-large],[data-start]");
+  if (!el) return;
+  if (el.dataset.lang) { st.lang = el.dataset.lang; e.stopPropagation(); }
+  else if (el.dataset.ori) st.ori = el.dataset.ori;
+  else if (el.dataset.view) {
+    const v = el.dataset.view;
+    st.board = v === "board"; st.view = v === "board" ? "main" : v;
+  }
+  else if ("board" in el.dataset) st.board = !st.board;
+  else if ("large" in el.dataset) st.large = !st.large;
+  else if (el.dataset.link) {
+    st.toast = `/kiosk/[id]/${el.dataset.link} ${t().go}`;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { st.toast = ""; render(); }, 1800);
+  }
+  else if ("start" in el.dataset) st.view = "main";
+  armIdle();
+  render();
+}, true);
+["optBanner", "optNotice", "optAds", "optBoard"].forEach((id) => $(id).addEventListener("change", render));
+window.addEventListener("resize", fit);
+
+setInterval(() => {
+  if (!opt("optAds") || st.board) return;
+  st.ad = (st.ad + 1) % ADS.length;
+  document.querySelectorAll(".slide").forEach((s, i) => (s.style.opacity = i === st.ad ? 1 : 0));
+  document.querySelectorAll(".dots i").forEach((d, i) => d.classList.toggle("on", i === st.ad));
+}, 7000);
+setInterval(() => { const c = document.querySelector(".clock"); if (c) c.textContent = clock(); }, 30000);
+
+render();
+</script>
+</body>
+</html>
