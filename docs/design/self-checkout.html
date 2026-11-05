@@ -251,6 +251,13 @@
       <p class="note" style="margin-top:6px">대기 화면에서는 광고·다모아 홍보 멘트를 돌아가며 읽고, 결제 단계마다 안내 멘트를 읽어 줍니다. 브라우저는 한 번 눌러야 소리를 낼 수 있어서 버튼으로 켭니다(매장 포스에서는 켜진 상태로 시작하도록 설정 가능).</p>
     </div>
     <div>
+      <h2>매장 BGM (가사 없음)</h2>
+      <div class="seg"><button id="bgmBtn" data-act="bgm" style="grid-column:1 / -1">🎵 BGM 켜기</button></div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:#52525b">음량
+        <input id="bgmVol" type="range" min="0" max="100" value="45" style="flex:1" /></label>
+      <p class="note" style="margin-top:6px">가사 없는 신나는 반주를 이 페이지에서 직접 만들어 연주합니다(저작권 걱정 없는 자체 곡). 안내 멘트가 나오는 동안에는 BGM이 자동으로 작아집니다.</p>
+    </div>
+    <div>
       <h2>멘트 고치기 (관리자 화면 미리보기)</h2>
       <div id="voiceEdit" style="display:flex;flex-direction:column;gap:8px"></div>
       <p class="note" style="margin-top:6px">여기서 고치면 바로 그 멘트로 읽습니다. 실제 솔루션에서는 관리자 "안내멘트 관리"에서 매장별로 고치게 됩니다.</p>
@@ -677,6 +684,8 @@ function padHtml() {
 function panel() {
   $("soundBtn").textContent = st.sound ? "🔇 안내 음성 끄기" : "🔊 안내 음성 켜기";
   $("soundBtn").className = st.sound ? "on" : "";
+  $("bgmBtn").textContent = bgm.playing ? "⏸ BGM 끄기" : "🎵 BGM 켜기";
+  $("bgmBtn").className = bgm.playing ? "on" : "";
   const nav = [["idle", "대기"], ["cart", "장바구니"], ["receive", "받는 방법"], ["phone", "번호 입력"], ["method", "결제 방법"], ["card", "카드 결제"], ["cash", "현금 결제"], ["done", "완료"],
     ["dphone", "배송: 연락처"], ["daddr", "배송: 주소"], ["dconfirm", "배송: 확인"], ["ddone", "배송: 완료"]];
   $("nav").innerHTML = nav.map(([v, l]) => `<button data-nav="${v}" class="${st.screen === v ? "on" : ""}">${l}</button>`).join("");
@@ -761,12 +770,15 @@ document.addEventListener("click", (e) => {
       case "call": st.call = !st.call; break;
       // 켜면: 대기 화면은 render()가 광고 음성을 시작하고, 결제 단계면 그 단계 멘트를 바로 읽는다
       // 휴대폰(특히 아이폰)은 "누르는 그 순간" 읽기 시작해야 소리가 나므로 render 전에 바로 읽는다.
+      // 화면 안 소리 버튼은 안내 음성과 BGM을 함께 켜고 끈다(패널에서는 따로 조절).
       case "sound":
         st.sound = !st.sound;
-        if (!st.sound) { stopSpeaking(); break; }
+        if (!st.sound) { stopSpeaking(); bgm.stop(); break; }
+        bgm.start();
         lastScreen = st.screen;
         if (st.screen === "idle") speakAd(); else speakStep();
         break;
+      case "bgm": if (bgm.playing) bgm.stop(); else bgm.start(); break;
       case "board": st.board = !st.board; break;
       case "reset": resetAll(); break;
       case "skipPhone": st.customer = null; st.phone = ""; st.screen = "method"; break;
@@ -809,6 +821,76 @@ setInterval(() => {
   render();
 }, 1000);
 window.addEventListener("resize", fit);
+
+// ===== 매장 BGM — 가사 없는 신나는 반주를 Web Audio로 직접 합성(자체 곡, 저작권 없음) =====
+// 118BPM, 8마디 반복: 코드 C → G → Am → F (흔한 진행), 킥·스네어·하이햇 + 베이스 + 오프비트 코드 + 짧은 멜로디.
+// 안내 멘트(speechSynthesis)가 나오는 동안에는 음량을 25%로 낮췄다가 끝나면 되돌린다(덕킹).
+const bgm = (() => {
+  const BPM = 118, STEP = 60 / BPM / 4; // 16분음표 길이
+  const CHORDS = [[48, 52, 55], [43, 47, 50], [45, 48, 52], [41, 45, 48]]; // C, G, Am, F (MIDI)
+  const MELODY = [72, null, 74, 76, null, 79, 76, null, 74, null, 72, 74, 76, null, 74, null]; // 2마디짜리 멜로디(16칸)
+  let ctx = null, master = null, noise = null, timer = null, step = 0, nextTime = 0, duckTimer = null;
+  const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  const vol = () => (Number(document.getElementById("bgmVol").value) / 100) * 0.5;
+
+  function env(g, t, a, peak, d) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
+  function tone(type, freq, t, peak, dur, cutoff) {
+    const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+    o.type = type; o.frequency.value = freq; f.type = "lowpass"; f.frequency.value = cutoff;
+    env(g, t, 0.005, peak, dur); o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function kick(t) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+    env(g, t, 0.002, 0.9, 0.25); o.connect(g).connect(master); o.start(t); o.stop(t + 0.3);
+  }
+  function hit(t, filterType, freq, peak, dur) {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noise; f.type = filterType; f.frequency.value = freq; env(g, t, 0.001, peak, dur);
+    s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + dur + 0.05);
+  }
+  function schedule(i, t) {
+    const bar = Math.floor(i / 16) % 8, s = i % 16, chord = CHORDS[Math.floor(bar / 2) % 4];
+    if (s % 4 === 0) kick(t);                                       // 4비트 킥
+    if (s === 4 || s === 12) hit(t, "bandpass", 1800, 0.35, 0.15);  // 2·4박 스네어
+    if (s % 2 === 0) hit(t, "highpass", 8000, s % 4 === 2 ? 0.12 : 0.06, 0.04); // 하이햇
+    if (s % 2 === 0) tone("sawtooth", hz(chord[0] - 12 + (s % 8 === 6 ? 12 : 0)), t, 0.22, STEP * 1.6, 500); // 베이스
+    if (s % 4 === 2) chord.forEach((m) => tone("square", hz(m + 12), t, 0.035, STEP * 1.2, 2200)); // 오프비트 코드
+    const mel = MELODY[(bar % 2) * 8 + Math.floor(s / 2)];
+    if (s % 2 === 0 && mel && bar >= 2) tone("triangle", hz(mel), t, 0.09, STEP * 1.8, 4000); // 3마디부터 멜로디
+  }
+  function tick() {
+    while (nextTime < ctx.currentTime + 0.12) { schedule(step, nextTime); step += 1; nextTime += STEP; }
+  }
+  function duck() {
+    if (!master) return;
+    const speaking = canSpeak && (speechSynthesis.speaking || speechSynthesis.pending);
+    master.gain.setTargetAtTime(vol() * (speaking ? 0.25 : 1), ctx.currentTime, 0.15);
+  }
+  return {
+    get playing() { return !!timer; },
+    // 휴대폰은 누르는 순간에 오디오를 시작해야 하므로 반드시 클릭 처리 안에서 부른다.
+    start() {
+      if (timer) return;
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        ctx = new AC(); master = ctx.createGain(); master.connect(ctx.destination);
+        noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+        const d = noise.getChannelData(0); for (let k = 0; k < d.length; k++) d[k] = Math.random() * 2 - 1;
+      }
+      ctx.resume();
+      master.gain.value = vol(); step = 0; nextTime = ctx.currentTime + 0.05;
+      timer = setInterval(tick, 25); duckTimer = setInterval(duck, 200);
+    },
+    stop() {
+      clearInterval(timer); clearInterval(duckTimer); timer = null;
+      if (master) master.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05);
+    },
+    setVolume() { duck(); },
+  };
+})();
+document.getElementById("bgmVol").addEventListener("input", () => bgm.setVolume());
 
 // 멘트 고치기 — 관리자 "안내멘트 관리"에서 하게 될 일을 미리보기로 흉내 낸다.
 (function buildVoiceEditor() {
