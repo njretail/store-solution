@@ -29,8 +29,12 @@
   .hdr { flex: none; height: 120px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 40px; }
   .hdr .store { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; }
   .hdr .sub { font-size: 22px; color: var(--muted); margin-top: 2px; }
-  .callBtn { height: 72px; padding: 0 28px; border-radius: 999px; border: 2px solid var(--line); background: #fff; font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-  .callBtn svg { width: 30px; height: 30px; color: var(--brand); }
+  /* 직원 호출 — 결제(핑크)와 겹치지 않는 노랑+검정으로, 어느 화면에서든 한눈에 보이게 */
+  .callBtn { height: 88px; padding: 0 32px 0 24px; border-radius: 999px; background: #facc15; color: #18181b; font-size: 30px; font-weight: 900; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 0 #ca8a04, 0 0 0 6px rgba(250,204,21,.25); }
+  .callBtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #ca8a04, 0 0 0 6px rgba(250,204,21,.25); }
+  .callBtn .bellWrap { width: 56px; height: 56px; border-radius: 999px; background: #18181b; color: #facc15; display: flex; align-items: center; justify-content: center; }
+  .callBtn svg { width: 32px; height: 32px; animation: ring 3s ease-in-out infinite; transform-origin: 50% 10%; }
+  @keyframes ring { 0%, 86%, 100% { transform: rotate(0); } 89% { transform: rotate(14deg); } 92% { transform: rotate(-12deg); } 95% { transform: rotate(8deg); } }
 
   .steps { flex: none; height: 84px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: center; gap: 12px; }
   .steps .st { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 700; color: #a1a1aa; }
@@ -312,7 +316,7 @@ function steps(n) {
   return `<div class="steps">${names.map((nm, i) => `${i ? '<span class="bar"></span>' : ""}<span class="st ${i + 1 === n ? "on" : i + 1 < n ? "done" : ""}"><i>${i + 1 < n ? "✓" : i + 1}</i>${nm}</span>`).join("")}</div>`;
 }
 const header = (sub = "셀프 계산대") => `<header class="hdr"><div><div class="store">${STORE}</div><div class="sub">${sub}</div></div>
-  <button class="callBtn" data-act="call">${IC.bell}직원 호출</button></header>`;
+  <button class="callBtn" data-act="call"><span class="bellWrap">${IC.bell}</span>직원 호출</button></header>`;
 
 function render() {
   const T = totals();
@@ -389,7 +393,7 @@ function render() {
         <h2>어디로 배송할까요?</h2>
         <p class="lead">매장 근처 배송 가능한 곳이에요. 눌러서 골라 주세요.</p>
         <div class="bldg">${BUILDINGS.map((b, i) => `<button data-bldg="${i}" class="${st.bldg === b ? "on" : ""}"><b>${b.name}</b><small>${b.addr}</small></button>`).join("")}</div>
-        <button class="wide" style="height:96px;font-size:28px;color:#52525b" data-act="call">목록에 없어요 · 직원 호출</button>
+        <button class="wide" style="height:96px;font-size:28px;background:#fef9c3;border-color:#facc15" data-act="call">목록에 없어요 · 직원 호출</button>
         <button class="back" style="margin-top:auto" data-go="dphone">← 이전</button>
       </div>`;
       break;
@@ -505,7 +509,7 @@ function render() {
 
   if (st.board) h += `<div class="sheet"><div class="shdr"><div><h2>바코드 없는 상품</h2><p>눌러서 바로 담을 수 있어요</p></div><button class="close" data-act="board">✕ 닫기</button></div>
     <div class="grid">${NOCODE.map((p, i) => `<button class="tile" data-nocode="${i}"><span class="emo">${p.emo}</span><b>${p.name}</b><span>${won(p.price)}</span></button>`).join("")}</div></div>`;
-  if (st.call) h += `<div class="modal"><div class="box"><div class="ok" style="background:var(--brand);box-shadow:0 0 0 24px var(--brand-soft)">${IC.bell.replace("<svg", '<svg style="width:96px;height:96px"')}</div>
+  if (st.call) h += `<div class="modal"><div class="box"><div class="ok" style="background:#facc15;color:#18181b;box-shadow:0 0 0 24px #fef9c3">${IC.bell.replace("<svg", '<svg style="width:96px;height:96px"')}</div>
     <h3>직원을 호출했어요</h3><p>관리자에게 알림이 전송되었습니다.<br/>잠시만 기다려 주세요.</p><button class="primary" data-act="call">확인</button></div></div>`;
   if (st.toast) h += `<div class="modal"><div class="box"><h3>거스름돈 계좌로 받기</h3><p>기존 /kiosk/[id]/change-request 화면으로 이동합니다.</p><button class="primary" data-act="toastClose">확인</button></div></div>`;
 
