@@ -24,6 +24,22 @@ export type Store = {
   default_delivery_fee: number;
   free_shipping_threshold: number | null;
   store_type: "direct" | "franchise";
+  // 키오스크 매장 BGM 사용 여부·음량(0~100)
+  bgm_enabled: boolean;
+  bgm_volume: number;
+  created_at: string;
+};
+
+// 키오스크 매장 BGM 곡 — 키오스크 화면이 sort_order 순으로 반복 재생한다.
+export type KioskBgmTrack = {
+  id: string;
+  store_id: string;
+  kiosk_id: string | null;
+  title: string;
+  audio_url: string;
+  sort_order: number;
+  active: boolean;
+  created_by: string | null;
   created_at: string;
 };
 

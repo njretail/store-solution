@@ -67,6 +67,7 @@ const ADMIN_LINKS: NavItem[] = [
       { href: "/kiosks", label: "키오스크 목록" },
       { href: "/kiosks/ads", label: "광고 관리" },
       { href: "/kiosks/announcements", label: "안내멘트 관리" },
+      { href: "/kiosks/bgm", label: "매장 BGM" },
     ],
   },
   { href: "/cameras", label: "카메라보기" },

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import JsBarcode from "jsbarcode";
-import type { Kiosk, KioskAd, KioskAnnouncement, KioskStatus, Product, Store } from "@/lib/types";
+import type { Kiosk, KioskAd, KioskAnnouncement, KioskBgmTrack, KioskStatus, Product, Store } from "@/lib/types";
 import { KIOSK_LANGS, KIOSK_LANG_LABELS, KIOSK_STRINGS, type KioskLang } from "@/lib/kiosk-i18n";
 import { KIOSK_VOICE_STRINGS } from "@/lib/kiosk-voice-i18n";
 import { makeKoreanUtterance, warmUpVoices } from "@/lib/kiosk-voice";
@@ -192,12 +192,14 @@ export default function KioskScreen({
   ads,
   announcements,
   boardProducts,
+  bgmTracks = [],
 }: {
   kiosk: Kiosk;
   store: Store | null;
   ads: KioskAd[];
   announcements: KioskAnnouncement[];
   boardProducts: BoardProduct[];
+  bgmTracks?: KioskBgmTrack[];
 }) {
   const [started, setStarted] = useState(false);
   const [adIndex, setAdIndex] = useState(0);
@@ -207,6 +209,7 @@ export default function KioskScreen({
   const [largeText, setLargeText] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const bgmRef = useRef<HTMLAudioElement>(null);
   const lastCommandAtRef = useRef<string | null>(kiosk.remote_command_at);
   const t = KIOSK_STRINGS[lang];
   const storeName = store?.name ?? "무인매장";
@@ -302,6 +305,42 @@ export default function KioskScreen({
     // idleKey가 같으면 같은 멘트 목록 — 배열은 렌더마다 새로 만들어지므로 키로 비교한다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, idleKey]);
+
+  // 매장 BGM — 등록된 곡을 순서대로 반복 재생한다. 안내멘트(업로드 오디오 또는 기기 음성)가
+  // 나오는 동안에는 설정 음량의 25%로 줄였다가 끝나면 되돌린다. 자동재생이 막혀 있으면
+  // 안내멘트와 마찬가지로 첫 터치(started 변경) 때 다시 시도한다.
+  const bgmEnabled = (store?.bgm_enabled ?? true) && bgmTracks.length > 0;
+  const bgmVolume = Math.min(100, Math.max(0, store?.bgm_volume ?? 40)) / 100;
+  const bgmKey = bgmTracks.map((t) => t.id).join(",");
+  useEffect(() => {
+    const el = bgmRef.current;
+    if (!bgmEnabled || !el) return;
+    let index = 0;
+    const playTrack = () => {
+      el.src = bgmTracks[index % bgmTracks.length].audio_url;
+      el.play().catch(() => {});
+    };
+    const onEnded = () => {
+      index += 1;
+      playTrack();
+    };
+    el.addEventListener("ended", onEnded);
+    el.volume = bgmVolume;
+    playTrack();
+    const duck = setInterval(() => {
+      const speaking =
+        ("speechSynthesis" in window && window.speechSynthesis.speaking) ||
+        (audioRef.current != null && !audioRef.current.paused && !audioRef.current.ended);
+      el.volume = speaking ? bgmVolume * 0.25 : bgmVolume;
+    }, 250);
+    return () => {
+      el.removeEventListener("ended", onEnded);
+      clearInterval(duck);
+      el.pause();
+    };
+    // bgmKey가 같으면 같은 곡 목록 — 배열은 렌더마다 새로 만들어지므로 키로 비교한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started, bgmEnabled, bgmKey, bgmVolume]);
 
   // 원격 관리 — 20초마다 상태를 확인해서, 상태가 바뀌면 화면에 반영하고
   // 새로고침 명령(remote_command_at 변경)이 오면 새로고침한다.
@@ -520,6 +559,7 @@ export default function KioskScreen({
   return (
     <div className="flex min-h-dvh items-center justify-center bg-black" style={screenVars(largeText)}>
       <audio ref={audioRef} />
+      <audio ref={bgmRef} />
       <div className="relative flex h-[calc(var(--u)*96)] w-[calc(var(--u)*54)] flex-col overflow-hidden break-keep bg-zinc-50 text-zinc-900">
         {content}
       </div>

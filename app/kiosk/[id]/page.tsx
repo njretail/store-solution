@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Kiosk, KioskAd, KioskAnnouncement, Product, Store } from "@/lib/types";
+import type { Kiosk, KioskAd, KioskAnnouncement, KioskBgmTrack, Product, Store } from "@/lib/types";
 import KioskScreen from "./KioskScreen";
 
 // 구매자가 실제로 보는 키오스크 화면 — 로그인이 없는 공개 페이지라 서비스 롤
@@ -17,7 +17,7 @@ export default async function KioskDisplayPage({
   const { data: kiosk } = await admin.from("kiosks").select("*").eq("id", id).maybeSingle();
   if (!kiosk) return notFound();
 
-  const [{ data: store }, { data: adData }, { data: announcementData }, { data: boardData }] =
+  const [{ data: store }, { data: adData }, { data: announcementData }, { data: boardData }, { data: bgmData }] =
     await Promise.all([
       admin.from("stores").select("*").eq("id", kiosk.store_id).maybeSingle(),
       admin
@@ -40,6 +40,14 @@ export default async function KioskDisplayPage({
         .eq("store_id", kiosk.store_id)
         .eq("show_on_kiosk_board", true)
         .order("name"),
+      admin
+        .from("kiosk_bgm_tracks")
+        .select("*")
+        .eq("store_id", kiosk.store_id)
+        .eq("active", true)
+        .or(`kiosk_id.is.null,kiosk_id.eq.${id}`)
+        .order("sort_order")
+        .order("created_at"),
     ]);
 
   return (
@@ -49,6 +57,7 @@ export default async function KioskDisplayPage({
       ads={(adData ?? []) as KioskAd[]}
       announcements={(announcementData ?? []) as KioskAnnouncement[]}
       boardProducts={(boardData ?? []) as Pick<Product, "id" | "barcode" | "name" | "sell_price">[]}
+      bgmTracks={(bgmData ?? []) as KioskBgmTrack[]}
     />
   );
 }
