@@ -254,6 +254,9 @@
     <div>
       <h2>안내 음성</h2>
       <div class="seg"><button id="soundBtn" data-act="sound" style="grid-column:1 / -1">🔊 안내 음성 켜기</button></div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:#52525b">목소리
+        <select id="voiceGender" style="flex:1;border:1px solid #e4e4e7;border-radius:6px;padding:4px"><option value="female">여자</option><option value="male">남자</option></select></label>
+      <p id="voiceInfo" class="note" style="margin-top:6px"></p>
       <p class="note" style="margin-top:6px">대기 화면에서는 광고·다모아 홍보 멘트를 돌아가며 읽고, 결제 단계마다 안내 멘트를 읽어 줍니다. 브라우저는 한 번 눌러야 소리를 낼 수 있어서 버튼으로 켭니다(매장 포스에서는 켜진 상태로 시작하도록 설정 가능).</p>
     </div>
     <div>
@@ -343,13 +346,22 @@ const canSpeak = "speechSynthesis" in window;
 // 기본 한국어 음성은 기계음 같아서, 기기에 있는 더 자연스러운 한국어 음성(Edge의 Natural,
 // 크롬의 Google, 아이폰의 유나 등)을 먼저 고른다 — 솔루션의 lib/kiosk-voice.ts와 같은 규칙.
 const PREFERRED_VOICES = [/natural/i, /online/i, /neural/i, /google/i, /yuna|유나/i, /sunhi|injoon|heami/i];
+// 목소리 성별 — 기기에 깔린 한국어 음성 이름으로 구분한다(Edge의 InJoon은 남자, SunHi·유나·Heami는 여자 등).
+const MALE_VOICE = /injoon|인준|minsu|민수|hyunsu|현수|bongjin|gookmin|male|남성|남자/i;
+const FEMALE_VOICE = /sunhi|선히|yuna|유나|heami|해미|jimin|seoyeon|female|여성|여자/i;
+function koVoices() { return canSpeak ? speechSynthesis.getVoices().filter((v) => /^ko/i.test(v.lang)) : []; }
+function pickVoice() {
+  const male = document.getElementById("voiceGender")?.value === "male";
+  const vs = koVoices();
+  const byGender = vs.filter((v) => (male ? MALE_VOICE : FEMALE_VOICE).test(v.name) && !(male ? FEMALE_VOICE : MALE_VOICE).test(v.name));
+  const pool = byGender.length ? byGender : vs;
+  return PREFERRED_VOICES.map((p) => pool.find((x) => p.test(x.name))).find(Boolean) || pool[0] || null;
+}
 function applyVoice(u) {
-  const vs = speechSynthesis.getVoices().filter((v) => /^ko/i.test(v.lang));
-  const v = PREFERRED_VOICES.map((p) => vs.find((x) => p.test(x.name))).find(Boolean) || vs[0];
+  const v = pickVoice();
   if (v) u.voice = v;
-  // 발랄하게: 조금 빠르고 톤을 높여서 읽는다
-  u.rate = 1.08;
-  u.pitch = 1.2;
+  u.rate = 1.05; // 처지지 않게 살짝 빠르게
+  u.pitch = 1;   // 톤을 바꾸면 기기 음성이 갈라지거나 어색해져서 그대로 둔다
 }
 if (canSpeak) { speechSynthesis.getVoices(); speechSynthesis.addEventListener?.("voiceschanged", () => speechSynthesis.getVoices()); }
 let adShownAt = Date.now();
@@ -380,9 +392,10 @@ const MENT_FILES = {
   "배송 주문이 접수되었습니다. 배송 상품은 배송공간으로 옮겨 주세요.": "ments/m11.wav"
 };
 const isTouch = matchMedia("(pointer: coarse)").matches;
+// Windows 기본 음성(Heami)이 아닌 한국어 음성이 있으면 그걸 쓴다(휴대폰의 유나·구글·삼성 음성,
+// PC Edge의 자연스러운 음성 등). 그런 음성이 없을 때(앱 안 화면 등)만 미리 만든 파일을 튼다.
 function hasNaturalVoice() {
-  if (!canSpeak) return false;
-  return speechSynthesis.getVoices().some((v) => /^ko/i.test(v.lang) && /natural|online|neural|google|yuna|유나/i.test(v.name));
+  return koVoices().some((v) => !/heami|해미/i.test(v.name));
 }
 let curUtter = null, curAudio = null;
 // 멘트 하나를 읽고, 끝나면 onEnd를 부른다(파일 또는 기기 음성).
@@ -390,7 +403,7 @@ function say(text, onEnd) {
   stopSpeaking();
   if (!text || !text.trim()) return;
   const file = MENT_FILES[text];
-  if (file && (isTouch || !hasNaturalVoice())) {
+  if (file && !hasNaturalVoice()) {
     const a = new Audio(file);
     curAudio = a;
     a.onended = onEnd || null;
@@ -399,16 +412,34 @@ function say(text, onEnd) {
     a.play().catch(() => { if (curAudio === a) { curAudio = null; sayTts(text, onEnd); } });
     return;
   }
-  sayTts(text, onEnd);
+  sayTts(text, onEnd, file);
 }
-function sayTts(text, onEnd) {
-  if (!canSpeak) { if (onEnd) setTimeout(onEnd, 3000); return; }
+function playFile(file, text, onEnd) {
+  const a = new Audio(file);
+  curAudio = a;
+  a.onended = onEnd || null;
+  a.onerror = onEnd || null;
+  a.play().catch(() => { if (onEnd) setTimeout(onEnd, 1000); });
+}
+// 기기 음성으로 읽는다. 음성 목록은 있는데 실제로는 소리가 안 나는 환경(휴대폰 앱 화면 등)을 대비해,
+// 1.5초 안에 읽기가 시작되지 않으면 미리 만든 파일로 바꿔서 튼다.
+function sayTts(text, onEnd, file) {
+  if (!canSpeak) { if (file) playFile(file, text, onEnd); else if (onEnd) setTimeout(onEnd, 3000); return; }
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "ko-KR"; applyVoice(u);
   curUtter = u;
+  let started = false;
+  u.onstart = () => { started = true; };
   u.onend = onEnd || null;
-  u.onerror = onEnd || null;
+  u.onerror = () => { if (!started && file && curUtter === u) { curUtter = null; playFile(file, text, onEnd); } else if (onEnd) onEnd(); };
   startUtter(u);
+  if (file) setTimeout(() => {
+    if (!started && curUtter === u) {
+      u.onend = u.onerror = null; curUtter = null;
+      if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+      playFile(file, text, onEnd);
+    }
+  }, 1500);
 }
 function isSpeaking() {
   return (canSpeak && (speechSynthesis.speaking || speechSynthesis.pending)) || (curAudio != null && !curAudio.paused && !curAudio.ended);
@@ -757,7 +788,15 @@ function padHtml() {
     <button class="fn" data-key="clr">전체 지움</button><button data-key="0">0</button><button class="fn" data-key="bk">← 지움</button></div>`;
 }
 
+function voiceInfoText() {
+  const v = pickVoice();
+  if (!hasNaturalVoice()) return "이 기기엔 한국어 음성이 기본 음성뿐이라 미리 만든 여자 목소리 파일을 틉니다.";
+  const male = document.getElementById("voiceGender").value === "male";
+  const matched = v && (male ? MALE_VOICE : FEMALE_VOICE).test(v.name);
+  return "지금 목소리: " + (v ? v.name : "기기 기본") + (matched ? "" : male ? " (이 기기엔 남자 한국어 음성이 없어요)" : "");
+}
 function panel() {
+  $("voiceInfo").textContent = voiceInfoText();
   $("soundBtn").textContent = st.sound ? "🔇 안내 음성 끄기" : "🔊 안내 음성 켜기";
   $("soundBtn").className = st.sound ? "on" : "";
   $("quickSound").textContent = st.sound ? "🔇 소리 끄기" : "🔊 소리 켜기";
@@ -1034,6 +1073,9 @@ const bgm = (() => {
   };
 })();
 document.getElementById("bgmVol").addEventListener("input", () => bgm.setVolume());
+// 목소리를 바꾸면 안내 문구를 갱신하고, 지금 화면의 멘트를 새 목소리로 한 번 들려준다
+document.getElementById("voiceGender").addEventListener("change", () => { panel(); if (st.sound) { if (st.screen === "idle") speakAd(); else speakStep(); } });
+if (canSpeak) speechSynthesis.addEventListener?.("voiceschanged", () => panel());
 // 이 컴퓨터에서 파일로 열었을 때 같은 폴더에 로고송이 있으면 자동으로 BGM으로 쓴다
 // (로고송 파일은 GitHub·공개 링크에 올리지 않는다 — .gitignore 처리).
 (function useLocalLogoSong() {
