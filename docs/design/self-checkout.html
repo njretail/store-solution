@@ -255,6 +255,8 @@
       <div class="seg"><button id="bgmBtn" data-act="bgm" style="grid-column:1 / -1">🎵 BGM 켜기</button></div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:#52525b">음량
         <input id="bgmVol" type="range" min="0" max="100" value="70" style="flex:1" /></label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:#52525b">멘트 사이 쉬는 시간(BGM만)
+        <select id="mentGap" style="flex:1;border:1px solid #e4e4e7;border-radius:6px;padding:4px"><option value="5">5초</option><option value="10">10초</option><option value="15" selected>15초</option><option value="20">20초</option><option value="30">30초</option><option value="60">1분</option></select></label>
       <p class="note" style="margin-top:6px">가사 없는 신나는 반주를 이 페이지에서 직접 만들어 연주합니다(저작권 걱정 없는 자체 곡). 안내 멘트가 나오는 동안에는 BGM이 자동으로 작아집니다.</p>
     </div>
     <div>
@@ -351,7 +353,9 @@ function speakAd() {
   u.lang = "ko-KR"; applyVoice(u);
   u.rate = 0.95;
   const next = () => {
-    const wait = Math.max(1500, 5000 - (Date.now() - adShownAt));
+    // 멘트가 끝나면 BGM만 흐르는 쉬는 시간을 둔 뒤 다음 광고·멘트로 넘어간다(패널에서 조절, 기본 15초)
+    const gap = Number(document.getElementById("mentGap").value) * 1000;
+    const wait = Math.max(gap, 5000 - (Date.now() - adShownAt));
     adWaiting = true;
     setTimeout(() => { adWaiting = false; if (st.sound && st.screen === "idle") showAd((st.ad + 1) % ADS.length); }, wait);
   };
