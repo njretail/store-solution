@@ -256,8 +256,11 @@
       <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:#52525b">음량
         <input id="bgmVol" type="range" min="0" max="100" value="70" style="flex:1" /></label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:#52525b">멘트 사이 쉬는 시간(BGM만)
-        <select id="mentGap" style="flex:1;border:1px solid #e4e4e7;border-radius:6px;padding:4px"><option value="3">3초</option><option value="5">5초</option><option value="7" selected>7초</option><option value="10">10초</option><option value="15">15초</option><option value="20">20초</option><option value="30">30초</option><option value="60">1분</option></select></label>
-      <p class="note" style="margin-top:6px">가사 없는 신나는 반주를 이 페이지에서 직접 만들어 연주합니다(저작권 걱정 없는 자체 곡). 안내 멘트가 나오는 동안에는 BGM이 자동으로 작아집니다.</p>
+        <select id="mentGap" style="flex:1;border:1px solid #e4e4e7;border-radius:6px;padding:4px"><option value="3">3초</option><option value="5" selected>5초</option><option value="7">7초</option><option value="10">10초</option><option value="15">15초</option><option value="20">20초</option><option value="30">30초</option><option value="60">1분</option></select></label>
+      <label style="display:block;margin-top:8px;font-size:12px;color:#52525b">내 음악 파일로 BGM 틀기 (예: 다모아 로고송)
+        <input id="bgmFile" type="file" accept="audio/*" style="display:block;margin-top:4px;font-size:12px;width:100%" /></label>
+      <p id="bgmFileName" class="note" style="margin-top:6px;display:none"></p>
+      <p class="note" style="margin-top:6px">기본은 이 페이지가 직접 만들어 연주하는 가사 없는 반주입니다. 내 음악 파일을 고르면 그 곡을 반복해서 틀고, 파일은 이 기기 안에서만 쓰입니다(어디에도 올라가지 않음). 안내 멘트가 나오는 동안에는 BGM이 자동으로 작아집니다.</p>
     </div>
     <div>
       <h2>멘트 고치기 (관리자 화면 미리보기)</h2>
@@ -353,7 +356,7 @@ function speakAd() {
   u.lang = "ko-KR"; applyVoice(u);
   u.rate = 0.95;
   const next = () => {
-    // 멘트가 끝나면 BGM만 흐르는 쉬는 시간을 둔 뒤 다음 광고·멘트로 넘어간다(패널에서 조절, 기본 7초)
+    // 멘트가 끝나면 BGM만 흐르는 쉬는 시간을 둔 뒤 다음 광고·멘트로 넘어간다(패널에서 조절, 기본 5초)
     const gap = Number(document.getElementById("mentGap").value) * 1000;
     const wait = Math.max(gap, 5000 - (Date.now() - adShownAt));
     adWaiting = true;
@@ -905,11 +908,36 @@ const bgm = (() => {
     const speaking = canSpeak && (speechSynthesis.speaking || speechSynthesis.pending);
     master.gain.setTargetAtTime(vol() * (speaking ? 0.15 : 1), ctx.currentTime, 0.25);
   }
+  // 내 음악 파일(예: 로고송) — 고르면 합성 반주 대신 이 곡을 반복 재생한다.
+  // 같은 덕킹(멘트 중 15%)을 쓰려고 오디오 요소를 웹 오디오의 master 음량에 연결한다.
+  let fileEl = null, fileSrc = null, fileUrl = null;
   return {
     get playing() { return !!timer; },
+    setFile(url) {
+      const wasPlaying = !!timer;
+      if (wasPlaying) this.stop();
+      fileUrl = url;
+      if (wasPlaying) this.start();
+    },
     // 휴대폰은 누르는 순간에 오디오를 시작해야 하므로 반드시 클릭 처리 안에서 부른다.
     start() {
       if (timer) return;
+      if (fileUrl) {
+        this._ensureCtx();
+        ctx.resume();
+        if (!fileEl) { fileEl = new Audio(); fileEl.loop = true; fileSrc = ctx.createMediaElementSource(fileEl); fileSrc.connect(master); }
+        if (fileEl.src !== fileUrl) fileEl.src = fileUrl;
+        master.gain.value = vol();
+        fileEl.play().catch(() => {});
+        timer = setInterval(() => {}, 1000); duckTimer = setInterval(duck, 200);
+        return;
+      }
+      this._ensureCtx();
+      ctx.resume();
+      master.gain.value = vol(); step = 0; nextTime = ctx.currentTime + 0.05;
+      timer = setInterval(tick, 25); duckTimer = setInterval(duck, 200);
+    },
+    _ensureCtx() {
       if (!ctx) {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return;
@@ -922,12 +950,10 @@ const bgm = (() => {
         noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
         const d = noise.getChannelData(0); for (let k = 0; k < d.length; k++) d[k] = Math.random() * 2 - 1;
       }
-      ctx.resume();
-      master.gain.value = vol(); step = 0; nextTime = ctx.currentTime + 0.05;
-      timer = setInterval(tick, 25); duckTimer = setInterval(duck, 200);
     },
     stop() {
       clearInterval(timer); clearInterval(duckTimer); timer = null;
+      if (fileEl) fileEl.pause();
       if (master) master.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05);
     },
     setVolume() { duck(); },
@@ -936,6 +962,14 @@ const bgm = (() => {
   };
 })();
 document.getElementById("bgmVol").addEventListener("input", () => bgm.setVolume());
+document.getElementById("bgmFile").addEventListener("change", (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  bgm.setFile(URL.createObjectURL(file));
+  const label = document.getElementById("bgmFileName");
+  label.style.display = "block";
+  label.textContent = "🎵 BGM: " + file.name + " (BGM 켜기를 누르면 이 곡이 나와요)";
+});
 
 // 멘트 고치기 — 관리자 "안내멘트 관리"에서 하게 될 일을 미리보기로 흉내 낸다.
 (function buildVoiceEditor() {
