@@ -360,24 +360,66 @@ function showAd(i) {
   if (cap) cap.textContent = ADS[i].voice;
   speakAd();
 }
-let curUtter = null;
-function speakAd() {
-  if (!canSpeak || !st.sound || st.screen !== "idle") return;
+// 미리 만들어 둔 멘트 음성 파일(문구 → 파일). 휴대폰(특히 앱 안 화면)은 기기 음성(TTS)이 아예
+// 없거나 소리가 안 나는 경우가 많아서, 파일이 있는 멘트는 파일을 튼다. 자연스러운 한국어 음성이
+// 있는 PC(Edge·크롬)에서는 그 음성으로 읽고, 멘트를 고쳐서 파일이 없으면 기기 음성으로 읽는다.
+const MENT_FILES = {
+  "11월 한 달간 음료 전 품목 2+1 행사 중입니다.": "ments/m0.wav",
+  "신상품 프리미엄 아이스크림을 20% 할인된 가격에 만나 보세요.": "ments/m1.wav",
+  "우리 동네 24시간 무인마트, 다모아마켓입니다. 휴대폰 번호를 입력하면 할인과 적립을 받을 수 있어요.": "ments/m2.wav",
+  "다모아마켓은 무인 매장으로, 여러분의 안전을 위해 매장 내 CCTV가 녹화되고 있습니다.": "ments/m3.wav",
+  "상품을 지금 가져가실지, 배송으로 받으실지 골라 주세요.": "ments/m4.wav",
+  "휴대폰 번호를 입력하면 할인과 적립을 받을 수 있어요.": "ments/m5.wav",
+  "결제 방법을 선택해 주세요.": "ments/m6.wav",
+  "카드를 단말기에 꽂아 주세요.": "ments/m7.wav",
+  "휴대폰의 결제 바코드를 스캐너에 보여 주세요.": "ments/m8.wav",
+  "현금을 넣어 주세요.": "ments/m9.wav",
+  "결제가 완료되었습니다. 다모아마켓을 이용해 주셔서 감사합니다.": "ments/m10.wav",
+  "배송 주문이 접수되었습니다. 배송 상품은 배송공간으로 옮겨 주세요.": "ments/m11.wav"
+};
+const isTouch = matchMedia("(pointer: coarse)").matches;
+function hasNaturalVoice() {
+  if (!canSpeak) return false;
+  return speechSynthesis.getVoices().some((v) => /^ko/i.test(v.lang) && /natural|online|neural|google|yuna|유나/i.test(v.name));
+}
+let curUtter = null, curAudio = null;
+// 멘트 하나를 읽고, 끝나면 onEnd를 부른다(파일 또는 기기 음성).
+function say(text, onEnd) {
   stopSpeaking();
-  const u = new SpeechSynthesisUtterance(ADS[st.ad].voice);
-  curUtter = u;
+  if (!text || !text.trim()) return;
+  const file = MENT_FILES[text];
+  if (file && (isTouch || !hasNaturalVoice())) {
+    const a = new Audio(file);
+    curAudio = a;
+    a.onended = onEnd || null;
+    // 파일을 못 틀면 기기 음성으로 대신 읽는다
+    a.onerror = () => { if (curAudio === a) { curAudio = null; sayTts(text, onEnd); } };
+    a.play().catch(() => { if (curAudio === a) { curAudio = null; sayTts(text, onEnd); } });
+    return;
+  }
+  sayTts(text, onEnd);
+}
+function sayTts(text, onEnd) {
+  if (!canSpeak) { if (onEnd) setTimeout(onEnd, 3000); return; }
+  const u = new SpeechSynthesisUtterance(text);
   u.lang = "ko-KR"; applyVoice(u);
-  u.rate = 0.95;
-  const next = () => {
+  curUtter = u;
+  u.onend = onEnd || null;
+  u.onerror = onEnd || null;
+  startUtter(u);
+}
+function isSpeaking() {
+  return (canSpeak && (speechSynthesis.speaking || speechSynthesis.pending)) || (curAudio != null && !curAudio.paused && !curAudio.ended);
+}
+function speakAd() {
+  if (!st.sound || st.screen !== "idle") return;
+  say(ADS[st.ad].voice, () => {
     // 멘트가 끝나면 BGM만 흐르는 쉬는 시간을 둔 뒤 다음 광고·멘트로 넘어간다(패널에서 조절, 기본 5초)
     const gap = Number(document.getElementById("mentGap").value) * 1000;
     const wait = Math.max(gap, 5000 - (Date.now() - adShownAt));
     adWaiting = true;
     setTimeout(() => { adWaiting = false; if (st.sound && st.screen === "idle") showAd((st.ad + 1) % ADS.length); }, wait);
-  };
-  u.onend = next;
-  u.onerror = next;
-  startUtter(u);
+  });
 }
 // 휴대폰 브라우저는 cancel() 직후 곧바로 speak()하면 새 문장을 버리는 경우가 있다.
 // 그래서 읽는 중일 때만 끊고, 끊었으면 잠깐 쉬었다가 읽는다. 처음 켤 때(아무것도 안 읽는 중)는
@@ -393,12 +435,8 @@ function startUtter(u) {
 }
 let lastScreen = null;
 function speakLine(text) {
-  if (!canSpeak || !st.sound || !text || !text.trim()) return;
-  stopSpeaking();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "ko-KR"; applyVoice(u);
-  curUtter = u;
-  startUtter(u);
+  if (!st.sound) return;
+  say(text);
 }
 function speakStep() {
   const key = st.screen === "done" && st.receipt?.delivery ? "ddone" : st.screen;
@@ -406,6 +444,7 @@ function speakStep() {
 }
 // 끊을 때는 이전 문장의 "끝남" 처리를 먼저 떼어 내야 다음 광고로 잘못 넘어가지 않는다.
 function stopSpeaking() {
+  if (curAudio) { curAudio.onended = curAudio.onerror = null; curAudio.pause(); curAudio = null; }
   if (!canSpeak) return;
   if (curUtter) { curUtter.onend = curUtter.onerror = null; curUtter = null; }
   // 실제로 읽는 중이 아닐 때는 cancel()을 부르지 않는다(휴대폰에서 다음 문장이 씹히는 원인)
@@ -704,7 +743,7 @@ function render() {
     stopSpeaking();
     if (st.screen === "idle") { if (st.sound) setTimeout(speakAd, 0); }
     else speakStep();
-  } else if (st.screen === "idle" && st.sound && canSpeak && !adWaiting && !speechSynthesis.speaking && !speechSynthesis.pending) {
+  } else if (st.screen === "idle" && st.sound && !adWaiting && !isSpeaking()) {
     setTimeout(speakAd, 0);
   }
   $("cv").innerHTML = h;
@@ -919,7 +958,7 @@ const bgm = (() => {
     while (nextTime < ctx.currentTime + 0.12) { schedule(step, nextTime); step += 1; nextTime += STEP; }
   }
   function duck() {
-    const speaking = canSpeak && (speechSynthesis.speaking || speechSynthesis.pending);
+    const speaking = isSpeaking();
     const level = vol() * (speaking ? 0.15 : 1);
     if (fileEl && fileUrl) fileEl.volume = Math.min(1, level);
     else if (master) master.gain.setTargetAtTime(level, ctx.currentTime, 0.25);
