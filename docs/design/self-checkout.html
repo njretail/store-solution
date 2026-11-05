@@ -61,6 +61,12 @@
   .slide { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: #fff; text-align: center; transition: opacity .7s; }
   .slide h3 { font-size: 84px; font-weight: 900; letter-spacing: -0.03em; }
   .slide p { font-size: 36px; opacity: .85; }
+  /* 광고 음성 자막 — 소리를 못 듣는 손님도 같은 내용을 볼 수 있게 */
+  .caption { position: absolute; left: 40px; right: 40px; bottom: 40px; z-index: 2; display: flex; align-items: center; gap: 16px; background: rgba(0,0,0,.6); color: #fff; border-radius: 24px; padding: 22px 28px; font-size: 30px; font-weight: 700; line-height: 1.4; }
+  .caption .spk { flex: none; width: 56px; height: 56px; border-radius: 999px; background: var(--brand); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  .soundPill { position: absolute; right: 40px; bottom: 40px; z-index: 2; height: 88px; padding: 0 32px; border-radius: 999px; background: rgba(0,0,0,.6); color: #fff; font-size: 30px; font-weight: 800; border: 3px solid rgba(255,255,255,.7); }
+  .vEdit label { display: block; font-size: 12px; color: #52525b; margin-bottom: 2px; }
+  .vEdit textarea { width: 100%; border: 1px solid #e4e4e7; border-radius: 6px; padding: 6px; font: inherit; font-size: 12px; resize: vertical; }
   .idleBox { flex: none; background: #fff; padding: 48px 40px 40px; display: flex; flex-direction: column; align-items: center; gap: 28px; border-top: 1px solid var(--line); }
   .scanIll { position: relative; width: 300px; height: 170px; }
   .scanIll .code { position: absolute; inset: 20px 40px; background: repeating-linear-gradient(90deg, #18181b 0 6px, transparent 6px 10px, #18181b 10px 12px, transparent 12px 20px); border-radius: 6px; }
@@ -240,6 +246,16 @@
     </div>
     <div><h2>화면 바로가기</h2><div class="seg" id="nav"></div></div>
     <div>
+      <h2>안내 음성</h2>
+      <div class="seg"><button id="soundBtn" data-act="sound" style="grid-column:1 / -1">🔊 안내 음성 켜기</button></div>
+      <p class="note" style="margin-top:6px">대기 화면에서는 광고·다모아 홍보 멘트를 돌아가며 읽고, 결제 단계마다 안내 멘트를 읽어 줍니다. 브라우저는 한 번 눌러야 소리를 낼 수 있어서 버튼으로 켭니다(매장 포스에서는 켜진 상태로 시작하도록 설정 가능).</p>
+    </div>
+    <div>
+      <h2>멘트 고치기 (관리자 화면 미리보기)</h2>
+      <div id="voiceEdit" style="display:flex;flex-direction:column;gap:8px"></div>
+      <p class="note" style="margin-top:6px">여기서 고치면 바로 그 멘트로 읽습니다. 실제 솔루션에서는 관리자 "안내멘트 관리"에서 매장별로 고치게 됩니다.</p>
+    </div>
+    <div>
       <h2>스캐너 흉내 내기</h2>
       <div class="seg" id="scanSim"></div>
       <p class="note" style="margin-top:6px">실제로는 USB 바코드 스캐너가 숫자+Enter를 입력하면 바로 담깁니다. 키보드로 바코드 숫자를 치고 Enter를 눌러도 됩니다.</p>
@@ -252,7 +268,7 @@
 </div>
 
 <script>
-const STORE = "NJ 무인매장 강남점";
+const STORE = "다모아마켓 동덕여대";
 const PRODUCTS = [
   { barcode: "8801234567890", name: "제주 삼다수 2L", price: 1800 },
   { barcode: "8801043014809", name: "신라면 컵 (소)", price: 1350, promo: 1100 },
@@ -269,9 +285,80 @@ const NOCODE = [
   { emo: "🧊", name: "얼음컵", price: 500 },
 ];
 const ADS = [
-  { bg: "linear-gradient(135deg,#C8075F,#5c0230)", h: "음료 2+1", p: "11월 한 달간 전 품목" },
-  { bg: "linear-gradient(135deg,#0f766e,#052e2b)", h: "신상품 출시", p: "프리미엄 아이스크림 20% 할인" },
+  { bg: "linear-gradient(135deg,#C8075F,#5c0230)", h: "음료 2+1", p: "11월 한 달간 전 품목",
+    voice: "11월 한 달간 음료 전 품목 2+1 행사 중입니다." },
+  { bg: "linear-gradient(135deg,#0f766e,#052e2b)", h: "신상품 출시", p: "프리미엄 아이스크림 20% 할인",
+    voice: "신상품 프리미엄 아이스크림을 20% 할인된 가격에 만나 보세요." },
+  { bg: "linear-gradient(135deg,#C8075F,#18181b)", h: "다모아마켓", p: "우리 동네 24시간 무인마트",
+    voice: "우리 동네 24시간 무인마트, 다모아마켓입니다. 휴대폰 번호를 입력하면 할인과 적립을 받을 수 있어요." },
 ];
+
+// 결제 단계별 안내 멘트 — 화면이 바뀔 때 한 번 읽는다(관리자가 매장별로 수정하는 대상).
+const VOICE = {
+  receive: "상품을 지금 가져가실지, 배송으로 받으실지 골라 주세요.",
+  phone: "휴대폰 번호를 입력하면 할인과 적립을 받을 수 있어요.",
+  method: "결제 방법을 선택해 주세요.",
+  card: "카드를 단말기에 꽂아 주세요.",
+  easy: "휴대폰의 결제 바코드를 스캐너에 보여 주세요.",
+  cash: "현금을 넣어 주세요.",
+  done: "결제가 완료되었습니다. 다모아마켓을 이용해 주셔서 감사합니다.",
+  ddone: "배송 주문이 접수되었습니다. 배송 상품은 배송공간으로 옮겨 주세요.",
+};
+const VOICE_LABELS = {
+  receive: "받는 방법 선택", phone: "번호 입력", method: "결제 방법 선택", card: "카드 결제",
+  easy: "간편결제", cash: "현금 결제", done: "결제 완료", ddone: "배송 주문 완료",
+};
+
+// 광고 안내 음성 — 대기 화면에서만, 광고가 바뀔 때마다 그 광고 문구를 읽는다.
+// 음성이 켜져 있으면 다 읽고 1.5초 쉰 뒤(최소 5초 노출) 다음 광고로 넘어가고,
+// 꺼져 있으면 기존처럼 7초마다 넘어간다. 계산을 시작하면 바로 멈춘다.
+const canSpeak = "speechSynthesis" in window;
+let adShownAt = Date.now();
+let adWaiting = false; // 다음 광고로 넘어가기 전 쉬는 중
+function showAd(i) {
+  st.ad = i;
+  adShownAt = Date.now();
+  document.querySelectorAll(".slide").forEach((s, k) => (s.style.opacity = k === i ? 1 : 0));
+  const cap = document.getElementById("adCap");
+  if (cap) cap.textContent = ADS[i].voice;
+  speakAd();
+}
+let curUtter = null;
+function speakAd() {
+  if (!canSpeak || !st.sound || st.screen !== "idle") return;
+  stopSpeaking();
+  const u = new SpeechSynthesisUtterance(ADS[st.ad].voice);
+  curUtter = u;
+  u.lang = "ko-KR";
+  u.rate = 1;
+  const next = () => {
+    const wait = Math.max(1500, 5000 - (Date.now() - adShownAt));
+    adWaiting = true;
+    setTimeout(() => { adWaiting = false; if (st.sound && st.screen === "idle") showAd((st.ad + 1) % ADS.length); }, wait);
+  };
+  u.onend = next;
+  u.onerror = next;
+  speechSynthesis.speak(u);
+}
+let lastScreen = null;
+function speakLine(text) {
+  if (!canSpeak || !st.sound || !text || !text.trim()) return;
+  stopSpeaking();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "ko-KR";
+  curUtter = u;
+  speechSynthesis.speak(u);
+}
+function speakStep() {
+  const key = st.screen === "done" && st.receipt?.delivery ? "ddone" : st.screen;
+  speakLine(VOICE[key]);
+}
+// 끊을 때는 이전 문장의 "끝남" 처리를 먼저 떼어 내야 다음 광고로 잘못 넘어가지 않는다.
+function stopSpeaking() {
+  if (!canSpeak) return;
+  if (curUtter) { curUtter.onend = curUtter.onerror = null; curUtter = null; }
+  speechSynthesis.cancel();
+}
 const IC = {
   bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
   scan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M11 8v8M14 8v8M17 8v8"/></svg>',
@@ -304,7 +391,7 @@ const MEMOS = ["문 앞에 놓아 주세요", "경비실에 맡겨 주세요", "
 const st = {
   screen: "idle", cart: [], lastAdded: null, flash: "", phone: "", customer: null,
   method: null, inserted: 0, paying: false, board: false, call: false, ad: 0, receipt: null, count: 15,
-  mode: "pickup", dPhone: "", bldg: null, dong: "", ho: "", field: "dong", memos: [],
+  mode: "pickup", dPhone: "", bldg: null, dong: "", ho: "", field: "dong", memos: [], sound: false,
 };
 const $ = (id) => document.getElementById(id);
 const won = (n) => n.toLocaleString() + "원";
@@ -363,7 +450,8 @@ function render() {
   let h = "";
   switch (st.screen) {
     case "idle":
-      h = header() + `<div class="ad">${ADS.map((a, i) => `<div class="slide" style="background:${a.bg};opacity:${i === st.ad ? 1 : 0}"><h3>${a.h}</h3><p>${a.p}</p></div>`).join("")}</div>
+      h = header() + `<div class="ad">${ADS.map((a, i) => `<div class="slide" style="background:${a.bg};opacity:${i === st.ad ? 1 : 0}"><h3>${a.h}</h3><p>${a.p}</p></div>`).join("")}
+          ${st.sound ? `<div class="caption"><button class="spk" data-act="sound" aria-label="소리 끄기">🔊</button><span id="adCap">${ADS[st.ad].voice}</span></div>` : `<button class="soundPill" data-act="sound">🔊 눌러서 소리 켜기</button>`}</div>
         <div class="idleBox"><div class="scanIll"><div class="code"></div><div class="beam"></div></div>
           <h2>상품 바코드를 스캐너에 찍어 주세요</h2><p>찍는 순간 계산이 시작됩니다</p>
           <button class="wide" data-act="board">${IC.grid}바코드 없는 상품 고르기</button></div>`;
@@ -558,6 +646,15 @@ function render() {
     <div class="confirmBtns"><button class="btn2" data-act="homeNo">계속하기</button><button class="primary" style="height:112px;font-size:34px" data-act="homeYes">처음으로</button></div></div></div>`;
   if (st.toast) h += `<div class="modal"><div class="box"><h3>거스름돈 계좌로 받기</h3><p>기존 /kiosk/[id]/change-request 화면으로 이동합니다.</p><button class="primary" data-act="toastClose">확인</button></div></div>`;
 
+  // 화면이 바뀌면: 대기 화면이면 광고 음성 재개, 결제 단계면 그 단계 안내 멘트를 한 번 읽는다.
+  if (st.screen !== lastScreen) {
+    lastScreen = st.screen;
+    stopSpeaking();
+    if (st.screen === "idle") { if (st.sound) setTimeout(speakAd, 0); }
+    else speakStep();
+  } else if (st.screen === "idle" && st.sound && canSpeak && !adWaiting && !speechSynthesis.speaking && !speechSynthesis.pending) {
+    setTimeout(speakAd, 0);
+  }
   $("cv").innerHTML = h;
   panel(); fit();
 }
@@ -568,6 +665,8 @@ function padHtml() {
 }
 
 function panel() {
+  $("soundBtn").textContent = st.sound ? "🔇 안내 음성 끄기" : "🔊 안내 음성 켜기";
+  $("soundBtn").className = st.sound ? "on" : "";
   const nav = [["idle", "대기"], ["cart", "장바구니"], ["receive", "받는 방법"], ["phone", "번호 입력"], ["method", "결제 방법"], ["card", "카드 결제"], ["cash", "현금 결제"], ["done", "완료"],
     ["dphone", "배송: 연락처"], ["daddr", "배송: 주소"], ["dconfirm", "배송: 확인"], ["ddone", "배송: 완료"]];
   $("nav").innerHTML = nav.map(([v, l]) => `<button data-nav="${v}" class="${st.screen === v ? "on" : ""}">${l}</button>`).join("");
@@ -650,6 +749,8 @@ document.addEventListener("click", (e) => {
   else if (d.act) {
     switch (d.act) {
       case "call": st.call = !st.call; break;
+      // 켜면: 대기 화면은 render()가 광고 음성을 시작하고, 결제 단계면 그 단계 멘트를 바로 읽는다
+      case "sound": st.sound = !st.sound; if (!st.sound) stopSpeaking(); else if (st.screen !== "idle") setTimeout(speakStep, 0); break;
       case "board": st.board = !st.board; break;
       case "reset": resetAll(); break;
       case "skipPhone": st.customer = null; st.phone = ""; st.screen = "method"; break;
@@ -682,7 +783,8 @@ document.addEventListener("keydown", (e) => {
 });
 
 setInterval(() => {
-  if (st.screen === "idle") { st.ad = (st.ad + 1) % ADS.length; document.querySelectorAll(".slide").forEach((s, i) => (s.style.opacity = i === st.ad ? 1 : 0)); }
+  // 음성이 켜져 있으면 읽기가 끝날 때 speakAd가 다음 광고로 넘긴다.
+  if (st.screen === "idle" && !(st.sound && canSpeak)) showAd((st.ad + 1) % ADS.length);
 }, 7000);
 setInterval(() => {
   if (st.screen !== "done") return;
@@ -691,6 +793,31 @@ setInterval(() => {
   render();
 }, 1000);
 window.addEventListener("resize", fit);
+
+// 멘트 고치기 — 관리자 "안내멘트 관리"에서 하게 될 일을 미리보기로 흉내 낸다.
+(function buildVoiceEditor() {
+  const items = [
+    ...ADS.map((a) => ({ label: "대기 화면 · " + a.h, get: () => a.voice, set: (v) => (a.voice = v) })),
+    ...Object.keys(VOICE).map((k) => ({ label: "결제 · " + VOICE_LABELS[k], get: () => VOICE[k], set: (v) => (VOICE[k] = v) })),
+  ];
+  const box = document.getElementById("voiceEdit");
+  items.forEach((it) => {
+    const wrap = document.createElement("div");
+    wrap.className = "vEdit";
+    const lab = document.createElement("label");
+    lab.textContent = it.label;
+    const ta = document.createElement("textarea");
+    ta.rows = 2;
+    ta.value = it.get();
+    ta.addEventListener("input", () => {
+      it.set(ta.value);
+      const cap = document.getElementById("adCap");
+      if (cap) cap.textContent = ADS[st.ad].voice;
+    });
+    wrap.append(lab, ta);
+    box.append(wrap);
+  });
+})();
 
 // #cart, #phone 처럼 주소로 바로 열기
 const start = location.hash.slice(1);
