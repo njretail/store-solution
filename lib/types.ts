@@ -107,9 +107,29 @@ export type KioskAnnouncement = {
   audio_url: string | null;
   sort_order: number;
   active: boolean;
+  // 재생 시점 — idle은 대기 화면에서 반복, 나머지는 셀프 계산대 결제 단계에서 한 번 읽는다.
+  play_at: AnnouncementPlayAt;
   created_by: string | null;
   created_at: string;
 };
+
+export const ANNOUNCEMENT_PLAY_AT = [
+  { value: "idle", label: "대기 화면 (반복)" },
+  { value: "receive", label: "받는 방법 선택" },
+  { value: "phone", label: "번호 입력 (할인·적립)" },
+  { value: "method", label: "결제 방법 선택" },
+  { value: "card", label: "카드 결제" },
+  { value: "easy", label: "간편결제" },
+  { value: "cash", label: "현금 결제" },
+  { value: "done", label: "결제 완료" },
+  { value: "delivery_done", label: "배송 주문 완료" },
+] as const;
+
+export type AnnouncementPlayAt = (typeof ANNOUNCEMENT_PLAY_AT)[number]["value"];
+
+export function announcementPlayAtLabel(value: string): string {
+  return ANNOUNCEMENT_PLAY_AT.find((p) => p.value === value)?.label ?? value;
+}
 
 export type Announcement = {
   id: string;

@@ -5,6 +5,7 @@ import JsBarcode from "jsbarcode";
 import type { Kiosk, KioskAd, KioskAnnouncement, KioskStatus, Product, Store } from "@/lib/types";
 import { KIOSK_LANGS, KIOSK_LANG_LABELS, KIOSK_STRINGS, type KioskLang } from "@/lib/kiosk-i18n";
 import { KIOSK_VOICE_STRINGS } from "@/lib/kiosk-voice-i18n";
+import { makeKoreanUtterance, warmUpVoices } from "@/lib/kiosk-voice";
 
 const AD_INTERVAL_MS = 7000;
 const ANNOUNCEMENT_INTERVAL_MS = 20000;
@@ -273,27 +274,34 @@ export default function KioskScreen({
     };
   }, [showBoard]);
 
-  // 안내멘트 순환 재생 — 화면을 터치해서 시작한 뒤부터만(브라우저 자동재생 제한 때문).
+  // 안내멘트 순환 재생 — 대기 화면용(play_at = idle) 멘트만 돈다. 결제 단계 멘트는 셀프 계산대
+  // 화면에서 쓴다. 키오스크 PC의 크롬이 자동재생 허용 옵션으로 떠 있으면(kiosk-agent) 화면이
+  // 뜨자마자 재생되고, 아니면 브라우저가 막았다가 첫 터치(started 변경) 때 다시 시작한다.
   // 안내멘트 문구 자체는 관리자가 입력한 그대로라 번역하지 않는다.
+  const idleAnnouncements = announcements.filter((a) => (a.play_at ?? "idle") === "idle");
+  const idleKey = idleAnnouncements.map((a) => a.id).join(",");
   useEffect(() => {
-    if (!started || announcements.length === 0) return;
+    warmUpVoices();
+  }, []);
+  useEffect(() => {
+    if (idleAnnouncements.length === 0) return;
     let i = 0;
     const play = () => {
-      const a = announcements[i % announcements.length];
+      const a = idleAnnouncements[i % idleAnnouncements.length];
       i += 1;
       if (a.audio_url && audioRef.current) {
         audioRef.current.src = a.audio_url;
         audioRef.current.play().catch(() => {});
       } else if ("speechSynthesis" in window) {
-        const utter = new SpeechSynthesisUtterance(a.message);
-        utter.lang = "ko-KR";
-        window.speechSynthesis.speak(utter);
+        window.speechSynthesis.speak(makeKoreanUtterance(a.message));
       }
     };
     play();
     const timer = setInterval(play, ANNOUNCEMENT_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [started, announcements]);
+    // idleKey가 같으면 같은 멘트 목록 — 배열은 렌더마다 새로 만들어지므로 키로 비교한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started, idleKey]);
 
   // 원격 관리 — 20초마다 상태를 확인해서, 상태가 바뀌면 화면에 반영하고
   // 새로고침 명령(remote_command_at 변경)이 오면 새로고침한다.

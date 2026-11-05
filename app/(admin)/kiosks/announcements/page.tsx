@@ -1,7 +1,12 @@
 import { requireAdmin, getCurrentStore } from "@/lib/session";
-import type { Kiosk, KioskAnnouncement } from "@/lib/types";
+import { ANNOUNCEMENT_PLAY_AT, type Kiosk, type KioskAnnouncement } from "@/lib/types";
 import KioskAnnouncementForm from "./KioskAnnouncementForm";
-import { toggleKioskAnnouncementActive, deleteKioskAnnouncement } from "./actions";
+import PreviewAnnouncementButton from "./PreviewAnnouncementButton";
+import {
+  toggleKioskAnnouncementActive,
+  deleteKioskAnnouncement,
+  updateKioskAnnouncement,
+} from "./actions";
 
 export default async function KioskAnnouncementsPage() {
   const { supabase, profile } = await requireAdmin();
@@ -14,6 +19,7 @@ export default async function KioskAnnouncementsPage() {
       .from("kiosk_announcements")
       .select("*")
       .eq("store_id", store.id)
+      .order("play_at")
       .order("sort_order")
       .order("created_at", { ascending: false }),
   ]);
@@ -35,6 +41,8 @@ export default async function KioskAnnouncementsPage() {
         <table className="w-full whitespace-nowrap text-base">
           <thead className="bg-zinc-50 text-left text-sm text-zinc-500">
             <tr>
+              <th className="px-4 py-3">재생 시점</th>
+              <th className="px-4 py-3">순서</th>
               <th className="px-4 py-3">문구</th>
               <th className="px-4 py-3">재생 방식</th>
               <th className="px-4 py-3">적용 대상</th>
@@ -44,9 +52,54 @@ export default async function KioskAnnouncementsPage() {
           </thead>
           <tbody>
             {announcements.map((a) => (
-              <tr key={a.id} className="border-t border-zinc-100">
-                <td className="max-w-[320px] whitespace-normal px-4 py-3">{a.message}</td>
-                <td className="px-4 py-3 text-zinc-500">{a.audio_url ? "업로드 오디오" : "브라우저 음성(TTS)"}</td>
+              <tr key={a.id} className="border-t border-zinc-100 align-top">
+                {/* 표 안에 form을 둘 수 없어서, 칸마다 form 속성으로 같은 수정 form에 묶는다. */}
+                <td className="px-4 py-3">
+                  <select
+                    form={`edit-${a.id}`}
+                    name="play_at"
+                    defaultValue={a.play_at ?? "idle"}
+                    className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                  >
+                    {ANNOUNCEMENT_PLAY_AT.map((p) => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-3">
+                  <input
+                    form={`edit-${a.id}`}
+                    name="sort_order"
+                    type="number"
+                    defaultValue={a.sort_order}
+                    className="w-16 rounded border border-zinc-300 px-2 py-1 text-sm"
+                  />
+                </td>
+                <td className="min-w-[280px] whitespace-normal px-4 py-3">
+                  <textarea
+                    form={`edit-${a.id}`}
+                    name="message"
+                    defaultValue={a.message}
+                    rows={2}
+                    required
+                    className="w-full rounded border border-zinc-300 px-2 py-1 text-sm"
+                  />
+                  <div className="mt-1 flex items-center gap-2">
+                    <form id={`edit-${a.id}`} action={updateKioskAnnouncement}>
+                      <input type="hidden" name="id" value={a.id} />
+                      <button
+                        type="submit"
+                        className="rounded border border-zinc-300 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50"
+                      >
+                        수정 저장
+                      </button>
+                    </form>
+                    <PreviewAnnouncementButton message={a.message} audioUrl={a.audio_url} />
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-zinc-500">{a.audio_url ? "업로드 오디오" : "기기 음성(TTS)"}</td>
                 <td className="px-4 py-3 text-zinc-500">
                   {a.kiosk_id ? `${kioskName(a.kiosk_id) ?? "알 수 없는 키오스크"}만` : "전체 공통"}
                 </td>
@@ -76,7 +129,7 @@ export default async function KioskAnnouncementsPage() {
             ))}
             {announcements.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-zinc-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
                   등록된 안내멘트가 없습니다.
                 </td>
               </tr>

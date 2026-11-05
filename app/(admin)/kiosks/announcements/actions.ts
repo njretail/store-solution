@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ANNOUNCEMENT_PLAY_AT, type AnnouncementPlayAt } from "@/lib/types";
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
@@ -19,6 +20,7 @@ export async function createKioskAnnouncement(
   const kiosk_id = String(formData.get("kiosk_id") ?? "") || null;
   const message = String(formData.get("message") ?? "").trim();
   if (!message) return { error: "안내멘트 문구를 입력하세요.", success: null };
+  const play_at = parsePlayAt(formData.get("play_at"));
 
   let audio_url: string | null = null;
   const file = formData.get("audio");
@@ -41,6 +43,7 @@ export async function createKioskAnnouncement(
     kiosk_id,
     message,
     audio_url,
+    play_at,
     created_by: profile.id,
   });
   if (error) return { error: error.message, success: null };
@@ -52,6 +55,29 @@ export async function createKioskAnnouncement(
       ? "안내멘트가 등록되었습니다(업로드한 오디오 재생)."
       : "안내멘트가 등록되었습니다(브라우저 음성으로 읽어줌).",
   };
+}
+
+function parsePlayAt(raw: FormDataEntryValue | null): AnnouncementPlayAt {
+  const value = String(raw ?? "idle");
+  return ANNOUNCEMENT_PLAY_AT.some((p) => p.value === value) ? (value as AnnouncementPlayAt) : "idle";
+}
+
+// 등록한 멘트의 문구·재생 시점·순서를 고친다(오디오 파일은 그대로 둔다 — 바꾸려면 새로 등록).
+export async function updateKioskAnnouncement(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const message = String(formData.get("message") ?? "").trim();
+  if (!id || !message) return;
+
+  await supabase
+    .from("kiosk_announcements")
+    .update({
+      message,
+      play_at: parsePlayAt(formData.get("play_at")),
+      sort_order: Number(formData.get("sort_order") ?? 0) || 0,
+    })
+    .eq("id", id);
+  revalidatePath("/kiosks/announcements");
 }
 
 export async function toggleKioskAnnouncementActive(formData: FormData) {

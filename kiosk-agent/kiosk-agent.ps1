@@ -21,7 +21,7 @@ param(
   [string]$ProfileDir = "C:\kiosk-agent\chrome-profile"
 )
 
-$AgentVersion = "2"
+$AgentVersion = "3"
 $KioskUrl = "$ApiBase/kiosk/$KioskId"
 $StateUrl = "$ApiBase/api/kiosk/$KioskId/state?hb=agent"
 $HealthUrl = "$ApiBase/api/kiosk/$KioskId/health"
@@ -41,7 +41,8 @@ function Get-KioskBrowser {
 
 function Start-KioskBrowser {
   if (-not (Get-KioskBrowser)) {
-    Start-Process -FilePath $BrowserPath -ArgumentList "--kiosk", "--user-data-dir=`"$ProfileDir`"", "--no-first-run", "`"$KioskUrl`""
+    # --autoplay-policy: 손님이 화면을 터치하기 전에도 안내멘트(음성)가 나오도록 자동재생 허용
+    Start-Process -FilePath $BrowserPath -ArgumentList "--kiosk", "--user-data-dir=`"$ProfileDir`"", "--no-first-run", "--autoplay-policy=no-user-gesture-required", "`"$KioskUrl`""
     return $true
   }
   return $false
