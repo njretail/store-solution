@@ -43,3 +43,6 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# 매장 로고송 등 음원 — 미리보기용으로 로컬에만 두고 저장소에는 올리지 않는다
+docs/design/*.mp3

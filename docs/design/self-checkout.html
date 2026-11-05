@@ -904,13 +904,15 @@ const bgm = (() => {
     while (nextTime < ctx.currentTime + 0.12) { schedule(step, nextTime); step += 1; nextTime += STEP; }
   }
   function duck() {
-    if (!master) return;
     const speaking = canSpeak && (speechSynthesis.speaking || speechSynthesis.pending);
-    master.gain.setTargetAtTime(vol() * (speaking ? 0.15 : 1), ctx.currentTime, 0.25);
+    const level = vol() * (speaking ? 0.15 : 1);
+    if (fileEl && fileUrl) fileEl.volume = Math.min(1, level);
+    else if (master) master.gain.setTargetAtTime(level, ctx.currentTime, 0.25);
   }
   // 내 음악 파일(예: 로고송) — 고르면 합성 반주 대신 이 곡을 반복 재생한다.
-  // 같은 덕킹(멘트 중 15%)을 쓰려고 오디오 요소를 웹 오디오의 master 음량에 연결한다.
-  let fileEl = null, fileSrc = null, fileUrl = null;
+  // 웹 오디오에 연결하면 일부 환경(앱 내부 화면, file:// 등)에서 소리가 안 나와서
+  // 일반 오디오로 바로 틀고, 멘트 중 줄이기는 오디오 음량으로 한다.
+  let fileEl = null, fileUrl = null;
   return {
     get playing() { return !!timer; },
     setFile(url) {
@@ -923,12 +925,14 @@ const bgm = (() => {
     start() {
       if (timer) return;
       if (fileUrl) {
-        this._ensureCtx();
-        ctx.resume();
-        if (!fileEl) { fileEl = new Audio(); fileEl.loop = true; fileSrc = ctx.createMediaElementSource(fileEl); fileSrc.connect(master); }
+        if (!fileEl) { fileEl = new Audio(); fileEl.loop = true; }
         if (fileEl.src !== fileUrl) fileEl.src = fileUrl;
-        master.gain.value = vol();
-        fileEl.play().catch(() => {});
+        fileEl.volume = Math.min(1, vol());
+        fileEl.play().catch((e) => {
+          const label = document.getElementById("bgmFileName");
+          label.style.display = "block";
+          label.textContent = "⚠️ 이 곡을 재생하지 못했어요: " + (e && e.message ? e.message : e);
+        });
         timer = setInterval(() => {}, 1000); duckTimer = setInterval(duck, 200);
         return;
       }
@@ -958,10 +962,23 @@ const bgm = (() => {
     },
     setVolume() { duck(); },
     // 실제로 소리가 나가는지 확인용(0이면 무음)
-    level() { if (!analyser) return 0; const a = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(a); return Math.sqrt(a.reduce((s, v) => s + v * v, 0) / a.length); },
+    level() { if (fileEl && fileUrl) return fileEl.paused ? 0 : fileEl.volume; if (!analyser) return 0; const a = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(a); return Math.sqrt(a.reduce((s, v) => s + v * v, 0) / a.length); },
   };
 })();
 document.getElementById("bgmVol").addEventListener("input", () => bgm.setVolume());
+// 이 컴퓨터에서 파일로 열었을 때 같은 폴더에 로고송이 있으면 자동으로 BGM으로 쓴다
+// (로고송 파일은 GitHub·공개 링크에 올리지 않는다 — .gitignore 처리).
+(function useLocalLogoSong() {
+  const probe = new Audio();
+  probe.preload = "metadata";
+  probe.onloadedmetadata = () => {
+    bgm.setFile(probe.src);
+    const label = document.getElementById("bgmFileName");
+    label.style.display = "block";
+    label.textContent = "🎵 BGM: 다모아로고송.mp3 (같은 폴더의 파일을 자동으로 사용)";
+  };
+  probe.src = "다모아로고송.mp3";
+})();
 document.getElementById("bgmFile").addEventListener("change", (e) => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
