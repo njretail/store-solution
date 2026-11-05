@@ -313,6 +313,16 @@ const VOICE_LABELS = {
 // 음성이 켜져 있으면 다 읽고 1.5초 쉰 뒤(최소 5초 노출) 다음 광고로 넘어가고,
 // 꺼져 있으면 기존처럼 7초마다 넘어간다. 계산을 시작하면 바로 멈춘다.
 const canSpeak = "speechSynthesis" in window;
+// 기본 한국어 음성은 기계음 같아서, 기기에 있는 더 자연스러운 한국어 음성(Edge의 Natural,
+// 크롬의 Google, 아이폰의 유나 등)을 먼저 고른다 — 솔루션의 lib/kiosk-voice.ts와 같은 규칙.
+const PREFERRED_VOICES = [/natural/i, /online/i, /neural/i, /google/i, /yuna|유나/i, /sunhi|injoon|heami/i];
+function applyVoice(u) {
+  const vs = speechSynthesis.getVoices().filter((v) => /^ko/i.test(v.lang));
+  const v = PREFERRED_VOICES.map((p) => vs.find((x) => p.test(x.name))).find(Boolean) || vs[0];
+  if (v) u.voice = v;
+  u.rate = 0.95;
+}
+if (canSpeak) { speechSynthesis.getVoices(); speechSynthesis.addEventListener?.("voiceschanged", () => speechSynthesis.getVoices()); }
 let adShownAt = Date.now();
 let adWaiting = false; // 다음 광고로 넘어가기 전 쉬는 중
 function showAd(i) {
@@ -329,8 +339,8 @@ function speakAd() {
   stopSpeaking();
   const u = new SpeechSynthesisUtterance(ADS[st.ad].voice);
   curUtter = u;
-  u.lang = "ko-KR";
-  u.rate = 1;
+  u.lang = "ko-KR"; applyVoice(u);
+  u.rate = 0.95;
   const next = () => {
     const wait = Math.max(1500, 5000 - (Date.now() - adShownAt));
     adWaiting = true;
@@ -345,7 +355,7 @@ function speakLine(text) {
   if (!canSpeak || !st.sound || !text || !text.trim()) return;
   stopSpeaking();
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = "ko-KR";
+  u.lang = "ko-KR"; applyVoice(u);
   curUtter = u;
   speechSynthesis.speak(u);
 }
@@ -750,7 +760,13 @@ document.addEventListener("click", (e) => {
     switch (d.act) {
       case "call": st.call = !st.call; break;
       // 켜면: 대기 화면은 render()가 광고 음성을 시작하고, 결제 단계면 그 단계 멘트를 바로 읽는다
-      case "sound": st.sound = !st.sound; if (!st.sound) stopSpeaking(); else if (st.screen !== "idle") setTimeout(speakStep, 0); break;
+      // 휴대폰(특히 아이폰)은 "누르는 그 순간" 읽기 시작해야 소리가 나므로 render 전에 바로 읽는다.
+      case "sound":
+        st.sound = !st.sound;
+        if (!st.sound) { stopSpeaking(); break; }
+        lastScreen = st.screen;
+        if (st.screen === "idle") speakAd(); else speakStep();
+        break;
       case "board": st.board = !st.board; break;
       case "reset": resetAll(); break;
       case "skipPhone": st.customer = null; st.phone = ""; st.screen = "method"; break;
