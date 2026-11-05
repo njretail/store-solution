@@ -254,7 +254,7 @@
       <h2>매장 BGM (가사 없음)</h2>
       <div class="seg"><button id="bgmBtn" data-act="bgm" style="grid-column:1 / -1">🎵 BGM 켜기</button></div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:#52525b">음량
-        <input id="bgmVol" type="range" min="0" max="100" value="45" style="flex:1" /></label>
+        <input id="bgmVol" type="range" min="0" max="100" value="70" style="flex:1" /></label>
       <p class="note" style="margin-top:6px">가사 없는 신나는 반주를 이 페이지에서 직접 만들어 연주합니다(저작권 걱정 없는 자체 곡). 안내 멘트가 나오는 동안에는 BGM이 자동으로 작아집니다.</p>
     </div>
     <div>
@@ -829,9 +829,9 @@ const bgm = (() => {
   const BPM = 118, STEP = 60 / BPM / 4; // 16분음표 길이
   const CHORDS = [[48, 52, 55], [43, 47, 50], [45, 48, 52], [41, 45, 48]]; // C, G, Am, F (MIDI)
   const MELODY = [72, null, 74, 76, null, 79, 76, null, 74, null, 72, 74, 76, null, 74, null]; // 2마디짜리 멜로디(16칸)
-  let ctx = null, master = null, noise = null, timer = null, step = 0, nextTime = 0, duckTimer = null;
+  let ctx = null, master = null, analyser = null, noise = null, timer = null, step = 0, nextTime = 0, duckTimer = null;
   const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
-  const vol = () => (Number(document.getElementById("bgmVol").value) / 100) * 0.5;
+  const vol = () => Number(document.getElementById("bgmVol").value) / 100;
 
   function env(g, t, a, peak, d) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
   function tone(type, freq, t, peak, dur, cutoff) {
@@ -854,10 +854,11 @@ const bgm = (() => {
     if (s % 4 === 0) kick(t);                                       // 4비트 킥
     if (s === 4 || s === 12) hit(t, "bandpass", 1800, 0.35, 0.15);  // 2·4박 스네어
     if (s % 2 === 0) hit(t, "highpass", 8000, s % 4 === 2 ? 0.12 : 0.06, 0.04); // 하이햇
-    if (s % 2 === 0) tone("sawtooth", hz(chord[0] - 12 + (s % 8 === 6 ? 12 : 0)), t, 0.22, STEP * 1.6, 500); // 베이스
-    if (s % 4 === 2) chord.forEach((m) => tone("square", hz(m + 12), t, 0.035, STEP * 1.2, 2200)); // 오프비트 코드
+    if (s % 2 === 0) tone("sawtooth", hz(chord[0] - 12 + (s % 8 === 6 ? 12 : 0)), t, 0.3, STEP * 1.6, 700); // 베이스
+    if (s % 2 === 0) tone("square", hz(chord[0] + (s % 8 === 6 ? 12 : 0)), t, 0.07, STEP * 1.2, 1400); // 베이스 윗소리(휴대폰 스피커에서도 들리게)
+    if (s % 4 === 2) chord.forEach((m) => tone("square", hz(m + 12), t, 0.08, STEP * 1.4, 3000)); // 오프비트 코드
     const mel = MELODY[(bar % 2) * 8 + Math.floor(s / 2)];
-    if (s % 2 === 0 && mel && bar >= 2) tone("triangle", hz(mel), t, 0.09, STEP * 1.8, 4000); // 3마디부터 멜로디
+    if (s % 2 === 0 && mel) tone("triangle", hz(mel), t, 0.16, STEP * 1.8, 5000); // 멜로디
   }
   function tick() {
     while (nextTime < ctx.currentTime + 0.12) { schedule(step, nextTime); step += 1; nextTime += STEP; }
@@ -875,7 +876,12 @@ const bgm = (() => {
       if (!ctx) {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return;
-        ctx = new AC(); master = ctx.createGain(); master.connect(ctx.destination);
+        // 아이폰(iOS 17+) 무음 모드에서도 소리가 나도록 오디오를 "재생" 용도로 지정
+        try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+        ctx = new AC(); master = ctx.createGain();
+        // 여러 소리가 겹쳐도 깨지지 않게 압축기를 거쳐 내보낸다
+        const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
+        analyser = ctx.createAnalyser(); master.connect(comp).connect(analyser).connect(ctx.destination);
         noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
         const d = noise.getChannelData(0); for (let k = 0; k < d.length; k++) d[k] = Math.random() * 2 - 1;
       }
@@ -888,6 +894,8 @@ const bgm = (() => {
       if (master) master.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05);
     },
     setVolume() { duck(); },
+    // 실제로 소리가 나가는지 확인용(0이면 무음)
+    level() { if (!analyser) return 0; const a = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(a); return Math.sqrt(a.reduce((s, v) => s + v * v, 0) / a.length); },
   };
 })();
 document.getElementById("bgmVol").addEventListener("input", () => bgm.setVolume());
