@@ -20,8 +20,9 @@ export function makeKoreanUtterance(text: string): SpeechSynthesisUtterance {
   utter.lang = "ko-KR";
   const voice = pickKoreanVoice();
   if (voice) utter.voice = voice;
-  // 기본값(1.0)보다 살짝 느리게 읽으면 안내 방송처럼 또박또박 들린다.
-  utter.rate = 0.95;
+  // 처지지 않고 발랄하게 들리도록 조금 빠르고 톤을 높여서 읽는다.
+  utter.rate = 1.08;
+  utter.pitch = 1.2;
   return utter;
 }
 
