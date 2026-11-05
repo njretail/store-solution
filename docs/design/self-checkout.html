@@ -21,6 +21,12 @@
   .seg button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
   .note { font-size: 12px; color: var(--muted); background: #f4f4f5; border-radius: 6px; padding: 8px; line-height: 1.55; }
   .stage { flex: 1; display: flex; justify-content: center; }
+  .stageCol { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  /* 시연용 빠른 버튼 — 휴대폰에서도 화면 바로 위에 보이게 */
+  .quickBar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .quickBar button { height: 44px; padding: 0 16px; border-radius: 999px; background: #fff; border: 2px solid var(--brand); color: var(--brand); font-size: 15px; font-weight: 800; }
+  .quickBar button.on { background: var(--brand); color: #fff; }
+  .quickName { font-size: 13px; color: #3f3f46; min-height: 1em; }
   .bezel { background: #111; border-radius: 22px; padding: 14px; box-shadow: 0 20px 50px rgba(0,0,0,.35); align-self: flex-start; }
   /* 휴대폰처럼 좁은 화면: 화면을 위에 폭 가득, 설명 패널은 아래로 */
   @media (max-width: 800px) { .wrap { flex-direction: column; padding: 8px; gap: 12px; } .panel { width: 100%; order: 2; } .stage { order: 1; min-width: 0; width: 100%; overflow: hidden; } .bezel { padding: 6px; border-radius: 14px; } }
@@ -275,7 +281,14 @@
     <p class="note">전화번호 <b>01012345678</b>은 쿠폰이 있는 기존 고객, 그 밖의 번호는 신규 고객(500원 즉시 할인)으로 흉내 냅니다. 가격·상품·매장명은 예시입니다.</p>
   </aside>
   <section class="stage" id="stage">
-    <div class="bezel"><div id="scaler"><div id="cv" class="cv"></div></div></div>
+    <div class="stageCol">
+      <div class="quickBar">
+        <button type="button" data-act="sound" id="quickSound">🔊 소리 켜기</button>
+        <button type="button" id="quickFile">🎵 로고송(음악 파일) 고르기</button>
+      </div>
+      <p id="quickFileName" class="quickName"></p>
+      <div class="bezel"><div id="scaler"><div id="cv" class="cv"></div></div></div>
+    </div>
   </section>
 </div>
 
@@ -706,6 +719,8 @@ function padHtml() {
 function panel() {
   $("soundBtn").textContent = st.sound ? "🔇 안내 음성 끄기" : "🔊 안내 음성 켜기";
   $("soundBtn").className = st.sound ? "on" : "";
+  $("quickSound").textContent = st.sound ? "🔇 소리 끄기" : "🔊 소리 켜기";
+  $("quickSound").className = st.sound ? "on" : "";
   $("bgmBtn").textContent = bgm.playing ? "⏸ BGM 끄기" : "🎵 BGM 켜기";
   $("bgmBtn").className = bgm.playing ? "on" : "";
   const nav = [["idle", "대기"], ["cart", "장바구니"], ["receive", "받는 방법"], ["phone", "번호 입력"], ["method", "결제 방법"], ["card", "카드 결제"], ["cash", "현금 결제"], ["done", "완료"],
@@ -717,7 +732,7 @@ function fit() {
   // 좁은 화면(휴대폰)에서는 높이에 맞추지 않고 폭에 꽉 차게 — 세로로 스크롤해서 본다
   const sc = window.innerWidth <= 800
     ? Math.min((window.innerWidth - 28) / 1080, 1)
-    : Math.min(($("stage").clientWidth - 40) / 1080, (window.innerHeight - 64) / 1920, 1);
+    : Math.min(($("stage").clientWidth - 40) / 1080, (window.innerHeight - 140) / 1920, 1);
   $("cv").style.transform = `scale(${sc})`;
   $("scaler").style.width = 1080 * sc + "px"; $("scaler").style.height = 1920 * sc + "px";
 }
@@ -976,9 +991,11 @@ document.getElementById("bgmVol").addEventListener("input", () => bgm.setVolume(
     const label = document.getElementById("bgmFileName");
     label.style.display = "block";
     label.textContent = "🎵 BGM: 다모아로고송.mp3 (같은 폴더의 파일을 자동으로 사용)";
+    document.getElementById("quickFileName").textContent = "🎵 다모아로고송.mp3 준비됨 — 🔊 소리 켜기를 누르세요";
   };
   probe.src = "다모아로고송.mp3";
 })();
+document.getElementById("quickFile").addEventListener("click", () => document.getElementById("bgmFile").click());
 document.getElementById("bgmFile").addEventListener("change", (e) => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -986,6 +1003,7 @@ document.getElementById("bgmFile").addEventListener("change", (e) => {
   const label = document.getElementById("bgmFileName");
   label.style.display = "block";
   label.textContent = "🎵 BGM: " + file.name + " (BGM 켜기를 누르면 이 곡이 나와요)";
+  document.getElementById("quickFileName").textContent = "🎵 " + file.name + " 준비됨 — 🔊 소리 켜기를 누르세요";
 });
 
 // 멘트 고치기 — 관리자 "안내멘트 관리"에서 하게 될 일을 미리보기로 흉내 낸다.
