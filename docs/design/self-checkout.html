@@ -298,6 +298,8 @@ const ADS = [
     voice: "신상품 프리미엄 아이스크림을 20% 할인된 가격에 만나 보세요." },
   { bg: "linear-gradient(135deg,#C8075F,#18181b)", h: "다모아마켓", p: "우리 동네 24시간 무인마트",
     voice: "우리 동네 24시간 무인마트, 다모아마켓입니다. 휴대폰 번호를 입력하면 할인과 적립을 받을 수 있어요." },
+  { bg: "linear-gradient(135deg,#27272a,#09090b)", h: "안심 무인매장", p: "고객님의 안전을 위해 CCTV 녹화 중",
+    voice: "다모아마켓은 무인 매장으로, 여러분의 안전을 위해 매장 내 CCTV가 녹화되고 있습니다." },
 ];
 
 // 결제 단계별 안내 멘트 — 화면이 바뀔 때 한 번 읽는다(관리자가 매장별로 수정하는 대상).
@@ -355,7 +357,19 @@ function speakAd() {
   };
   u.onend = next;
   u.onerror = next;
-  speechSynthesis.speak(u);
+  startUtter(u);
+}
+// 휴대폰 브라우저는 cancel() 직후 곧바로 speak()하면 새 문장을 버리는 경우가 있다.
+// 그래서 읽는 중일 때만 끊고, 끊었으면 잠깐 쉬었다가 읽는다. 처음 켤 때(아무것도 안 읽는 중)는
+// 누른 그 순간에 바로 읽어야 휴대폰이 소리를 허락하므로 지연 없이 바로 읽는다.
+function startUtter(u) {
+  if (speechSynthesis.speaking || speechSynthesis.pending) {
+    speechSynthesis.cancel();
+    setTimeout(() => { if (curUtter === u) { speechSynthesis.resume(); speechSynthesis.speak(u); } }, 150);
+  } else {
+    speechSynthesis.resume();
+    speechSynthesis.speak(u);
+  }
 }
 let lastScreen = null;
 function speakLine(text) {
@@ -364,7 +378,7 @@ function speakLine(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "ko-KR"; applyVoice(u);
   curUtter = u;
-  speechSynthesis.speak(u);
+  startUtter(u);
 }
 function speakStep() {
   const key = st.screen === "done" && st.receipt?.delivery ? "ddone" : st.screen;
@@ -374,7 +388,8 @@ function speakStep() {
 function stopSpeaking() {
   if (!canSpeak) return;
   if (curUtter) { curUtter.onend = curUtter.onerror = null; curUtter = null; }
-  speechSynthesis.cancel();
+  // 실제로 읽는 중이 아닐 때는 cancel()을 부르지 않는다(휴대폰에서 다음 문장이 씹히는 원인)
+  if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
 }
 const IC = {
   bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
@@ -774,9 +789,10 @@ document.addEventListener("click", (e) => {
       case "sound":
         st.sound = !st.sound;
         if (!st.sound) { stopSpeaking(); bgm.stop(); break; }
-        bgm.start();
+        // 멘트를 먼저 시작하고 BGM을 켠다 — 휴대폰에서 BGM(웹 오디오)이 먼저 잡히면 음성이 안 나오는 경우가 있다.
         lastScreen = st.screen;
         if (st.screen === "idle") speakAd(); else speakStep();
+        bgm.start();
         break;
       case "bgm": if (bgm.playing) bgm.stop(); else bgm.start(); break;
       case "board": st.board = !st.board; break;
@@ -822,13 +838,14 @@ setInterval(() => {
 }, 1000);
 window.addEventListener("resize", fit);
 
-// ===== 매장 BGM — 가사 없는 신나는 반주를 Web Audio로 직접 합성(자체 곡, 저작권 없음) =====
-// 118BPM, 8마디 반복: 코드 C → G → Am → F (흔한 진행), 킥·스네어·하이햇 + 베이스 + 오프비트 코드 + 짧은 멜로디.
-// 안내 멘트(speechSynthesis)가 나오는 동안에는 음량을 25%로 낮췄다가 끝나면 되돌린다(덕킹).
+// ===== 매장 BGM — 가사 없는 밝고 가벼운 반주를 Web Audio로 직접 합성(자체 곡, 저작권 없음) =====
+// 안내 멘트 뒤에 깔리는 매장 음악이라 사람 목소리 음역(중음)을 비우고 부드럽게 만든다:
+// 100BPM, 8마디 반복, 코드 Cmaj7 → Am7 → Fmaj7 → G6, 부드러운 패드 + 둥근 베이스 + 마림바 멜로디
+// + 가벼운 킥·림·셰이커. 멘트가 나오는 동안에는 음량을 15%로 낮췄다가 끝나면 되돌린다(덕킹).
 const bgm = (() => {
-  const BPM = 118, STEP = 60 / BPM / 4; // 16분음표 길이
-  const CHORDS = [[48, 52, 55], [43, 47, 50], [45, 48, 52], [41, 45, 48]]; // C, G, Am, F (MIDI)
-  const MELODY = [72, null, 74, 76, null, 79, 76, null, 74, null, 72, 74, 76, null, 74, null]; // 2마디짜리 멜로디(16칸)
+  const BPM = 100, STEP = 60 / BPM / 4; // 16분음표 길이
+  const CHORDS = [[48, 52, 55, 59], [45, 48, 52, 55], [41, 45, 48, 52], [43, 47, 50, 52]]; // Cmaj7, Am7, Fmaj7, G6 (MIDI)
+  const MELODY = [76, null, 79, null, 81, 79, null, 76, 74, null, 76, null, 72, null, null, null]; // 2마디 마림바(8분음표 16칸)
   let ctx = null, master = null, analyser = null, noise = null, timer = null, step = 0, nextTime = 0, duckTimer = null;
   const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
   const vol = () => Number(document.getElementById("bgmVol").value) / 100;
@@ -842,23 +859,39 @@ const bgm = (() => {
   function kick(t) {
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
-    env(g, t, 0.002, 0.9, 0.25); o.connect(g).connect(master); o.start(t); o.stop(t + 0.3);
+    env(g, t, 0.002, 0.55, 0.22); o.connect(g).connect(master); o.start(t); o.stop(t + 0.3);
   }
   function hit(t, filterType, freq, peak, dur) {
     const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
     s.buffer = noise; f.type = filterType; f.frequency.value = freq; env(g, t, 0.001, peak, dur);
     s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + dur + 0.05);
   }
+  // 천천히 올라오고 천천히 사라지는 부드러운 화음(패드)
+  function pad(freq, t, peak, dur) {
+    const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+    o.type = "triangle"; o.frequency.value = freq; f.type = "lowpass"; f.frequency.value = 1600;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + 0.25);
+    g.gain.setValueAtTime(peak, t + dur - 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + dur + 0.05);
+  }
+  // 나무 건반처럼 '똑' 하고 울리는 마림바 소리(기음 + 약한 4배음)
+  function marimba(freq, t, peak) {
+    tone("sine", freq, t, peak, 0.45, 6000);
+    tone("sine", freq * 4, t, peak * 0.12, 0.08, 9000);
+  }
   function schedule(i, t) {
     const bar = Math.floor(i / 16) % 8, s = i % 16, chord = CHORDS[Math.floor(bar / 2) % 4];
-    if (s % 4 === 0) kick(t);                                       // 4비트 킥
-    if (s === 4 || s === 12) hit(t, "bandpass", 1800, 0.35, 0.15);  // 2·4박 스네어
-    if (s % 2 === 0) hit(t, "highpass", 8000, s % 4 === 2 ? 0.12 : 0.06, 0.04); // 하이햇
-    if (s % 2 === 0) tone("sawtooth", hz(chord[0] - 12 + (s % 8 === 6 ? 12 : 0)), t, 0.3, STEP * 1.6, 700); // 베이스
-    if (s % 2 === 0) tone("square", hz(chord[0] + (s % 8 === 6 ? 12 : 0)), t, 0.07, STEP * 1.2, 1400); // 베이스 윗소리(휴대폰 스피커에서도 들리게)
-    if (s % 4 === 2) chord.forEach((m) => tone("square", hz(m + 12), t, 0.08, STEP * 1.4, 3000)); // 오프비트 코드
+    if (s === 0 && bar % 2 === 0) chord.forEach((m) => pad(hz(m + 12), t, 0.05, STEP * 32)); // 2마디마다 화음
+    if (s === 0 || s === 8) kick(t);                                   // 1·3박 가벼운 킥
+    if (s === 4 || s === 12) hit(t, "bandpass", 2600, 0.12, 0.05);     // 2·4박 림(딱)
+    if (s % 2 === 1) hit(t, "highpass", 9000, 0.03, 0.03);              // 셰이커
+    if (s === 0 || s === 8 || s === 14) {                               // 둥근 베이스 + 휴대폰용 윗소리
+      const root = chord[0] - 12 + (s === 14 ? 7 : 0);
+      tone("triangle", hz(root), t, 0.32, STEP * 3.5, 600);
+      tone("sine", hz(root + 12), t, 0.08, STEP * 3, 1200);
+    }
     const mel = MELODY[(bar % 2) * 8 + Math.floor(s / 2)];
-    if (s % 2 === 0 && mel) tone("triangle", hz(mel), t, 0.16, STEP * 1.8, 5000); // 멜로디
+    if (s % 2 === 0 && mel && bar % 4 !== 3) marimba(hz(mel), t, 0.13);  // 멜로디(4마디째는 쉬어서 덜 반복적으로)
   }
   function tick() {
     while (nextTime < ctx.currentTime + 0.12) { schedule(step, nextTime); step += 1; nextTime += STEP; }
@@ -866,7 +899,7 @@ const bgm = (() => {
   function duck() {
     if (!master) return;
     const speaking = canSpeak && (speechSynthesis.speaking || speechSynthesis.pending);
-    master.gain.setTargetAtTime(vol() * (speaking ? 0.25 : 1), ctx.currentTime, 0.15);
+    master.gain.setTargetAtTime(vol() * (speaking ? 0.15 : 1), ctx.currentTime, 0.25);
   }
   return {
     get playing() { return !!timer; },
