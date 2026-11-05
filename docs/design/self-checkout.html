@@ -347,7 +347,9 @@ function applyVoice(u) {
   const vs = speechSynthesis.getVoices().filter((v) => /^ko/i.test(v.lang));
   const v = PREFERRED_VOICES.map((p) => vs.find((x) => p.test(x.name))).find(Boolean) || vs[0];
   if (v) u.voice = v;
-  u.rate = 0.95;
+  // 발랄하게: 조금 빠르고 톤을 높여서 읽는다
+  u.rate = 1.08;
+  u.pitch = 1.2;
 }
 if (canSpeak) { speechSynthesis.getVoices(); speechSynthesis.addEventListener?.("voiceschanged", () => speechSynthesis.getVoices()); }
 let adShownAt = Date.now();
@@ -899,14 +901,23 @@ setInterval(() => {
 }, 1000);
 window.addEventListener("resize", fit);
 
-// ===== 매장 BGM — 가사 없는 밝고 가벼운 반주를 Web Audio로 직접 합성(자체 곡, 저작권 없음) =====
-// 안내 멘트 뒤에 깔리는 매장 음악이라 사람 목소리 음역(중음)을 비우고 부드럽게 만든다:
-// 100BPM, 8마디 반복, 코드 Cmaj7 → Am7 → Fmaj7 → G6, 부드러운 패드 + 둥근 베이스 + 마림바 멜로디
-// + 가벼운 킥·림·셰이커. 멘트가 나오는 동안에는 음량을 15%로 낮췄다가 끝나면 되돌린다(덕킹).
+// ===== 매장 BGM — 가사 없는 밝고 경쾌한 반주를 Web Audio로 직접 합성(자체 곡, 저작권 없음) =====
+// 마트·편의점에 어울리게 단순한 장조 화음으로 통통 튀게: 112BPM, 8마디 반복,
+// 코드 C → F → G → C → Am → F → G → C, 우쿨렐레처럼 튕기는 "쿵짝" 반주 + 통통 베이스 + 박수
+// + 높은 글로켄슈필 멜로디(사람 목소리보다 위 음역이라 멘트와 덜 겹침).
+// 멘트가 나오는 동안에는 음량을 15%로 낮췄다가 끝나면 되돌린다(덕킹).
 const bgm = (() => {
-  const BPM = 100, STEP = 60 / BPM / 4; // 16분음표 길이
-  const CHORDS = [[48, 52, 55, 59], [45, 48, 52, 55], [41, 45, 48, 52], [43, 47, 50, 52]]; // Cmaj7, Am7, Fmaj7, G6 (MIDI)
-  const MELODY = [76, null, 79, null, 81, 79, null, 76, 74, null, 76, null, 72, null, null, null]; // 2마디 마림바(8분음표 16칸)
+  const BPM = 112, STEP = 60 / BPM / 4; // 16분음표 길이
+  const C = [60, 64, 67], F = [60, 65, 69], G = [59, 62, 67], Am = [60, 64, 69]; // 우쿨렐레 음역 화음(MIDI)
+  const CHORDS = [C, F, G, C, Am, F, G, C];                                   // 마디마다 하나
+  const ROOTS = [36, 41, 43, 36, 45, 41, 43, 36];                             // 베이스 근음
+  // 8마디 멜로디(마디당 8분음표 8칸, null은 쉼) — 높은 음역의 단순하고 밝은 후렴
+  const MELODY = [
+    84, null, 84, 86, 88, null, 84, null,   89, null, 88, 86, 84, null, null, null,
+    86, null, 86, 88, 86, 84, 83, null,     84, null, 79, null, 84, null, null, null,
+    88, null, 88, 89, 91, null, 88, null,   89, null, 88, 86, 84, null, 81, null,
+    83, null, 84, 86, 88, null, 86, null,   84, null, null, null, 79, null, 84, null,
+  ];
   let ctx = null, master = null, analyser = null, noise = null, timer = null, step = 0, nextTime = 0, duckTimer = null;
   const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
   const vol = () => Number(document.getElementById("bgmVol").value) / 100;
@@ -927,32 +938,35 @@ const bgm = (() => {
     s.buffer = noise; f.type = filterType; f.frequency.value = freq; env(g, t, 0.001, peak, dur);
     s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + dur + 0.05);
   }
-  // 천천히 올라오고 천천히 사라지는 부드러운 화음(패드)
-  function pad(freq, t, peak, dur) {
-    const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
-    o.type = "triangle"; o.frequency.value = freq; f.type = "lowpass"; f.frequency.value = 1600;
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + 0.25);
-    g.gain.setValueAtTime(peak, t + dur - 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + dur + 0.05);
+  // 우쿨렐레처럼 줄을 빠르게 훑는 짧은 화음(음마다 몇 ms씩 어긋나게)
+  function strum(chord, t, peak, up) {
+    const notes = up ? [...chord].reverse() : chord;
+    notes.forEach((m, k) => {
+      tone("triangle", hz(m), t + k * 0.012, peak, 0.2, 3000);
+      tone("square", hz(m), t + k * 0.012, peak * 0.25, 0.08, 2200);
+    });
   }
-  // 나무 건반처럼 '똑' 하고 울리는 마림바 소리(기음 + 약한 4배음)
-  function marimba(freq, t, peak) {
-    tone("sine", freq, t, peak, 0.45, 6000);
-    tone("sine", freq * 4, t, peak * 0.12, 0.08, 9000);
+  // 맑게 '띵' 울리는 글로켄슈필(기음 + 종소리 배음)
+  function glock(freq, t, peak) {
+    tone("sine", freq, t, peak, 0.6, 8000);
+    tone("sine", freq * 2.76, t, peak * 0.18, 0.18, 10000);
+  }
+  function clap(t) {
+    hit(t, "bandpass", 1500, 0.18, 0.06);
+    hit(t + 0.012, "bandpass", 1500, 0.14, 0.08);
   }
   function schedule(i, t) {
-    const bar = Math.floor(i / 16) % 8, s = i % 16, chord = CHORDS[Math.floor(bar / 2) % 4];
-    if (s === 0 && bar % 2 === 0) chord.forEach((m) => pad(hz(m + 12), t, 0.05, STEP * 32)); // 2마디마다 화음
-    if (s === 0 || s === 8) kick(t);                                   // 1·3박 가벼운 킥
-    if (s === 4 || s === 12) hit(t, "bandpass", 2600, 0.12, 0.05);     // 2·4박 림(딱)
-    if (s % 2 === 1) hit(t, "highpass", 9000, 0.03, 0.03);              // 셰이커
-    if (s === 0 || s === 8 || s === 14) {                               // 둥근 베이스 + 휴대폰용 윗소리
-      const root = chord[0] - 12 + (s === 14 ? 7 : 0);
-      tone("triangle", hz(root), t, 0.32, STEP * 3.5, 600);
-      tone("sine", hz(root + 12), t, 0.08, STEP * 3, 1200);
-    }
-    const mel = MELODY[(bar % 2) * 8 + Math.floor(s / 2)];
-    if (s % 2 === 0 && mel && bar % 4 !== 3) marimba(hz(mel), t, 0.13);  // 멜로디(4마디째는 쉬어서 덜 반복적으로)
+    const bar = Math.floor(i / 16) % 8, s = i % 16, chord = CHORDS[bar], root = ROOTS[bar];
+    if (s === 0 || s === 8 || (s === 10 && bar % 2 === 1)) kick(t); // 킥(짝수 마디는 쿵·쿵, 홀수 마디는 한 번 더)
+    if (s === 4 || s === 12) clap(t);                                 // 2·4박 박수
+    if (s % 2 === 0) hit(t, "highpass", 9000, s % 4 === 2 ? 0.06 : 0.035, 0.03); // 하이햇
+    if (s % 2 === 0) strum(chord, t, s % 4 === 2 ? 0.07 : 0.045, s % 4 === 2); // 쿵짝 반주(뒷박 강하게)
+    if (s === 0) tone("triangle", hz(root), t, 0.32, STEP * 2.5, 700);          // 통통 베이스
+    if (s === 6) tone("triangle", hz(root + 12), t, 0.22, STEP * 1.5, 900);
+    if (s === 8) tone("triangle", hz(root + 7), t, 0.3, STEP * 2.5, 700);
+    if (s === 14) tone("triangle", hz(root + 12), t, 0.22, STEP * 1.5, 900);
+    const mel = MELODY[bar * 8 + Math.floor(s / 2)];
+    if (s % 2 === 0 && mel) glock(hz(mel), t, 0.11);                            // 멜로디
   }
   function tick() {
     while (nextTime < ctx.currentTime + 0.12) { schedule(step, nextTime); step += 1; nextTime += STEP; }
