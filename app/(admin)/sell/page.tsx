@@ -12,7 +12,11 @@ export default async function SellPage() {
         <h1 className="text-2xl font-semibold text-zinc-900">실시간 장바구니</h1>
         <p className="text-sm text-zinc-500">{store.name}</p>
       </div>
-      <SellPos storeId={store.id} />
+      <SellPos
+        storeId={store.id}
+        defaultDeliveryFee={store.default_delivery_fee}
+        freeShippingThreshold={store.free_shipping_threshold}
+      />
     </div>
   );
 }

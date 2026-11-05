@@ -5,11 +5,23 @@ import { createClient } from "@/lib/supabase/client";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
 import MarketingOptIn from "./MarketingOptIn";
 import { checkout, type SellState } from "./actions";
+import { createDeliveryOrder, type DeliveryOrderState } from "../deliveries/actions";
 import { PAYMENT_METHODS, type CartItem, type Product } from "@/lib/types";
 
 const initialState: SellState = { error: null, success: null };
+const initialDeliveryState: DeliveryOrderState = { error: null, success: null };
 
-export default function SellPos({ storeId }: { storeId: string }) {
+type ReceiveMode = "pickup" | "delivery";
+
+export default function SellPos({
+  storeId,
+  defaultDeliveryFee,
+  freeShippingThreshold,
+}: {
+  storeId: string;
+  defaultDeliveryFee: number;
+  freeShippingThreshold: number | null;
+}) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [manualBarcode, setManualBarcode] = useState("");
@@ -20,6 +32,34 @@ export default function SellPos({ storeId }: { storeId: string }) {
   const [state, formAction, pending] = useActionState(checkout, initialState);
   const [showOptIn, setShowOptIn] = useState(false);
   const [optInPhone, setOptInPhone] = useState("");
+
+  // 배송으로 받기 — 같은 장바구니를 record_delivery_sale(배송주문건과 같은 경로)로 결제한다.
+  const [receiveMode, setReceiveMode] = useState<ReceiveMode>("pickup");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryPhone, setDeliveryPhone] = useState("");
+  const [deliveryMemo, setDeliveryMemo] = useState("");
+  const [deliveryState, deliveryAction, deliveryPending] = useActionState(
+    createDeliveryOrder,
+    initialDeliveryState
+  );
+  // 배송 결제가 끝나면 "배송 상품은 배송공간으로" 안내를 닫을 때까지 크게 띄워둔다.
+  const [deliveryNotice, setDeliveryNotice] = useState<string | null>(null);
+  // 장바구니에는 행사가를 보여주지만, 배송 주문은 서버(record_delivery_sale)가 정가로
+  // 계산하므로 배송비·무료배송 판단도 정가 기준으로 맞추려고 정가를 따로 기억해둔다.
+  const [regularPrices, setRegularPrices] = useState<Record<string, number>>({});
+
+  const [handledDeliverySuccess, setHandledDeliverySuccess] = useState(deliveryState.success);
+  if (deliveryState.success !== handledDeliverySuccess) {
+    setHandledDeliverySuccess(deliveryState.success);
+    if (deliveryState.success) {
+      setCart([]);
+      setDeliveryAddress("");
+      setDeliveryPhone("");
+      setDeliveryMemo("");
+      setReceiveMode("pickup");
+      setDeliveryNotice(deliveryState.success);
+    }
+  }
 
   // 결제가 성공하면(액션 state가 바뀌면) 렌더 중에 장바구니를 비운다.
   // (useEffect에서 setState하면 불필요한 추가 렌더가 발생하므로 React가 권장하는 방식)
@@ -64,6 +104,7 @@ export default function SellPos({ storeId }: { storeId: string }) {
     }
 
     const product = data as Product;
+    setRegularPrices((prev) => ({ ...prev, [product.id]: product.sell_price }));
     // 기간한정 할인이 지금 걸려있으면 장바구니에 표시되는 가격도 실제 결제될
     // 할인가와 같게 보여준다(최종 계산은 record_sale이 서버에서 다시 하므로
     // 여기 표시는 참고용이지만, 다르게 보이면 직원이 혼란스러울 수 있음).
@@ -115,6 +156,15 @@ export default function SellPos({ storeId }: { storeId: string }) {
       ),
     [cart]
   );
+
+  // 배송비 — record_delivery_sale과 같은 규칙(정가 합계가 무료배송 기준 이상이면 무료).
+  const deliverySubtotal = cart.reduce(
+    (sum, i) => sum + (regularPrices[i.product.id] ?? i.product.sell_price) * i.quantity,
+    0
+  );
+  const isFreeShipping = freeShippingThreshold != null && deliverySubtotal >= freeShippingThreshold;
+  const deliveryFee = isFreeShipping ? 0 : defaultDeliveryFee;
+  const isDelivery = receiveMode === "delivery";
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row">
@@ -199,6 +249,79 @@ export default function SellPos({ storeId }: { storeId: string }) {
           </ul>
         )}
 
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-zinc-100 p-1">
+          {(
+            [
+              ["pickup", "지금 가져가기"],
+              ["delivery", "배송으로 받기"],
+            ] as const
+          ).map(([mode, label]) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setReceiveMode(mode)}
+              className={`rounded-md py-2 text-sm font-medium ${
+                receiveMode === mode ? "bg-white text-[#C8075F] shadow-sm" : "text-zinc-500"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {isDelivery ? (
+          <div className="flex flex-col gap-2 border-t border-zinc-200 pt-3">
+            <input
+              value={deliveryAddress}
+              onChange={(e) => setDeliveryAddress(e.target.value)}
+              placeholder="배송지 (필수) 예: 래미안 103동 1204호"
+              className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm"
+            />
+            <input
+              value={deliveryPhone}
+              onChange={(e) => setDeliveryPhone(e.target.value)}
+              placeholder="받는 분 연락처"
+              className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm"
+            />
+            <input
+              value={deliveryMemo}
+              onChange={(e) => setDeliveryMemo(e.target.value)}
+              placeholder="요청사항 (선택) 예: 문 앞에 놓아 주세요"
+              className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm"
+            />
+            <p className="text-xs text-zinc-400">
+              배송 주문은 정가로 계산되며 행사가·쿠폰·고객 할인은 적용되지 않습니다.
+            </p>
+            <div className="flex flex-col gap-1 rounded-md bg-zinc-50 p-2 text-sm">
+              <div className="flex items-center justify-between text-zinc-500">
+                <span>상품 합계(정가)</span>
+                <span>{deliverySubtotal.toLocaleString()}원</span>
+              </div>
+              <div className="flex items-center justify-between text-zinc-500">
+                <span>배송비</span>
+                <span>
+                  {isFreeShipping ? (
+                    <span className="font-medium text-green-600">무료</span>
+                  ) : (
+                    `${deliveryFee.toLocaleString()}원`
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between font-medium text-zinc-900">
+                <span>결제 예정 금액</span>
+                <span>{(deliverySubtotal + deliveryFee).toLocaleString()}원</span>
+              </div>
+              {freeShippingThreshold != null && !isFreeShipping && cart.length > 0 && (
+                <p className="text-xs text-[#C8075F]">
+                  {(freeShippingThreshold - deliverySubtotal).toLocaleString()}원 더 담으면 무료배송이에요.
+                </p>
+              )}
+            </div>
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-800">
+              📦 결제 후 배송 상품은 배송공간으로 옮겨 주세요.
+            </p>
+          </div>
+        ) : (
         <div className="flex flex-col gap-2 border-t border-zinc-200 pt-3">
           <div>
             <input
@@ -231,12 +354,48 @@ export default function SellPos({ storeId }: { storeId: string }) {
             쿠폰 유효성/정률 할인은 결제 시 서버에서 계산돼 최종 금액에 반영됩니다.
           </p>
         </div>
+        )}
 
-        <div className="flex items-center justify-between text-sm font-medium text-zinc-900">
-          <span>상품 합계</span>
-          <span>{total.toLocaleString()}원</span>
-        </div>
+        {!isDelivery && (
+          <div className="flex items-center justify-between text-sm font-medium text-zinc-900">
+            <span>상품 합계</span>
+            <span>{total.toLocaleString()}원</span>
+          </div>
+        )}
 
+        {isDelivery ? (
+          <form action={deliveryAction} className="flex flex-col gap-2">
+            <input type="hidden" name="store_id" value={storeId} />
+            <input type="hidden" name="items" value={itemsJson} />
+            <input type="hidden" name="delivery_address" value={deliveryAddress} />
+            <input type="hidden" name="delivery_phone" value={deliveryPhone} />
+            <input type="hidden" name="delivery_memo" value={deliveryMemo} />
+            <select
+              name="payment_method"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="rounded border border-zinc-300 px-2 py-1.5 text-sm"
+            >
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+
+            {deliveryState.error && (
+              <p className="text-sm text-red-600">{deliveryState.error}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={deliveryPending || cart.length === 0 || !deliveryAddress.trim()}
+              className="rounded bg-[#C8075F] px-4 py-2 text-sm text-white hover:bg-[#a80650] disabled:opacity-50"
+            >
+              {deliveryPending ? "처리 중..." : "배송으로 결제하기"}
+            </button>
+          </form>
+        ) : (
         <form action={formAction} className="flex flex-col gap-2">
           <input type="hidden" name="items" value={itemsJson} />
           <input type="hidden" name="coupon_code" value={couponCode} />
@@ -270,11 +429,34 @@ export default function SellPos({ storeId }: { storeId: string }) {
             {pending ? "처리 중..." : "결제하기"}
           </button>
         </form>
+        )}
 
         {showOptIn && (
           <MarketingOptIn defaultPhone={optInPhone} onClose={() => setShowOptIn(false)} />
         )}
       </div>
+
+      {/* 배송 결제 완료 — 상품을 배송공간에 두지 않으면 배송이 안 되므로 닫을 때까지 크게 띄운다. */}
+      {deliveryNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-2xl bg-white p-6 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500 text-3xl">📦</div>
+            <p className="text-2xl font-bold text-amber-900">
+              배송 상품은 배송공간으로
+              <br />
+              옮겨 주세요
+            </p>
+            <p className="text-sm text-zinc-500">{deliveryNotice}</p>
+            <button
+              type="button"
+              onClick={() => setDeliveryNotice(null)}
+              className="w-full rounded-lg bg-[#C8075F] py-3 text-base font-semibold text-white hover:bg-[#a80650]"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
