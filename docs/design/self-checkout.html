@@ -67,6 +67,8 @@
   .slide { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: #fff; text-align: center; transition: opacity .7s; }
   .slide h3 { font-size: 84px; font-weight: 900; letter-spacing: -0.03em; }
   .slide p { font-size: 36px; opacity: .85; }
+  .slide .blurbg { position: absolute; inset: -60px; background-size: cover; background-position: center; filter: blur(40px) brightness(.75); }
+  .slide .adimg { position: relative; max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
   /* 광고 음성 자막 — 소리를 못 듣는 손님도 같은 내용을 볼 수 있게 */
   .caption { position: absolute; left: 40px; right: 40px; bottom: 40px; z-index: 2; display: flex; align-items: center; gap: 16px; background: rgba(0,0,0,.6); color: #fff; border-radius: 24px; padding: 22px 28px; font-size: 30px; font-weight: 700; line-height: 1.4; }
   .caption .spk { flex: none; width: 56px; height: 56px; border-radius: 999px; background: var(--brand); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 28px; }
@@ -313,10 +315,13 @@ const NOCODE = [
   { emo: "🧊", name: "얼음컵", price: 500 },
 ];
 const ADS = [
-  { bg: "linear-gradient(135deg,#C8075F,#5c0230)", h: "음료 2+1", p: "11월 한 달간 전 품목",
-    voice: "11월 한 달간 음료 전 품목 2+1 행사 중입니다." },
-  { bg: "linear-gradient(135deg,#0f766e,#052e2b)", h: "신상품 출시", p: "프리미엄 아이스크림 20% 할인",
-    voice: "신상품 프리미엄 아이스크림을 20% 할인된 가격에 만나 보세요." },
+  // 실제 다모아 홍보물(img) — 인쇄용 원본을 화면용(폭 1080px)으로 줄여 ads/ 폴더에 둔다
+  { img: "ads/ad-icecream.jpg", h: "아이스크림 10+1",
+    voice: "600원 아이스크림, 10개 사면 하나 더! 11개 득템의 찬스를 놓치지 마세요." },
+  { img: "ads/ad-egg2.jpg", h: "계란 최저가",
+    voice: "다모아에서 신선한 프리미엄 계란을 시중가보다 저렴하게 만나 보세요. 왕란 30구 8천5백 원입니다." },
+  { img: "ads/ad-suneung.jpg", h: "수능 선물",
+    voice: "수험생 여러분을 응원합니다! 수능 선물도 다모아에서 준비하세요." },
   { bg: "linear-gradient(135deg,#C8075F,#18181b)", h: "다모아마켓", p: "우리 동네 24시간 무인마트",
     voice: "우리 동네 24시간 무인마트, 다모아마켓입니다. 휴대폰 번호를 입력하면 할인과 적립을 받을 수 있어요." },
   { bg: "linear-gradient(135deg,#27272a,#09090b)", h: "안심 무인매장", p: "고객님의 안전을 위해 CCTV 녹화 중",
@@ -342,7 +347,8 @@ const VOICE_LABELS = {
 // 광고 안내 음성 — 대기 화면에서만, 광고가 바뀔 때마다 그 광고 문구를 읽는다.
 // 음성이 켜져 있으면 다 읽고 1.5초 쉰 뒤(최소 5초 노출) 다음 광고로 넘어가고,
 // 꺼져 있으면 기존처럼 7초마다 넘어간다. 계산을 시작하면 바로 멈춘다.
-const canSpeak = "speechSynthesis" in window;
+// 음성 기능이 아예 없거나, 이름만 있고 비어 있는 환경(일부 휴대폰 앱 화면)까지 걸러낸다
+const canSpeak = !!(window.speechSynthesis && typeof window.speechSynthesis.speak === "function" && typeof window.SpeechSynthesisUtterance === "function");
 // 기본 한국어 음성은 기계음 같아서, 기기에 있는 더 자연스러운 한국어 음성(Edge의 Natural,
 // 크롬의 Google, 아이폰의 유나 등)을 먼저 고른다 — 솔루션의 lib/kiosk-voice.ts와 같은 규칙.
 const PREFERRED_VOICES = [/natural/i, /online/i, /neural/i, /google/i, /yuna|유나/i, /sunhi|injoon|heami/i];
@@ -363,7 +369,8 @@ function applyVoice(u) {
   // 밝은 톤: 살짝 빠르게, 남자 목소리는 톤을 아주 조금만 올려 밝게(많이 올리면 어색하게 갈라짐)
   const male = document.getElementById("voiceGender")?.value === "male";
   u.rate = 1.07;
-  u.pitch = male ? 1.06 : 1;
+  // 휴대폰 기기 음성은 PC보다 톤이 낮게 들려서 조금 더 올린다(PC는 지금 톤 유지)
+  u.pitch = isTouch ? (male ? 1.25 : 1.2) : (male ? 1.06 : 1);
 }
 if (canSpeak) { speechSynthesis.getVoices(); speechSynthesis.addEventListener?.("voiceschanged", () => speechSynthesis.getVoices()); }
 let adShownAt = Date.now();
@@ -380,18 +387,19 @@ function showAd(i) {
 // 없거나 소리가 안 나는 경우가 많아서, 파일이 있는 멘트는 파일을 튼다. 자연스러운 한국어 음성이
 // 있는 PC(Edge·크롬)에서는 그 음성으로 읽고, 멘트를 고쳐서 파일이 없으면 기기 음성으로 읽는다.
 const MENT_FILES = {
-  "11월 한 달간 음료 전 품목 2+1 행사 중입니다.": "ments/m0.wav",
-  "신상품 프리미엄 아이스크림을 20% 할인된 가격에 만나 보세요.": "ments/m1.wav",
-  "우리 동네 24시간 무인마트, 다모아마켓입니다. 휴대폰 번호를 입력하면 할인과 적립을 받을 수 있어요.": "ments/m2.wav",
-  "다모아마켓은 무인 매장으로, 여러분의 안전을 위해 매장 내 CCTV가 녹화되고 있습니다.": "ments/m3.wav",
-  "상품을 지금 가져가실지, 배송으로 받으실지 골라 주세요.": "ments/m4.wav",
-  "휴대폰 번호를 입력하면 할인과 적립을 받을 수 있어요.": "ments/m5.wav",
-  "결제 방법을 선택해 주세요.": "ments/m6.wav",
-  "카드를 단말기에 꽂아 주세요.": "ments/m7.wav",
-  "휴대폰의 결제 바코드를 스캐너에 보여 주세요.": "ments/m8.wav",
-  "현금을 넣어 주세요.": "ments/m9.wav",
-  "결제가 완료되었습니다. 다모아마켓을 이용해 주셔서 감사합니다.": "ments/m10.wav",
-  "배송 주문이 접수되었습니다. 배송 상품은 배송공간으로 옮겨 주세요.": "ments/m11.wav"
+  "600원 아이스크림, 10개 사면 하나 더! 11개 득템의 찬스를 놓치지 마세요.": "ments/m0.wav",
+  "다모아에서 신선한 프리미엄 계란을 시중가보다 저렴하게 만나 보세요. 왕란 30구 8천5백 원입니다.": "ments/m1.wav",
+  "수험생 여러분을 응원합니다! 수능 선물도 다모아에서 준비하세요.": "ments/m2.wav",
+  "우리 동네 24시간 무인마트, 다모아마켓입니다. 휴대폰 번호를 입력하면 할인과 적립을 받을 수 있어요.": "ments/m3.wav",
+  "다모아마켓은 무인 매장으로, 여러분의 안전을 위해 매장 내 CCTV가 녹화되고 있습니다.": "ments/m4.wav",
+  "상품을 지금 가져가실지, 배송으로 받으실지 골라 주세요.": "ments/m5.wav",
+  "휴대폰 번호를 입력하면 할인과 적립을 받을 수 있어요.": "ments/m6.wav",
+  "결제 방법을 선택해 주세요.": "ments/m7.wav",
+  "카드를 단말기에 꽂아 주세요.": "ments/m8.wav",
+  "휴대폰의 결제 바코드를 스캐너에 보여 주세요.": "ments/m9.wav",
+  "현금을 넣어 주세요.": "ments/m10.wav",
+  "결제가 완료되었습니다. 다모아마켓을 이용해 주셔서 감사합니다.": "ments/m11.wav",
+  "배송 주문이 접수되었습니다. 배송 상품은 배송공간으로 옮겨 주세요.": "ments/m12.wav"
 };
 const isTouch = matchMedia("(pointer: coarse)").matches;
 // Windows 기본 음성(Heami)이 아닌 한국어 음성이 있으면 그걸 쓴다(휴대폰의 유나·구글·삼성 음성,
@@ -405,8 +413,10 @@ function say(text, onEnd) {
   stopSpeaking();
   if (!text || !text.trim()) return;
   const file = MENT_FILES[text];
-  if (file && !hasNaturalVoice()) {
-    const a = new Audio(file);
+  // 휴대폰은 기기 음성이 긴 문장에서 소리 없이 끊기는 경우가 있어 항상 파일로(모든 멘트가 확실히 나오게).
+  // PC는 자연스러운 기기 음성(Edge 인준 등)이 있으면 그 음성으로 읽는다.
+  if (file && (isTouch || !hasNaturalVoice())) {
+    const a = brightAudio(file);
     curAudio = a;
     a.onended = onEnd || null;
     // 파일을 못 틀면 기기 음성으로 대신 읽는다
@@ -416,8 +426,16 @@ function say(text, onEnd) {
   }
   sayTts(text, onEnd, file);
 }
-function playFile(file, text, onEnd) {
+// 멘트 파일을 조금 빠르게(1.15배) 재생하면서 음높이 유지를 끄면 톤이 깔끔하게 올라간다
+// (음성 엔진에서 톤을 올리면 갈라지는 소리가 나서 재생 단계에서 올림).
+function brightAudio(file) {
   const a = new Audio(file);
+  a.preservesPitch = false; a.mozPreservesPitch = false; a.webkitPreservesPitch = false;
+  a.playbackRate = 1.15;
+  return a;
+}
+function playFile(file, text, onEnd) {
+  const a = brightAudio(file);
   curAudio = a;
   a.onended = onEnd || null;
   a.onerror = onEnd || null;
@@ -576,7 +594,10 @@ function render() {
   let h = "";
   switch (st.screen) {
     case "idle":
-      h = header() + `<div class="ad">${ADS.map((a, i) => `<div class="slide" style="background:${a.bg};opacity:${i === st.ad ? 1 : 0}"><h3>${a.h}</h3><p>${a.p}</p></div>`).join("")}
+      h = header() + `<div class="ad">${ADS.map((a, i) => a.img
+          // 홍보물은 잘리지 않게 전체를 보여 주고, 남는 여백은 같은 이미지를 흐리게 깔아 채운다
+          ? `<div class="slide" style="background:#111;opacity:${i === st.ad ? 1 : 0}"><div class="blurbg" style="background-image:url(${a.img})"></div><img class="adimg" src="${a.img}" alt="${a.h}" /></div>`
+          : `<div class="slide" style="background:${a.bg};opacity:${i === st.ad ? 1 : 0}"><h3>${a.h}</h3><p>${a.p}</p></div>`).join("")}
           ${st.sound ? `<div class="caption"><button class="spk" data-act="sound" aria-label="소리 끄기">🔊</button><span id="adCap">${ADS[st.ad].voice}</span></div>` : `<button class="soundPill" data-act="sound">🔊 눌러서 소리 켜기</button>`}</div>
         <div class="idleBox"><div class="scanIll"><div class="code"></div><div class="beam"></div></div>
           <h2>상품 바코드를 스캐너에 찍어 주세요</h2><p>찍는 순간 계산이 시작됩니다</p>
@@ -931,8 +952,9 @@ document.addEventListener("keydown", (e) => {
 });
 
 setInterval(() => {
-  // 음성이 켜져 있으면 읽기가 끝날 때 speakAd가 다음 광고로 넘긴다.
-  if (st.screen === "idle" && !(st.sound && canSpeak)) showAd((st.ad + 1) % ADS.length);
+  // 소리가 켜져 있으면 설명(기기 음성이든 음성 파일이든)이 끝난 뒤 speakAd가 다음 광고로 넘긴다.
+  // 예전엔 기기 음성이 없는 휴대폰에서 파일로 읽는 중에도 7초마다 넘어가 설명이 잘렸다.
+  if (st.screen === "idle" && !st.sound) showAd((st.ad + 1) % ADS.length);
 }, 7000);
 setInterval(() => {
   if (st.screen !== "done") return;
