@@ -20,7 +20,10 @@ create policy "kiosk_bgm_tracks admin all" on public.kiosk_bgm_tracks for all
 create policy "kiosk_bgm_tracks staff select" on public.kiosk_bgm_tracks for select
   using (store_id = (select store_id from public.current_profile()));
 
--- 매장별 BGM 사용 여부·음량(0~100). 안내멘트가 나오는 동안에는 키오스크가 이 음량의 25%로 줄인다.
+-- 매장별 BGM 사용 여부·음량(0~100). 안내멘트가 나오는 동안에는 키오스크가 이 음량의 15%로 줄인다.
+-- announcement_gap_seconds: 대기 화면 안내멘트 하나가 끝나고 다음 멘트까지 쉬는 시간(그동안 BGM만 흐른다).
 alter table public.stores
   add column if not exists bgm_enabled boolean not null default true,
-  add column if not exists bgm_volume integer not null default 40 check (bgm_volume between 0 and 100);
+  add column if not exists bgm_volume integer not null default 40 check (bgm_volume between 0 and 100),
+  add column if not exists announcement_gap_seconds integer not null default 15
+    check (announcement_gap_seconds between 0 and 300);

@@ -27,6 +27,8 @@ export type Store = {
   // 키오스크 매장 BGM 사용 여부·음량(0~100)
   bgm_enabled: boolean;
   bgm_volume: number;
+  // 대기 화면 안내멘트 사이 쉬는 시간(초) — 그동안 BGM만 흐른다
+  announcement_gap_seconds: number;
   created_at: string;
 };
 

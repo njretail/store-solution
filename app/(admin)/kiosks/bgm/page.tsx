@@ -56,6 +56,17 @@ export default async function KioskBgmPage() {
             className="w-24 rounded border border-zinc-300 px-2 py-1.5 text-sm"
           />
         </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-zinc-500">안내멘트 사이 쉬는 시간 (초, BGM만 흐름)</label>
+          <input
+            name="announcement_gap_seconds"
+            type="number"
+            min={0}
+            max={300}
+            defaultValue={store.announcement_gap_seconds ?? 15}
+            className="w-24 rounded border border-zinc-300 px-2 py-1.5 text-sm"
+          />
+        </div>
         <button
           type="submit"
           className="rounded border border-zinc-300 px-4 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"

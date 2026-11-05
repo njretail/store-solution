@@ -54,9 +54,14 @@ export async function updateKioskBgmSettings(formData: FormData) {
   if (!store) return;
 
   const volume = Math.min(100, Math.max(0, Number(formData.get("bgm_volume") ?? 40) || 0));
+  const gap = Math.min(300, Math.max(0, Number(formData.get("announcement_gap_seconds") ?? 15) || 0));
   await supabase
     .from("stores")
-    .update({ bgm_enabled: formData.get("bgm_enabled") === "on", bgm_volume: volume })
+    .update({
+      bgm_enabled: formData.get("bgm_enabled") === "on",
+      bgm_volume: volume,
+      announcement_gap_seconds: gap,
+    })
     .eq("id", store.id);
   revalidatePath("/kiosks/bgm");
 }

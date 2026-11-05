@@ -8,7 +8,8 @@ import { KIOSK_VOICE_STRINGS } from "@/lib/kiosk-voice-i18n";
 import { makeKoreanUtterance, warmUpVoices } from "@/lib/kiosk-voice";
 
 const AD_INTERVAL_MS = 7000;
-const ANNOUNCEMENT_INTERVAL_MS = 20000;
+// 안내멘트가 끝났다는 신호가 오지 않을 때(재생 차단 등) 다음 멘트로 넘어가는 안전 시간
+const ANNOUNCEMENT_FALLBACK_MS = 60000;
 const POLL_INTERVAL_MS = 20000;
 const BOARD_IDLE_MS = 60000;
 const LANG_STORAGE_KEY = "kiosk-lang";
@@ -286,28 +287,50 @@ export default function KioskScreen({
   useEffect(() => {
     warmUpVoices();
   }, []);
+  // 멘트 하나가 끝나면 매장 설정의 쉬는 시간(기본 15초) 동안 BGM만 흐르게 한 뒤 다음 멘트를 읽는다.
+  // (예전엔 20초마다 무조건 읽어서 멘트가 길면 BGM이 나올 틈이 없었다)
+  const gapMs = Math.min(300, Math.max(0, store?.announcement_gap_seconds ?? 15)) * 1000;
   useEffect(() => {
     if (idleAnnouncements.length === 0) return;
     let i = 0;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleNext = () => {
+      if (cancelled) return;
+      clearTimeout(timer);
+      timer = setTimeout(play, gapMs);
+    };
     const play = () => {
+      if (cancelled) return;
       const a = idleAnnouncements[i % idleAnnouncements.length];
       i += 1;
-      if (a.audio_url && audioRef.current) {
-        audioRef.current.src = a.audio_url;
-        audioRef.current.play().catch(() => {});
+      // 끝났다는 신호가 안 오는 경우(재생 차단 등)에도 멈추지 않도록 넉넉한 안전 타이머를 둔다.
+      clearTimeout(timer);
+      timer = setTimeout(play, ANNOUNCEMENT_FALLBACK_MS + gapMs);
+      const el = audioRef.current;
+      if (a.audio_url && el) {
+        el.onended = scheduleNext;
+        el.onerror = scheduleNext;
+        el.src = a.audio_url;
+        el.play().catch(scheduleNext);
       } else if ("speechSynthesis" in window) {
-        window.speechSynthesis.speak(makeKoreanUtterance(a.message));
+        const utter = makeKoreanUtterance(a.message);
+        utter.onend = scheduleNext;
+        utter.onerror = scheduleNext;
+        window.speechSynthesis.speak(utter);
       }
     };
     play();
-    const timer = setInterval(play, ANNOUNCEMENT_INTERVAL_MS);
-    return () => clearInterval(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
     // idleKey가 같으면 같은 멘트 목록 — 배열은 렌더마다 새로 만들어지므로 키로 비교한다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [started, idleKey]);
+  }, [started, idleKey, gapMs]);
 
   // 매장 BGM — 등록된 곡을 순서대로 반복 재생한다. 안내멘트(업로드 오디오 또는 기기 음성)가
-  // 나오는 동안에는 설정 음량의 25%로 줄였다가 끝나면 되돌린다. 자동재생이 막혀 있으면
+  // 나오는 동안에는 설정 음량의 15%로 줄였다가 끝나면 되돌린다. 자동재생이 막혀 있으면
   // 안내멘트와 마찬가지로 첫 터치(started 변경) 때 다시 시도한다.
   const bgmEnabled = (store?.bgm_enabled ?? true) && bgmTracks.length > 0;
   const bgmVolume = Math.min(100, Math.max(0, store?.bgm_volume ?? 40)) / 100;
@@ -331,7 +354,7 @@ export default function KioskScreen({
       const speaking =
         ("speechSynthesis" in window && window.speechSynthesis.speaking) ||
         (audioRef.current != null && !audioRef.current.paused && !audioRef.current.ended);
-      el.volume = speaking ? bgmVolume * 0.25 : bgmVolume;
+      el.volume = speaking ? bgmVolume * 0.15 : bgmVolume;
     }, 250);
     return () => {
       el.removeEventListener("ended", onEnded);
