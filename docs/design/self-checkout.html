@@ -27,6 +27,8 @@
   .quickBar button { height: 44px; padding: 0 16px; border-radius: 999px; background: #fff; border: 2px solid var(--brand); color: var(--brand); font-size: 15px; font-weight: 800; }
   .quickBar button.on { background: var(--brand); color: #fff; }
   .quickName { font-size: 13px; color: #3f3f46; min-height: 1em; }
+  /* 무인솔루션 관리자 화면에서 할 설정 — 시연 화면에서는 숨김 */
+  .adminOnly { display: none !important; }
   .bezel { background: #111; border-radius: 22px; padding: 14px; box-shadow: 0 20px 50px rgba(0,0,0,.35); align-self: flex-start; }
   /* 휴대폰처럼 좁은 화면: 화면을 위에 폭 가득, 설명 패널은 아래로 */
   @media (max-width: 800px) { .wrap { flex-direction: column; padding: 8px; gap: 12px; } .panel { width: 100%; order: 2; } .stage { order: 1; min-width: 0; width: 100%; overflow: hidden; } .bezel { padding: 6px; border-radius: 14px; } }
@@ -249,11 +251,13 @@
 <div class="wrap">
   <aside class="panel">
     <div>
-      <h1>셀프 계산대 화면 — 디자인안</h1>
-      <p class="note" style="margin-top:8px">손님이 직접 상품을 찍고 결제하는 포스 세로 모니터(1080×1920) 화면입니다. 실제 픽셀 크기로 그린 뒤 줄여서 보여줍니다.</p>
+      <h1>다모아 셀프 계산대 — 키오스크 시뮬레이션</h1>
+      <p class="note" style="margin-top:8px">손님이 직접 상품을 찍고 결제하는 포스 세로 모니터(1080×1920) 화면입니다. 화면 위 "🔊 소리 켜기"를 누르면 안내 멘트와 매장 음악이 함께 나옵니다.</p>
     </div>
     <div><h2>화면 바로가기</h2><div class="seg" id="nav"></div></div>
-    <div>
+    <!-- 아래 설정들(안내 음성·매장 BGM·멘트 고치기)은 무인솔루션 관리자 화면에서 할 일이라 시연 화면에서는 숨긴다.
+         화면이 쓰는 값(남자 목소리·음량·쉬는 시간 5초 등)은 그대로 남겨 둔다. -->
+    <div class="adminOnly">
       <h2>안내 음성</h2>
       <div class="seg"><button id="soundBtn" data-act="sound" style="grid-column:1 / -1">🔊 안내 음성 켜기</button></div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:#52525b">목소리
@@ -261,7 +265,7 @@
       <p id="voiceInfo" class="note" style="margin-top:6px"></p>
       <p class="note" style="margin-top:6px">대기 화면에서는 광고·다모아 홍보 멘트를 돌아가며 읽고, 결제 단계마다 안내 멘트를 읽어 줍니다. 브라우저는 한 번 눌러야 소리를 낼 수 있어서 버튼으로 켭니다(매장 포스에서는 켜진 상태로 시작하도록 설정 가능).</p>
     </div>
-    <div>
+    <div class="adminOnly">
       <h2>매장 BGM (가사 없음)</h2>
       <div class="seg"><button id="bgmBtn" data-act="bgm" style="grid-column:1 / -1">🎵 BGM 켜기</button></div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:#52525b">음량
@@ -273,7 +277,7 @@
       <p id="bgmFileName" class="note" style="margin-top:6px;display:none"></p>
       <p class="note" style="margin-top:6px">기본은 이 페이지가 직접 만들어 연주하는 가사 없는 반주입니다. 내 음악 파일을 고르면 그 곡을 반복해서 틀고, 파일은 이 기기 안에서만 쓰입니다(어디에도 올라가지 않음). 안내 멘트가 나오는 동안에는 BGM이 자동으로 작아집니다.</p>
     </div>
-    <div>
+    <div class="adminOnly">
       <h2>멘트 고치기 (관리자 화면 미리보기)</h2>
       <div id="voiceEdit" style="display:flex;flex-direction:column;gap:8px"></div>
       <p class="note" style="margin-top:6px">여기서 고치면 바로 그 멘트로 읽습니다. 실제 솔루션에서는 관리자 "안내멘트 관리"에서 매장별로 고치게 됩니다.</p>
@@ -289,9 +293,9 @@
     <div class="stageCol">
       <div class="quickBar">
         <button type="button" data-act="sound" id="quickSound">🔊 소리 켜기</button>
-        <button type="button" id="quickFile">🎵 로고송(음악 파일) 고르기</button>
+        <button type="button" id="quickFile" class="adminOnly">🎵 로고송(음악 파일) 고르기</button>
       </div>
-      <p id="quickFileName" class="quickName"></p>
+      <p id="quickFileName" class="quickName adminOnly"></p>
       <div class="bezel"><div id="scaler"><div id="cv" class="cv"></div></div></div>
     </div>
   </section>
