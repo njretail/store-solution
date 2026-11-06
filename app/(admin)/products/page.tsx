@@ -9,6 +9,8 @@ import AutoOrderForm from "./AutoOrderForm";
 import ProductSearchBar from "./ProductSearchBar";
 import { createBulkHqOrders } from "../purchase-orders/actions";
 import { buildGradeMap, GRADE_STYLE, type Grade } from "@/lib/grade";
+import { AUTO_ORDER_ENABLED } from "@/lib/features";
+import { recommendOrder, buildSoldQtyMap } from "@/lib/order-recommendation";
 
 const PRODUCTS_AUTO_ORDER_FORM_ID = "products-auto-order-form";
 
@@ -40,7 +42,7 @@ type Row = {
   category: string | null;
   auto_order_enabled: boolean;
   grade: Grade | null;
-  coupang_product_url: string | null;
+  recommend: { quantity: number; reason: string };
 };
 
 export default async function ProductsPage({
@@ -105,7 +107,7 @@ export default async function ProductsPage({
   }
 
   const columns =
-    "id, barcode, name, sell_price, cost_price, stock_qty, low_stock_threshold, auto_order_enabled, coupang_product_url, categories(name)";
+    "id, barcode, name, sell_price, cost_price, stock_qty, low_stock_threshold, auto_order_enabled, categories(name)";
   type ProductRow = {
     id: string;
     barcode: string;
@@ -115,7 +117,6 @@ export default async function ProductsPage({
     stock_qty: number;
     low_stock_threshold: number;
     auto_order_enabled: boolean;
-    coupang_product_url: string | null;
     categories: { name: string } | null;
   };
 
@@ -169,6 +170,8 @@ export default async function ProductsPage({
 
   // 최근 30일 매출금액 기준 ABC 등급 — 표에 표시용.
   const gradeMap = buildGradeMap((rankData ?? []) as Array<{ product_id: string; revenue: number }>);
+  // 같은 최근 30일 판매 수량으로 발주 수량 추천을 계산한다.
+  const soldMap = buildSoldQtyMap((rankData ?? []) as Array<{ product_id: string; quantity: number }>);
 
   const dirMul = dir === "asc" ? 1 : -1;
   const rows: Row[] = (data ?? [])
@@ -183,7 +186,7 @@ export default async function ProductsPage({
       auto_order_enabled: p.auto_order_enabled,
       category: p.categories?.name ?? null,
       grade: gradeMap.get(p.id) ?? null,
-      coupang_product_url: p.coupang_product_url,
+      recommend: recommendOrder(p.stock_qty, p.low_stock_threshold, soldMap.get(p.id) ?? 0),
     }))
     .sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name, "ko") * dirMul;
@@ -249,7 +252,7 @@ export default async function ProductsPage({
               <th className="w-[100px] px-4 py-3">
                 <SortableHeader column="low_stock_threshold" />
               </th>
-              <th className="w-[110px] px-4 py-3">자동발주</th>
+              {AUTO_ORDER_ENABLED && <th className="w-[110px] px-4 py-3">자동발주</th>}
               <th className="w-[420px] px-4 py-3">발주</th>
             </tr>
           </thead>
@@ -280,6 +283,7 @@ export default async function ProductsPage({
                     {lowStock && " ⚠"}
                   </td>
                   <td className="px-4 py-3 text-zinc-500">{p.low_stock_threshold}</td>
+                  {AUTO_ORDER_ENABLED && (
                   <td className="px-4 py-3">
                     <input type="hidden" form={PRODUCTS_AUTO_ORDER_FORM_ID} name="row_ids" value={p.id} />
                     <input
@@ -292,13 +296,12 @@ export default async function ProductsPage({
                       className="h-3.5 w-3.5 rounded border-zinc-300"
                     />
                   </td>
+                  )}
                   <td className="px-4 py-3">
                     <ProductOrderCell
                       productId={p.id}
-                      productName={p.name}
-                      coupangProductUrl={p.coupang_product_url}
-                      stockQty={p.stock_qty}
-                      lowStockThreshold={p.low_stock_threshold}
+                      recommendedQty={p.recommend.quantity}
+                      recommendReason={p.recommend.reason}
                     />
                   </td>
                 </tr>
@@ -342,21 +345,26 @@ export default async function ProductsPage({
       <p className="text-xs text-zinc-400">
         표 머리글(상품명/판매가/입고가/재고/적정재고)을 클릭하면 그 기준으로 정렬돼요.
         발주 칸에 수량을 입력하고 엔터를 누르면 바로 아래 상품 수량칸으로 이동해요 —
-        발주는 각 행의 본부/쿠팡 발주 버튼으로 확정하세요.
+        발주는 각 행의 본부 발주 버튼으로 확정하세요. 수량 칸에는 최근 30일 판매량으로
+        계산한 7일치 추천 수량이 미리 채워져 있어요(자동으로 발주되지는 않아요).
       </p>
 
       {/* 체크박스는 표 안에, form 태그는 밖(AutoOrderForm 안)에 두고 form={...}로 연결한다 —
-          ProductOrderCell이 행마다 자체 <form>(본부/쿠팡 발주)을 갖고 있어서
+          ProductOrderCell이 행마다 자체 <form>(본부 발주)을 갖고 있어서
           표 전체를 <form>으로 감싸면 form 중첩(잘못된 HTML)이 되기 때문. */}
       <form id={BULK_HQ_ORDER_FORM_ID} action={createBulkHqOrders} />
       {rows.length > 0 && (
         <div className="flex flex-wrap items-center gap-3">
+          {AUTO_ORDER_ENABLED && (
+            <>
+              <span className="flex items-center gap-1.5 text-sm text-zinc-500">
+                <SelectAllCheckbox />
+                자동발주 전체선택/해제
+              </span>
+              <AutoOrderForm formId={PRODUCTS_AUTO_ORDER_FORM_ID} />
+            </>
+          )}
           <span className="flex items-center gap-1.5 text-sm text-zinc-500">
-            <SelectAllCheckbox />
-            자동발주 전체선택/해제
-          </span>
-          <AutoOrderForm formId={PRODUCTS_AUTO_ORDER_FORM_ID} />
-          <span className="ml-2 flex items-center gap-1.5 text-sm text-zinc-500">
             <SelectAllCheckbox selector="input[name='bulk_order_ids']" />
             발주선택 전체선택/해제
           </span>
@@ -395,7 +403,7 @@ export default async function ProductsPage({
             >
               <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium text-zinc-700">
                 <span className="flex items-center gap-2">
-                  <CategorySelectAllCheckbox />
+                  {AUTO_ORDER_ENABLED && <CategorySelectAllCheckbox />}
                   {category}
                 </span>
                 <span className="text-zinc-400">{items.length}개</span>

@@ -193,7 +193,6 @@ export type Product = {
   image_url: string | null;
   auto_order_enabled: boolean;
   reorder_qty: number;
-  coupang_product_url: string | null;
   // 물리적 바코드가 없는 상품(생물·즉석조리 등)을 키오스크 화면의 "바코드판"에
   // 띄워서, 손님이 그 화면의 바코드를 스캐너에 대고 결제할 수 있게 한다.
   show_on_kiosk_board: boolean;
@@ -228,13 +227,12 @@ export type StockTransfer = {
   created_at: string;
 };
 
-export type PurchaseOrderChannel = "hq" | "coupang";
+export type PurchaseOrderChannel = "hq";
 export type PurchaseOrderSource = "auto" | "manual";
 // 요청 -> 검토 -> 발주완료 -> 상품준비중 -> 배송중 -> 배송완료 + 반려/취소.
 // 검토대기 단계에서만 승인(발주완료)/반려할 수 있고, 발주완료 단계에서만 취소할 수 있다.
 // 본부 발주가 배송완료로 넘어갈 때는 입고 검수(실제 수령 수량)를 거쳐 그 수량만
-// 재고에 반영된다(쿠팡은 바코드 연동이 없어 상태만 바뀌고 재고는 입고 등록에서
-// 직접 등록해야 함).
+// 재고에 반영된다.
 export type PurchaseOrderStatus =
   | "requested"
   | "confirmed"
@@ -246,7 +244,6 @@ export type PurchaseOrderStatus =
 
 export const PURCHASE_ORDER_CHANNEL_LABELS: Record<PurchaseOrderChannel, string> = {
   hq: "본부",
-  coupang: "쿠팡",
 };
 
 export const PURCHASE_ORDER_STATUS_LABELS: Record<PurchaseOrderStatus, string> = {
@@ -286,7 +283,6 @@ export type PurchaseOrder = {
   channel: PurchaseOrderChannel;
   source: PurchaseOrderSource;
   status: PurchaseOrderStatus;
-  coupang_link: string | null;
   created_by: string | null;
   created_at: string;
 };

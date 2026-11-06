@@ -74,8 +74,6 @@ export async function setPurchaseOrderStatus(
   // 입고 검수: 본부 채널이 배송완료로 넘어갈 때 실제 수령 수량만큼만 재고에
   // 반영한다(예정 수량을 그대로 믿지 않음). 수량을 안 넘기면 기존처럼 발주
   // 수량 전량을 반영한다 — 웹훅 등 수량 정보가 없는 호출도 깨지지 않게 하기 위함.
-  // 쿠팡은 실제 도착 상품을 알 방법이 없어(바코드 미연동) 상태만 바뀌고, 재고는
-  // 입고 등록에서 직접 등록해야 한다.
   if (nextStatus === "delivered" && order.channel === "hq") {
     const receivedQty = options.receivedQuantity ?? order.quantity;
     if (receivedQty <= 0) {

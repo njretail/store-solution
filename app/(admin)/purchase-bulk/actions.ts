@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
-import { parseBulkRows, type ParsedRow } from "@/lib/coupang-parser";
+import { parseBulkRows, type ParsedRow } from "@/lib/bulk-parser";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 export type ParseState = { error: string | null; rows: ParsedRow[] };
@@ -92,7 +92,7 @@ export type ConfirmState = {
 };
 
 // PurchaseImportForm(대량매입 화면)이 파싱된 행을 최종 확정할 때 호출한다.
-// 이전에는 매입 등록(쿠팡) 화면과 공유하던 로직인데, 그 화면이 삭제되면서 여기로 옮겨왔다.
+// 대량매입 엑셀 등록 로직.
 export async function confirmPurchaseImport(
   _prevState: ConfirmState,
   formData: FormData

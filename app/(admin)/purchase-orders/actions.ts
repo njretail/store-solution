@@ -2,10 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin, getCurrentStore } from "@/lib/session";
-import { createCoupangDeepLink, buildCoupangSearchUrl } from "@/lib/coupang-partners";
 import { setPurchaseOrderStatus, type TransitionOptions } from "@/lib/purchase-order-status";
 
-export type OrderActionState = { error: string | null; link: string | null };
+export type OrderActionState = { error: string | null };
 
 // 본부 발주: 검토대기 상태로 접수한다 — 본사 역할(지금은 같은 관리자)이 재고소진상품/
 // 발주관리에서 승인해야 발주완료로 넘어간다.
@@ -15,12 +14,12 @@ export async function createHqOrder(
 ): Promise<OrderActionState> {
   const { supabase, profile } = await requireAdmin();
   const store = await getCurrentStore(supabase, profile);
-  if (!store) return { error: "매장을 먼저 선택하세요.", link: null };
+  if (!store) return { error: "매장을 먼저 선택하세요." };
 
   const product_id = String(formData.get("product_id") ?? "");
   const quantity = Number(formData.get("quantity") ?? 0) || 0;
   if (!product_id || quantity <= 0) {
-    return { error: "발주 수량을 입력하세요.", link: null };
+    return { error: "발주 수량을 입력하세요." };
   }
 
   const { error } = await supabase.from("purchase_orders").insert({
@@ -32,15 +31,15 @@ export async function createHqOrder(
     status: "requested",
     created_by: profile.id,
   });
-  if (error) return { error: error.message, link: null };
+  if (error) return { error: error.message };
 
   revalidatePath("/products");
   revalidatePath("/purchase-orders");
-  return { error: null, link: null };
+  return { error: null };
 }
 
 // 여러 상품의 수량을 한 번에 입력해두고 "전체 발주" 한 번으로 본부 발주를 몰아서
-// 넣는다. 쿠팡은 상품마다 링크를 열어 직접 결제해야 해서 일괄 처리 대상이 아니다.
+// 넣는다.
 export async function createBulkHqOrders(formData: FormData) {
   const { supabase, profile } = await requireAdmin();
   const store = await getCurrentStore(supabase, profile);
@@ -65,46 +64,6 @@ export async function createBulkHqOrders(formData: FormData) {
   await supabase.from("purchase_orders").insert(rows);
   revalidatePath("/products");
   revalidatePath("/purchase-orders");
-}
-
-// 쿠팡 발주: 상품별 URL을 등록해두지 않으므로 상품명으로 쿠팡 검색 결과를 열고,
-// 그 링크를 파트너스 딥링크로 변환해 기록한다. 직원이 새 탭에서 상품을 찾아
-// 직접 주문/결제까지 완료해야 한다(쿠팡은 자동결제 API를 제공하지 않음).
-export async function createCoupangOrder(
-  _prevState: OrderActionState,
-  formData: FormData
-): Promise<OrderActionState> {
-  const { supabase, profile } = await requireAdmin();
-  const store = await getCurrentStore(supabase, profile);
-  if (!store) return { error: "매장을 먼저 선택하세요.", link: null };
-
-  const product_id = String(formData.get("product_id") ?? "");
-  const product_name = String(formData.get("product_name") ?? "").trim();
-  const quantity = Number(formData.get("quantity") ?? 0) || 0;
-  if (!product_id || quantity <= 0) {
-    return { error: "발주 수량을 입력하세요.", link: null };
-  }
-  if (!product_name) {
-    return { error: "상품 정보를 확인할 수 없습니다.", link: null };
-  }
-
-  const link = await createCoupangDeepLink(buildCoupangSearchUrl(product_name));
-
-  const { error } = await supabase.from("purchase_orders").insert({
-    store_id: store.id,
-    product_id,
-    quantity,
-    channel: "coupang",
-    source: "manual",
-    status: "requested",
-    coupang_link: link,
-    created_by: profile.id,
-  });
-  if (error) return { error: error.message, link: null };
-
-  revalidatePath("/products");
-  revalidatePath("/purchase-orders");
-  return { error: null, link };
 }
 
 // 검토대기 -> 발주완료 -> 상품준비중 -> 배송중 -> 배송완료로 한 단계씩 넘긴다. 실제
@@ -165,7 +124,6 @@ export async function startShipping(formData: FormData) {
 
 // 입고 검수 — 본부 채널은 예정(발주) 수량과 실제 수령 수량을 비교해서, 오차가 있으면
 // 실제 수령 수량만큼만 재고에 반영한다(모자라게 와도 온 만큼만, 더 와도 온 만큼만).
-// 쿠팡 채널은 수량 입력칸 자체가 없으므로 기존처럼 상태만 바뀐다.
 export async function markOrderDelivered(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;

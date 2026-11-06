@@ -14,6 +14,7 @@ import {
   type PurchaseOrderSource,
   type PurchaseOrderStatus,
 } from "@/lib/types";
+import { AUTO_ORDER_ENABLED } from "@/lib/features";
 
 type OrderRow = {
   id: string;
@@ -22,14 +23,12 @@ type OrderRow = {
   channel: PurchaseOrderChannel;
   source: PurchaseOrderSource;
   status: PurchaseOrderStatus;
-  coupang_link: string | null;
   created_at: string;
   products: { name: string; barcode: string } | null;
 };
 
 const CHANNEL_STYLE: Record<PurchaseOrderChannel, string> = {
   hq: "bg-blue-100 text-blue-700",
-  coupang: "bg-orange-100 text-orange-700",
 };
 
 const SOURCE_LABEL: Record<PurchaseOrderSource, string> = {
@@ -45,9 +44,11 @@ export default async function PurchaseOrdersPage() {
   const { data } = await supabase
     .from("purchase_orders")
     .select(
-      "id, quantity, received_quantity, channel, source, status, coupang_link, created_at, products(name, barcode)"
+      "id, quantity, received_quantity, channel, source, status, created_at, products(name, barcode)"
     )
     .eq("store_id", store.id)
+    // 쿠팡 발주는 기능에서 빠졌다 — 예전에 남은 쿠팡 채널 기록도 화면에 보이지 않게 본부 발주만 가져온다.
+    .eq("channel", "hq")
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -68,18 +69,15 @@ export default async function PurchaseOrdersPage() {
       </div>
 
       <p className="text-sm text-zinc-500">
-        자동발주(재고가 기준 이하로 떨어진 상품 중 자동발주가 켜진 상품)와 수동발주 내역이에요.
+        {AUTO_ORDER_ENABLED
+          ? "자동발주(재고가 기준 이하로 떨어진 상품 중 자동발주가 켜진 상품)와 수동발주 내역이에요. "
+          : "본부 발주 내역이에요. "}
         검토대기 → 발주완료 → 상품준비중 → 배송중 → 배송완료 순서로 진행돼요. 검토대기
         단계에서는 수량을 조정해서 승인하거나 반려할 수 있고, 발주완료 단계에서만 취소할 수
         있어요. 본부 발주가 배송완료로 넘어갈 땐 실제로 몇 개가 왔는지 입력해서(입고 검수)
-        그 수량만 재고에 반영돼요 — 예정 수량을 그대로 믿지 않아요. 쿠팡 발주는 실제로 무엇이
-        왔는지 시스템이 알 수 없어(바코드 미연동) 상태만 바뀌고 재고는 자동으로 반영되지
-        않으니{" "}
-        <a href="/stock-in" className="text-[#C8075F] underline">
-          입고 등록
-        </a>
-        에서 직접 등록해주세요. (여러 매장을 취합 관리하는 본부 솔루션이 따로 개발되면, 그쪽에서
-        상태를 바꿔도 여기 자동으로 반영되도록 연동 지점을 미리 만들어뒀어요.)
+        그 수량만 재고에 반영돼요 — 예정 수량을 그대로 믿지 않아요. (여러 매장을 취합 관리하는
+        본부 솔루션이 따로 개발되면, 그쪽에서 상태를 바꿔도 여기 자동으로 반영되도록 연동 지점을
+        미리 만들어뒀어요.)
       </p>
 
       <div>
@@ -197,28 +195,7 @@ export default async function PurchaseOrdersPage() {
                     </td>
                     <td className="px-4 py-3 text-zinc-500">{SOURCE_LABEL[o.source]}</td>
                     <td className="px-4 py-3">
-                      <div>
-                        {o.products?.name ?? "-"}
-                        {o.coupang_link && (
-                          <a
-                            href={o.coupang_link}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="ml-2 text-xs text-[#C8075F] underline"
-                          >
-                            쿠팡에서 결제하기
-                          </a>
-                        )}
-                      </div>
-                      {o.channel === "coupang" && (
-                        <p className="mt-1 text-xs text-amber-600">
-                          ⚠ 바코드 연동이 안 돼 입고가 자동 반영되지 않아요 — 상품 도착 후{" "}
-                          <a href="/stock-in" className="underline">
-                            입고 등록
-                          </a>
-                          에서 직접 등록해주세요.
-                        </p>
-                      )}
+                      <div>{o.products?.name ?? "-"}</div>
                     </td>
                     <td className="px-4 py-3">{o.quantity}</td>
                     <td className="px-4 py-3 text-zinc-500">{PURCHASE_ORDER_STATUS_LABELS[o.status]}</td>
@@ -278,14 +255,6 @@ export default async function PurchaseOrdersPage() {
                               </button>
                             </form>
                           </>
-                        )}
-                        {o.status === "shipping" && o.channel === "coupang" && (
-                          <form action={markOrderDelivered}>
-                            <input type="hidden" name="id" value={o.id} />
-                            <button type="submit" className="text-zinc-600 hover:text-zinc-900">
-                              배송완료
-                            </button>
-                          </form>
                         )}
                       </div>
                     </td>

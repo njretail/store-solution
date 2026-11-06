@@ -7,6 +7,8 @@ import ProductOrderCell, { BULK_HQ_ORDER_FORM_ID } from "./ProductOrderCell";
 import AutoOrderForm from "./AutoOrderForm";
 import SelectAllCheckbox from "./SelectAllCheckbox";
 import { buildGradeMap, GRADE_STYLE, type Grade } from "@/lib/grade";
+import { AUTO_ORDER_ENABLED } from "@/lib/features";
+import { recommendOrder, buildSoldQtyMap } from "@/lib/order-recommendation";
 
 // 상품 조회 화면의 "재고소진상품만 보기" 탭에서 쓰는 섹션. 원래 별도 페이지였던
 // /products/low-stock의 내용을 그대로 옮겨와 상품 조회 안에서 렌더링한다.
@@ -58,6 +60,8 @@ export default async function LowStockSection({
 
   // 최근 30일 매출금액 기준 ABC 등급(파레토 80/95) — 발주 우선순위 판단용.
   const gradeMap = buildGradeMap((rankData ?? []) as Array<{ product_id: string; revenue: number }>);
+  // 같은 최근 30일 판매 수량으로 발주 수량 추천을 계산한다.
+  const soldMap = buildSoldQtyMap((rankData ?? []) as Array<{ product_id: string; quantity: number }>);
 
   type Row = {
     id: string;
@@ -68,6 +72,7 @@ export default async function LowStockSection({
     low_stock_threshold: number;
     auto_order_enabled: boolean;
     grade: Grade | null;
+    recommend: { quantity: number; reason: string };
   };
 
   const rows: Row[] = productsData
@@ -81,6 +86,7 @@ export default async function LowStockSection({
       low_stock_threshold: p.low_stock_threshold,
       auto_order_enabled: p.auto_order_enabled,
       grade: gradeMap.get(p.id) ?? null,
+      recommend: recommendOrder(p.stock_qty, p.low_stock_threshold, soldMap.get(p.id) ?? 0),
     }))
     .sort((a, b) => {
       const order = { A: 0, B: 1, C: 2 } as const;
@@ -111,9 +117,11 @@ export default async function LowStockSection({
         적정재고(재고부족 기준) 이하로 떨어진 상품 중, 실제로 이 매장에서 입고한
         적이 있는(취급 중인) 상품만 보여드려요. 등급은 최근 30일 매출 기준
         파레토 분석(A: 상위 80%, B: 다음 15%, C: 나머지)으로 계산되며, A등급이
-        가장 빨리 발주해야 하는 상품이에요. 자동발주를 켜두면 재고가 기준 이하로
-        떨어지는 즉시 본부로 자동 발주돼요(놓친 경우를 대비해 매일 한 번씩도
-        다시 확인해요) — 진행 상황은{" "}
+        가장 빨리 발주해야 하는 상품이에요. 수량 칸에는 최근 30일 판매량으로 계산한
+        7일치 추천 수량이 미리 채워져 있으니, 확인하고 본부 발주를 눌러주세요.
+        {AUTO_ORDER_ENABLED &&
+          " 자동발주를 켜두면 재고가 기준 이하로 떨어지는 즉시 본부로 자동 발주돼요(놓친 경우를 대비해 매일 한 번씩도 다시 확인해요)."}{" "}
+        발주 진행 상황은{" "}
         <Link href="/purchase-orders" className="text-[#C8075F] underline">
           발주관리
         </Link>
@@ -121,7 +129,7 @@ export default async function LowStockSection({
       </p>
 
       {/* 체크박스는 표 안에, form 태그는 밖(AutoOrderForm 안)에 두고 form="auto-order-form"으로
-          연결한다 — ProductOrderCell이 각 행 안에 자체 <form>(본부/쿠팡 발주)을 갖고 있어서
+          연결한다 — ProductOrderCell이 각 행 안에 자체 <form>(본부 발주)을 갖고 있어서
           표 전체를 <form>으로 감싸면 form 중첩(잘못된 HTML)이 되기 때문. HTML form 속성은
           DOM 위치와 무관하게 id로 연결되므로 실제 폼/저장버튼/결과메시지는 아래쪽(자동발주
           설정 저장 버튼 자리)에서 함께 렌더링한다. */}
@@ -129,11 +137,13 @@ export default async function LowStockSection({
       <div className="flex flex-col gap-6">
         {rows.length > 0 && (
           <div className="flex flex-wrap items-center gap-3">
+            {AUTO_ORDER_ENABLED && (
+              <span className="flex items-center gap-1.5 text-sm text-zinc-500">
+                <SelectAllCheckbox />
+                분류 전체에서 자동발주 전체선택/해제
+              </span>
+            )}
             <span className="flex items-center gap-1.5 text-sm text-zinc-500">
-              <SelectAllCheckbox />
-              분류 전체에서 자동발주 전체선택/해제
-            </span>
-            <span className="ml-2 flex items-center gap-1.5 text-sm text-zinc-500">
               <SelectAllCheckbox selector="input[name='bulk_order_ids']" />
               발주선택 전체선택/해제
             </span>
@@ -162,7 +172,7 @@ export default async function LowStockSection({
                     <th className="w-[260px] px-4 py-3">상품명</th>
                     <th className="w-[100px] px-4 py-3">현재 재고</th>
                     <th className="w-[90px] px-4 py-3">기준</th>
-                    <th className="w-[110px] px-4 py-3">자동발주</th>
+                    {AUTO_ORDER_ENABLED && <th className="w-[110px] px-4 py-3">자동발주</th>}
                     <th className="w-[420px] px-4 py-3">발주</th>
                   </tr>
                 </thead>
@@ -190,6 +200,7 @@ export default async function LowStockSection({
                       <td className="px-4 py-3 text-zinc-500">
                         {r.low_stock_threshold}
                       </td>
+                      {AUTO_ORDER_ENABLED && (
                       <td className="px-4 py-3">
                         <input type="hidden" form="auto-order-form" name="row_ids" value={r.id} />
                         <input
@@ -202,12 +213,12 @@ export default async function LowStockSection({
                           className="h-3.5 w-3.5 rounded border-zinc-300"
                         />
                       </td>
+                      )}
                       <td className="px-4 py-3">
                         <ProductOrderCell
                           productId={r.id}
-                          productName={r.name}
-                          stockQty={r.stock_qty}
-                          lowStockThreshold={r.low_stock_threshold}
+                          recommendedQty={r.recommend.quantity}
+                          recommendReason={r.recommend.reason}
                         />
                       </td>
                     </tr>
@@ -224,7 +235,7 @@ export default async function LowStockSection({
           </div>
         )}
 
-        {rows.length > 0 && <AutoOrderForm formId="auto-order-form" />}
+        {AUTO_ORDER_ENABLED && rows.length > 0 && <AutoOrderForm formId="auto-order-form" />}
       </div>
     </div>
   );

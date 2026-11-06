@@ -1,4 +1,4 @@
-import { cellToBarcode } from "./coupang-parser";
+import { cellToBarcode } from "./bulk-parser";
 
 // 본사가 상품 카탈로그를 엑셀로 한 번에 등록할 때 쓰는 양식(상품 일괄 등록 화면)의 파서.
 // null은 "엑셀에 값이 없음"을 뜻하고, 등록 시 그 컬럼은 건드리지 않는다(기존 상품을

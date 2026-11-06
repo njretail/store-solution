@@ -1,53 +1,51 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { createHqOrder, createCoupangOrder, type OrderActionState } from "@/app/(admin)/purchase-orders/actions";
+import { createHqOrder, type OrderActionState } from "@/app/(admin)/purchase-orders/actions";
 
-const initialOrderState: OrderActionState = { error: null, link: null };
+const initialOrderState: OrderActionState = { error: null };
 
 // 상품 조회 화면 상단의 "전체 발주" 버튼이 참조하는 폼 id. 여러 상품의 발주선택
 // 체크박스 + 수량이 전부 이 폼 하나로 들어가 한 번에 제출된다.
 export const BULK_HQ_ORDER_FORM_ID = "bulk-hq-order-form";
 
-// 쿠팡 발주는 클릭하는 순간(사용자 동작 안에서) 쿠팡을 새 탭으로 연다 — 서버 처리(발주 기록)가
-// 끝난 뒤에 열면 브라우저가 팝업으로 보고 막아버린다. 발주 기록은 폼 제출로 그대로 남는다.
-// 상품에 쿠팡 상품 주소가 등록돼 있으면 그 상품 페이지를, 없으면 상품명 검색 결과를 연다.
-// (검색 주소 형식은 lib/coupang-partners.ts의 buildCoupangSearchUrl과 같다 — 그 파일은 서버 전용이라 여기서 따로 만든다)
-function coupangUrlFor(productName: string, productUrl: string | null): string {
-  if (productUrl && /^https:\/\/(www\.|m\.)?coupang\.com\//.test(productUrl)) return productUrl;
-  return `https://www.coupang.com/np/search?component=&q=${encodeURIComponent(productName)}&channel=user`;
-}
-
 export default function ProductOrderCell({
   productId,
-  productName,
-  coupangProductUrl = null,
-  stockQty,
-  lowStockThreshold,
+  recommendedQty,
+  recommendReason,
 }: {
   productId: string;
-  productName: string;
-  coupangProductUrl?: string | null;
-  stockQty: number;
-  lowStockThreshold: number;
+  // 발주 수량 추천값(lib/order-recommendation.ts) — 수량 칸 기본값으로 쓴다.
+  // 이미 충분하면 0이라 발주 버튼이 비활성화된 채로 시작한다.
+  recommendedQty: number;
+  recommendReason: string;
 }) {
-  // 발주 수량 기본값은 부족분(적정재고 - 현재재고)만큼만 잡는다 — 이미 적정재고
-  // 이상 있으면 0으로 시작해 발주 버튼이 비활성화된다(자동발주 로직과 동일한 규칙).
-  const [qty, setQty] = useState(Math.max(0, lowStockThreshold - stockQty));
+  const [qty, setQty] = useState(recommendedQty);
 
   const [hqState, hqAction, hqPending] = useActionState(createHqOrder, initialOrderState);
-  const [coupangState, coupangAction, coupangPending] = useActionState(
-    createCoupangOrder,
-    initialOrderState
-  );
 
   const hqFormId = `hq-order-${productId}`;
 
-
   return (
     <div className="flex flex-col gap-1 py-1">
-      <p className="text-xs text-zinc-400">
-        적정재고: {lowStockThreshold}개 · 부족분 {Math.max(0, lowStockThreshold - stockQty)}개까지 자동/기본 발주돼요
+      <p className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-400">
+        <span
+          className={`rounded px-1.5 py-0.5 font-semibold ${
+            recommendedQty > 0 ? "bg-[#C8075F]/10 text-[#C8075F]" : "bg-zinc-100 text-zinc-500"
+          }`}
+        >
+          {recommendedQty > 0 ? `추천 ${recommendedQty}개` : "발주 불필요"}
+        </span>
+        <span>{recommendReason}</span>
+        {qty !== recommendedQty && (
+          <button
+            type="button"
+            onClick={() => setQty(recommendedQty)}
+            className="text-[#C8075F] underline hover:no-underline"
+          >
+            추천값으로
+          </button>
+        )}
       </p>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <label className="flex items-center gap-1" title="전체 발주에 이 상품을 포함">
@@ -95,34 +93,9 @@ export default function ProductOrderCell({
             {hqPending ? "발주중..." : "본부 발주"}
           </button>
         </form>
-        <form
-          action={coupangAction}
-          onSubmit={() => {
-            window.open(coupangUrlFor(productName, coupangProductUrl), "_blank", "noopener,noreferrer");
-          }}
-        >
-          <input type="hidden" name="product_id" value={productId} />
-          <input type="hidden" name="product_name" value={productName} />
-          <input type="hidden" name="quantity" value={qty} />
-          <button
-            type="submit"
-            disabled={coupangPending || qty <= 0}
-            className="rounded bg-orange-50 px-2 py-1 font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-50"
-          >
-            {coupangPending ? "생성중..." : "쿠팡 발주"}
-          </button>
-        </form>
       </div>
 
-      {(hqState.error || coupangState.error) && (
-        <p className="text-xs text-red-600">{hqState.error ?? coupangState.error}</p>
-      )}
-      {coupangState.link && !coupangState.error && (
-        <p className="text-xs text-amber-600">
-          ⚠ 새 탭에 열린 쿠팡 검색 결과에서 상품을 확인하고 결제를 완료해주세요. 바코드 연동이 안 돼 입고가 자동
-          반영되지 않으니, 상품 도착 후 입고 등록에서 직접 등록해주세요.
-        </p>
-      )}
+      {hqState.error && <p className="text-xs text-red-600">{hqState.error}</p>}
     </div>
   );
 }
