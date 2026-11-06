@@ -166,7 +166,7 @@ export default function EditProductForm({
           )}
         </Field>
 
-        <Field label="재고부족 기준">
+        <Field label="적정재고 (최근 7일 판매량으로 매일 자동 계산 · 판매 없으면 이 값 유지)">
           <input
             name="low_stock_threshold"
             type="number"

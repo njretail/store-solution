@@ -6,6 +6,7 @@ import { createBulkHqOrders } from "../purchase-orders/actions";
 import ProductOrderCell, { BULK_HQ_ORDER_FORM_ID } from "./ProductOrderCell";
 import AutoOrderForm from "./AutoOrderForm";
 import SelectAllCheckbox from "./SelectAllCheckbox";
+import ThresholdHelp from "./ThresholdHelp";
 import { buildGradeMap, GRADE_STYLE, type Grade } from "@/lib/grade";
 import { AUTO_ORDER_ENABLED } from "@/lib/features";
 import { recommendOrder, buildSoldQtyMap } from "@/lib/order-recommendation";
@@ -114,7 +115,7 @@ export default async function LowStockSection({
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm text-zinc-500">
-        적정재고(재고부족 기준) 이하로 떨어진 상품 중, 실제로 이 매장에서 입고한
+        적정재고 이하로 떨어진 상품 중, 실제로 이 매장에서 입고한
         적이 있는(취급 중인) 상품만 보여드려요. 등급은 최근 30일 매출 기준
         파레토 분석(A: 상위 80%, B: 다음 15%, C: 나머지)으로 계산되며, A등급이
         가장 빨리 발주해야 하는 상품이에요. 수량 칸에는 최근 30일 판매량으로 계산한
@@ -133,6 +134,8 @@ export default async function LowStockSection({
           표 전체를 <form>으로 감싸면 form 중첩(잘못된 HTML)이 되기 때문. HTML form 속성은
           DOM 위치와 무관하게 id로 연결되므로 실제 폼/저장버튼/결과메시지는 아래쪽(자동발주
           설정 저장 버튼 자리)에서 함께 렌더링한다. */}
+      <ThresholdHelp />
+
       <form id={BULK_HQ_ORDER_FORM_ID} action={createBulkHqOrders} />
       <div className="flex flex-col gap-6">
         {rows.length > 0 && (

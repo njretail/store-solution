@@ -7,6 +7,7 @@ import CategorySelectAllCheckbox from "./CategorySelectAllCheckbox";
 import ProductOrderCell, { BULK_HQ_ORDER_FORM_ID } from "./ProductOrderCell";
 import AutoOrderForm from "./AutoOrderForm";
 import ProductSearchBar from "./ProductSearchBar";
+import ThresholdHelp from "./ThresholdHelp";
 import { createBulkHqOrders } from "../purchase-orders/actions";
 import { buildGradeMap, GRADE_STYLE, type Grade } from "@/lib/grade";
 import { AUTO_ORDER_ENABLED } from "@/lib/features";
@@ -348,6 +349,9 @@ export default async function ProductsPage({
         발주는 각 행의 본부 발주 버튼으로 확정하세요. 수량 칸에는 최근 30일 판매량으로
         계산한 7일치 추천 수량이 미리 채워져 있어요(자동으로 발주되지는 않아요).
       </p>
+
+      <ThresholdHelp />
+
 
       {/* 체크박스는 표 안에, form 태그는 밖(AutoOrderForm 안)에 두고 form={...}로 연결한다 —
           ProductOrderCell이 행마다 자체 <form>(본부 발주)을 갖고 있어서

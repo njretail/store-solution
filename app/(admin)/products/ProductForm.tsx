@@ -140,7 +140,7 @@ export default function ProductForm({
             />
           </Field>
 
-          <Field label="⑨ 재고부족 기준">
+          <Field label="⑨ 적정재고 (판매가 생기면 최근 7일 판매량으로 매일 자동 계산)">
             <input
               name="low_stock_threshold"
               type="number"

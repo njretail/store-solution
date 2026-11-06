@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin, getCurrentStore, getAccessibleStores } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchControlSettings, resolveControlLevel } from "@/lib/control-settings";
+import { recalcThresholdsFromSales, THRESHOLD_WINDOW_DAYS } from "@/lib/threshold-from-sales";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -299,6 +300,31 @@ export async function syncAutoOrderEnabled(
 
   revalidatePath("/products");
   return { error: null, success: "자동발주 설정이 저장되었습니다." };
+}
+
+export type ThresholdRecalcState = { error: string | null; success: string | null };
+
+// 상품 화면의 "지금 다시 계산" 버튼 — 매일 새벽 크론이 하는 적정재고 재계산(최근 7일
+// 판매량)을 현재 매장에 대해 바로 실행한다.
+export async function recalcThresholds(
+  _prevState: ThresholdRecalcState,
+  _formData: FormData
+): Promise<ThresholdRecalcState> {
+  const { supabase, profile } = await requireAdmin();
+  const store = await getCurrentStore(supabase, profile);
+  if (!store) return { error: "매장을 먼저 선택하세요.", success: null };
+
+  try {
+    const r = await recalcThresholdsFromSales(supabase, store.id);
+    revalidatePath("/products");
+    revalidatePath("/daily-report");
+    return {
+      error: null,
+      success: `적정재고를 다시 계산했어요 — ${r.updated}개 상품 변경, ${r.unchanged}개 그대로, 최근 ${THRESHOLD_WINDOW_DAYS}일 판매 없는 ${r.noSales}개는 기존 값 유지.`,
+    };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "적정재고 계산에 실패했습니다.", success: null };
+  }
 }
 
 export async function deleteProduct(formData: FormData) {
