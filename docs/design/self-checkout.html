@@ -179,8 +179,18 @@
   .optin b { font-size: 30px; font-weight: 800; display: block; }
   .optin small { font-size: 22px; color: var(--muted); display: block; margin-top: 4px; }
   .optin button { flex: none; height: 88px; padding: 0 32px; border-radius: 20px; background: var(--brand); color: #fff; font-size: 26px; font-weight: 800; }
-  .optin.card { background: #fff; border-color: #e4e4e7; }
-  .optin.card button { background: #18181b; }
+  /* 다음 방문 혜택: 쿠폰(마케팅 동의)과 카드 연결을 한 장에서 체크해 한 번에 받기 */
+  .benefit { width: 100%; background: var(--brand-soft); border: 2px solid #f9c4dc; border-radius: 28px; padding: 26px 30px; display: flex; flex-direction: column; gap: 14px; text-align: left; }
+  .benefit > b { font-size: 30px; font-weight: 800; }
+  .benefit .chk { display: flex; align-items: center; gap: 18px; width: 100%; padding: 14px 4px; background: none; text-align: left; }
+  .benefit .chk .box { flex: none; width: 48px; height: 48px; border-radius: 12px; border: 3px solid #d4d4d8; background: #fff; display: grid; place-items: center; color: #fff; }
+  .benefit .chk .box svg { width: 30px; height: 30px; }
+  .benefit .chk.on .box { background: var(--brand); border-color: var(--brand); }
+  .benefit .chk b { font-size: 26px; font-weight: 800; display: block; color: var(--ink); }
+  .benefit .chk small { font-size: 21px; color: var(--muted); display: block; margin-top: 2px; }
+  .benefit .go { align-self: flex-end; height: 88px; padding: 0 40px; border-radius: 20px; background: var(--brand); color: #fff; font-size: 28px; font-weight: 800; }
+  .benefit .go:disabled { background: #d4d4d8; }
+  .benefit .done { font-size: 26px; font-weight: 800; color: #15803d; }
   /* 번호를 건너뛴 손님용: 결제 후 키오스크에서 번호 입력해 이번 결제 적립 */
   .optin.later { border-style: dashed; }
   .saved { font-size: 26px; font-weight: 800; color: #15803d; }
@@ -801,8 +811,7 @@ function render() {
           ${r.lateSaved ? `<div class="ln"><span class="saved">결제 후 적립 완료 ✓</span><span></span></div>` : ""}
         </div>
         ${r.phone
-          ? `<div class="optin"><div><b>1,000원 쿠폰 받기</b><small>행사·신상품 소식 수신 동의 시 다음 구매에 자동 적용</small></div><button data-act="optin">받기</button></div>
-             ${r.method !== "현금" ? `<div class="optin card"><div><b>다음부터 이 카드로 바로 적립</b><small>카드를 이 번호에 연결하면 번호 입력 없이 결제만 해도 적립돼요</small></div><button data-act="cardlink">연결</button></div>` : ""}`
+          ? benefitBox(r)
           : `<div class="optin later"><div><b>번호 안 넣으셨나요?</b><small>지금 번호를 입력하면 이번 결제도 적립돼요. 할인은 다음 구매부터 적용돼요</small></div><button data-act="lateOpen">적립하기</button></div>`}
         <div class="btns" style="width:100%"><button class="btn2" data-act="finish">영수증 출력</button><button class="btn2" data-act="finish">출력 안 함</button></div>
         ${r.change ? `<button class="wide" style="height:88px;font-size:26px;color:#52525b" data-act="toast">거스름돈이 안 나왔나요? 계좌로 받기</button>` : ""}
@@ -869,7 +878,24 @@ function fit() {
   $("scaler").style.width = 1080 * sc + "px"; $("scaler").style.height = 1920 * sc + "px";
 }
 
+// 다음 방문 혜택 카드. 체크 상태는 st.benefit에 둔다(완료 화면은 카운트다운 때문에 1초마다 다시 그려진다).
+function benefitBox(r) {
+  const b = st.benefit;
+  if (b.done) {
+    const got = [b.coupon && "1,000원 쿠폰", b.card && "카드 연결"].filter(Boolean).join(" · ");
+    return `<div class="benefit"><b>다음 방문 혜택</b><span class="done">${got} 받기 완료 ✓</span></div>`;
+  }
+  const canCard = r.method !== "현금";
+  const row = (key, title, sub) => `<button class="chk ${b[key] ? "on" : ""}" data-act="bToggle" data-k="${key}" aria-pressed="${b[key]}">
+      <span class="box">${b[key] ? IC.check : ""}</span><span><b>${title}</b><small>${sub}</small></span></button>`;
+  return `<div class="benefit"><b>다음 방문 혜택 받기</b>
+    ${row("coupon", "1,000원 쿠폰 받기", "행사·신상품 소식 수신 동의 · 다음 구매에 자동 적용")}
+    ${canCard ? row("card", "다음부터 이 카드로 바로 적립", "번호 입력 없이 결제만 해도 적립돼요") : ""}
+    <button class="go" data-act="bGet" ${b.coupon || (canCard && b.card) ? "" : "disabled"}>${b.coupon && canCard && b.card ? "모두 받기" : "받기"}</button></div>`;
+}
+
 function finishPay(change = 0) {
+  st.benefit = { coupon: true, card: true, done: false };
   const T = totals();
   // 적립: 번호를 넣은 결제는 결제 기록에 번호를 함께 저장해야 고객별 구매 이력이 쌓인다(실제 구현 시 판매 기록에 저장).
   // 번호를 건너뛴 결제는 완료 화면에서 키오스크로 번호를 받아 같은 결제 기록에 붙인다(결제 후 적립, 할인은 다음 구매부터).
@@ -959,7 +985,10 @@ document.addEventListener("click", (e) => {
       case "approve": st.paying = true; render(); setTimeout(() => { finishPay(); render(); }, 1200); return;
       case "cashCancel": st.inserted = 0; st.screen = "method"; break;
       case "optin": el.textContent = "완료 ✓"; el.disabled = true; return;
-      case "cardlink": el.textContent = "연결됨 ✓"; el.disabled = true; return;
+      case "bToggle": st.benefit[d.k] = !st.benefit[d.k]; break;
+      case "bGet":
+        if (st.receipt.method === "현금") st.benefit.card = false;
+        st.benefit.done = true; break;
       case "lateOpen": st.phone = ""; st.lateOpen = true; break;
       case "lateCancel": st.phone = ""; st.lateOpen = false; st.count = 15; break;
       case "lateOk": st.receipt.phone = fmtPhone(st.phone); st.receipt.lateSaved = true; st.lateOpen = false; st.count = 15; break;
