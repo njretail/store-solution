@@ -181,14 +181,9 @@
   .optin button { flex: none; height: 88px; padding: 0 32px; border-radius: 20px; background: var(--brand); color: #fff; font-size: 26px; font-weight: 800; }
   .optin.card { background: #fff; border-color: #e4e4e7; }
   .optin.card button { background: #18181b; }
-  /* 번호를 건너뛴 손님용: 이번 결제 전용 QR로 나중에 적립 */
-  .later { width: 100%; border: 2px dashed #f9c4dc; border-radius: 28px; padding: 26px 30px; display: flex; align-items: center; gap: 26px; text-align: left; }
-  .later .qr { flex: none; width: 168px; height: 168px; display: grid; grid-template-columns: repeat(21, 1fr); background: #fff; padding: 8px; border-radius: 12px; border: 1px solid #e4e4e7; }
-  .later .qr i { background: #18181b; }
-  .later .qr i.o { background: transparent; }
-  .later b { font-size: 30px; font-weight: 800; display: block; }
-  .later small { font-size: 22px; color: var(--muted); display: block; margin-top: 6px; line-height: 1.4; }
-  .later .tx { font-size: 18px; color: #a1a1aa; margin-top: 8px; display: block; }
+  /* 번호를 건너뛴 손님용: 결제 후 키오스크에서 번호 입력해 이번 결제 적립 */
+  .optin.later { border-style: dashed; }
+  .saved { font-size: 26px; font-weight: 800; color: #15803d; }
   .count { font-size: 24px; color: var(--muted); }
 
   /* 바코드 없는 상품 — 화면에서 바로 눌러 담기 */
@@ -756,6 +751,21 @@ function render() {
     }
     case "done": {
       const r = st.receipt;
+      // 결제 후 적립: 번호를 건너뛴 손님이 완료 화면에서 키오스크로 번호를 입력해 이번 결제를 적립한다.
+      if (st.lateOpen) {
+        const ph = st.phone;
+        h = header() + steps(4) + `<div class="pg">
+          <h2>휴대폰 번호를 입력하면<br/>이번 결제가 적립돼요</h2>
+          <p class="lead">할인은 결제가 끝나서 다음 구매부터 적용돼요</p>
+          <div class="phone ${ph ? "" : "ph"}">${fmtPhone(ph) || "010-0000-0000"}</div>
+          <div class="pad">${[1,2,3,4,5,6,7,8,9].map((n) => `<button data-key="${n}">${n}</button>`).join("")}
+            <button class="fn" data-key="clr">전체 지움</button><button data-key="0">0</button><button class="fn" data-key="bk">← 지움</button></div>
+          <p class="privacy">입력한 번호는 적립 확인에만 쓰이며, 마케팅 활용은 별도 동의를 받습니다.</p>
+          <div class="btns" style="margin-top:auto"><button class="back" data-act="lateCancel">취소</button>
+            <button class="primary" style="height:100px;font-size:34px" data-act="lateOk" ${ph.length >= 10 ? "" : "disabled"}>적립하기</button></div>
+        </div>`;
+        break;
+      }
       if (r.delivery) {
         const stages = ["배송요청", "상품준비중", "배송중", "배송완료"];
         h = header() + steps(4) + `<div class="pg"><div class="center" style="gap:26px">
@@ -788,12 +798,12 @@ function render() {
           <div class="ln big"><span>결제 금액 · ${r.method}</span><span>${won(r.pay)}</span></div>
           ${r.change ? `<div class="ln chg"><span>거스름돈</span><span>${won(r.change)}</span></div>` : ""}
           ${r.phone ? `<div class="ln"><span>적립 번호</span><span>${r.phone}</span></div>` : ""}
+          ${r.lateSaved ? `<div class="ln"><span class="saved">결제 후 적립 완료 ✓</span><span></span></div>` : ""}
         </div>
         ${r.phone
           ? `<div class="optin"><div><b>1,000원 쿠폰 받기</b><small>행사·신상품 소식 수신 동의 시 다음 구매에 자동 적용</small></div><button data-act="optin">받기</button></div>
              ${r.method !== "현금" ? `<div class="optin card"><div><b>다음부터 이 카드로 바로 적립</b><small>카드를 이 번호에 연결하면 번호 입력 없이 결제만 해도 적립돼요</small></div><button data-act="cardlink">연결</button></div>` : ""}`
-          : `<div class="later"><div class="qr" aria-label="예시 QR">${qrCells(r.txId)}</div>
-               <div><b>번호 안 넣으셨나요?<br/>지금 찍으면 이번 결제도 적립</b><small>휴대폰 카메라로 QR을 찍고 번호를 입력하세요. 첫 구매라면 500원 쿠폰도 드려요</small><span class="tx">결제번호 ${r.txId} · 예시 QR</span></div></div>`}
+          : `<div class="optin later"><div><b>번호 안 넣으셨나요?</b><small>지금 번호를 입력하면 이번 결제도 적립돼요. 할인은 다음 구매부터 적용돼요</small></div><button data-act="lateOpen">적립하기</button></div>`}
         <div class="btns" style="width:100%"><button class="btn2" data-act="finish">영수증 출력</button><button class="btn2" data-act="finish">출력 안 함</button></div>
         ${r.change ? `<button class="wide" style="height:88px;font-size:26px;color:#52525b" data-act="toast">거스름돈이 안 나왔나요? 계좌로 받기</button>` : ""}
         <p class="count">${st.count}초 후 처음 화면으로 돌아갑니다</p>
@@ -859,32 +869,12 @@ function fit() {
   $("scaler").style.width = 1080 * sc + "px"; $("scaler").style.height = 1920 * sc + "px";
 }
 
-// 이번 결제 전용 QR(시연용 무늬). 실제로는 결제번호가 담긴 적립 링크를 QR로 만든다.
-function qrCells(seed) {
-  let s = [...String(seed)].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0;
-  const rnd = () => ((s = (s * 1103515245 + 12345) >>> 0) >>> 16) & 1;
-  // 세 모서리의 위치 표시(네모 안 네모)는 고정, 나머지는 무작위 점
-  const corners = [[0, 0], [14, 0], [0, 14]];
-  let h = "";
-  for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) {
-    const c = corners.find(([cx, cy]) => x >= cx && x < cx + 7 && y >= cy && y < cy + 7);
-    let on;
-    if (c) {
-      const dx = x - c[0], dy = y - c[1];
-      on = dx === 0 || dy === 0 || dx === 6 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4);
-    } else on = rnd();
-    h += on ? "<i></i>" : '<i class="o"></i>';
-  }
-  return h;
-}
-
 function finishPay(change = 0) {
   const T = totals();
   // 적립: 번호를 넣은 결제는 결제 기록에 번호를 함께 저장해야 고객별 구매 이력이 쌓인다(실제 구현 시 판매 기록에 저장).
-  // 번호를 건너뛴 결제는 완료 화면의 결제 전용 QR로 나중에 적립할 수 있게 결제번호(txId)를 둔다.
+  // 번호를 건너뛴 결제는 완료 화면에서 키오스크로 번호를 받아 같은 결제 기록에 붙인다(결제 후 적립, 할인은 다음 구매부터).
   st.receipt = { ...T, change, custLabel: st.customer?.label, method: { card: "카드", easy: "간편결제", cash: "현금" }[st.screen],
-    phone: st.mode !== "delivery" && st.customer && st.phone ? fmtPhone(st.phone) : "",
-    txId: "S-" + String(Math.floor(Math.random() * 900000) + 100000) };
+    phone: st.mode !== "delivery" && st.customer && st.phone ? fmtPhone(st.phone) : "" };
   if (st.mode === "delivery") {
     Object.assign(st.receipt, {
       delivery: true, addr: addrText(), phone: fmtPhone(st.dPhone),
@@ -894,7 +884,7 @@ function finishPay(change = 0) {
   st.screen = "done"; st.paying = false; st.count = 15;
 }
 function resetAll() {
-  Object.assign(st, { screen: "idle", cart: [], phone: "", customer: null, inserted: 0, paying: false, board: false, receipt: null, flash: "",
+  Object.assign(st, { screen: "idle", cart: [], phone: "", customer: null, inserted: 0, paying: false, board: false, receipt: null, flash: "", lateOpen: false,
     mode: "pickup", dPhone: "", bldg: null, dong: "", ho: "", field: "dong", memos: [] });
 }
 function seedDemo() {
@@ -970,6 +960,9 @@ document.addEventListener("click", (e) => {
       case "cashCancel": st.inserted = 0; st.screen = "method"; break;
       case "optin": el.textContent = "완료 ✓"; el.disabled = true; return;
       case "cardlink": el.textContent = "연결됨 ✓"; el.disabled = true; return;
+      case "lateOpen": st.phone = ""; st.lateOpen = true; break;
+      case "lateCancel": st.phone = ""; st.lateOpen = false; st.count = 15; break;
+      case "lateOk": st.receipt.phone = fmtPhone(st.phone); st.receipt.lateSaved = true; st.lateOpen = false; st.count = 15; break;
       case "finish": resetAll(); break;
       case "toast": st.toast = true; break;
       case "toastClose": st.toast = false; break;
@@ -1000,7 +993,7 @@ setInterval(() => {
   if (st.screen === "idle" && !st.sound) showAd((st.ad + 1) % ADS.length);
 }, 7000);
 setInterval(() => {
-  if (st.screen !== "done") return;
+  if (st.screen !== "done" || st.lateOpen) return; // 결제 후 번호 입력 중에는 처음 화면으로 넘어가지 않는다
   st.count -= 1;
   if (st.count <= 0) resetAll();
   render();
