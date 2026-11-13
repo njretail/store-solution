@@ -191,6 +191,16 @@
   .benefit .go { align-self: flex-end; height: 88px; padding: 0 40px; border-radius: 20px; background: var(--brand); color: #fff; font-size: 28px; font-weight: 800; }
   .benefit .go:disabled { background: #d4d4d8; }
   .benefit .done { font-size: 26px; font-weight: 800; color: #15803d; }
+  .benefit .done small { display: block; font-size: 21px; font-weight: 500; color: var(--muted); margin-top: 6px; }
+  /* 내 쿠폰 고르기: 번호를 넣으면 그 번호에 저장된 쿠폰을 보여 준다 */
+  .cpns { display: flex; flex-direction: column; gap: 16px; }
+  .cpn { display: flex; align-items: center; gap: 24px; width: 100%; padding: 28px 30px; border-radius: 24px; border: 3px solid #e4e4e7; background: #fff; text-align: left; }
+  .cpn .amt { flex: none; font-size: 40px; font-weight: 900; color: var(--brand); min-width: 190px; }
+  .cpn b { font-size: 28px; font-weight: 800; display: block; color: var(--ink); }
+  .cpn small { font-size: 21px; color: var(--muted); display: block; margin-top: 4px; }
+  .cpn .rd { margin-left: auto; flex: none; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #d4d4d8; }
+  .cpn.on { border-color: var(--brand); background: var(--brand-soft); }
+  .cpn.on .rd { border: 13px solid var(--brand); }
   /* 번호를 건너뛴 손님용: 결제 후 키오스크에서 번호 입력해 이번 결제 적립 */
   .optin.later { border-style: dashed; }
   .saved { font-size: 26px; font-weight: 800; color: #15803d; }
@@ -302,7 +312,7 @@
       <div class="seg" id="scanSim"></div>
       <p class="note" style="margin-top:6px">실제로는 USB 바코드 스캐너가 숫자+Enter를 입력하면 바로 담깁니다. 키보드로 바코드 숫자를 치고 Enter를 눌러도 됩니다.</p>
     </div>
-    <p class="note">전화번호 <b>01012345678</b>은 쿠폰이 있는 기존 고객, 그 밖의 번호는 신규 고객(500원 즉시 할인)으로 흉내 냅니다. 가격·상품·매장명은 예시입니다.</p>
+    <p class="note">전화번호 <b>01012345678</b>은 쿠폰이 있는 기존 고객, 그 밖의 번호는 신규 고객(500원 즉시 할인)으로 흉내 냅니다. 완료 화면에서 쿠폰을 받은 번호는 다음 결제 때 번호를 넣으면 그 쿠폰이 보입니다(페이지를 새로 열면 초기화). 가격·상품·매장명은 예시입니다.</p>
   </aside>
   <section class="stage" id="stage">
     <div class="stageCol">
@@ -351,6 +361,7 @@ const ADS = [
 const VOICE = {
   receive: "상품을 지금 가져가실지, 배송으로 받으실지 골라 주세요.",
   phone: "휴대폰 번호를 입력하면 할인과 적립을 받을 수 있어요.",
+  coupon: "보유하신 쿠폰이 있어요. 사용할 쿠폰을 골라 주세요.",
   method: "결제 방법을 선택해 주세요.",
   card: "카드를 단말기에 꽂아 주세요.",
   easy: "휴대폰의 결제 바코드를 스캐너에 보여 주세요.",
@@ -359,7 +370,7 @@ const VOICE = {
   ddone: "배송 주문이 접수되었습니다. 배송 상품은 배송공간으로 옮겨 주세요.",
 };
 const VOICE_LABELS = {
-  receive: "받는 방법 선택", phone: "번호 입력", method: "결제 방법 선택", card: "카드 결제",
+  receive: "받는 방법 선택", phone: "번호 입력", coupon: "쿠폰 선택", method: "결제 방법 선택", card: "카드 결제",
   easy: "간편결제", cash: "현금 결제", done: "결제 완료", ddone: "배송 주문 완료",
 };
 
@@ -592,7 +603,7 @@ function steps(n) {
 function prevOf(screen) {
   if (st.paying || (screen === "cash" && st.inserted > 0)) return null;
   const map = {
-    receive: "cart", phone: "receive", method: st.mode === "delivery" ? "dconfirm" : "phone",
+    receive: "cart", phone: "receive", coupon: "phone", method: st.mode === "delivery" ? "dconfirm" : "phone",
     card: "method", easy: "method", cash: "method",
     dphone: "receive", daddr: "dphone", ddetail: "daddr", dconfirm: st.bldg ? "ddetail" : "daddr",
   };
@@ -646,13 +657,26 @@ function render() {
       const fmt = ph.length > 7 ? `${ph.slice(0, 3)}-${ph.slice(3, 7)}-${ph.slice(7)}` : ph.length > 3 ? `${ph.slice(0, 3)}-${ph.slice(3)}` : ph;
       h = header() + steps(2) + `<div class="pg">
         <h2>휴대폰 번호로<br/>할인·적립 받으세요</h2>
-        <div class="perk"><div><b>처음이면 500원 할인</b><small>첫 구매 즉시 할인</small></div><div><b>보유 쿠폰 자동 적용</b><small>번호만 입력하면 끝</small></div></div>
+        <div class="perk"><div><b>처음이면 500원 할인</b><small>첫 구매 즉시 할인</small></div><div><b>내 쿠폰 바로 사용</b><small>번호만 입력하면 보여요</small></div></div>
         <div class="phone ${ph ? "" : "ph"}">${fmt || "010-0000-0000"}</div>
         <div class="pad">${[1,2,3,4,5,6,7,8,9].map((d) => `<button data-key="${d}">${d}</button>`).join("")}
           <button class="fn" data-key="clr">전체 지움</button><button data-key="0">0</button><button class="fn" data-key="bk">← 지움</button></div>
         <p class="privacy">입력한 번호는 할인·적립 확인에만 쓰이며, 마케팅 활용은 별도 동의를 받습니다.</p>
         <div class="btns" style="margin-top:auto"><button class="back" data-act="skipPhone">건너뛰기</button>
           <button class="primary" style="height:100px;font-size:34px" data-act="phoneOk" ${ph.length >= 10 ? "" : "disabled"}>확인</button></div>
+      </div>`;
+      break;
+    }
+    case "coupon": {
+      const cs = WALLET[st.phone] || [];
+      h = header() + steps(2) + `<div class="pg">
+        <h2>보유 쿠폰이 있어요</h2>
+        <p class="lead">${fmtPhone(st.phone)} 님 · 이번 결제에 쓸 쿠폰을 골라 주세요</p>
+        <div class="cpns">${cs.length ? cs.map((c) => `<button class="cpn ${c.id === st.couponSel ? "on" : ""}" data-cpn="${c.id}">
+            <span class="amt">−${won(c.amount)}</span><span><b>${c.label}</b><small>${c.from}</small></span><span class="rd"></span></button>`).join("")
+          : `<p class="empty">사용할 수 있는 쿠폰이 없어요</p>`}</div>
+        <div class="btns" style="margin-top:auto"><button class="back" data-act="cpnSkip">쿠폰 안 쓰고 적립만</button>
+          <button class="primary" style="height:100px;font-size:34px" data-act="cpnUse" ${cs.length ? "" : "disabled"}>이 쿠폰 쓰기</button></div>
       </div>`;
       break;
     }
@@ -864,7 +888,7 @@ function panel() {
   $("quickSound").className = st.sound ? "on" : "";
   $("bgmBtn").textContent = bgm.playing ? "⏸ BGM 끄기" : "🎵 BGM 켜기";
   $("bgmBtn").className = bgm.playing ? "on" : "";
-  const nav = [["idle", "대기"], ["cart", "장바구니"], ["receive", "받는 방법"], ["phone", "번호 입력"], ["method", "결제 방법"], ["card", "카드 결제"], ["cash", "현금 결제"], ["done", "완료"],
+  const nav = [["idle", "대기"], ["cart", "장바구니"], ["receive", "받는 방법"], ["phone", "번호 입력"], ["coupon", "쿠폰 선택"], ["method", "결제 방법"], ["card", "카드 결제"], ["cash", "현금 결제"], ["done", "완료"],
     ["dphone", "배송: 연락처"], ["daddr", "배송: 주소"], ["dconfirm", "배송: 확인"], ["ddone", "배송: 완료"]];
   $("nav").innerHTML = nav.map(([v, l]) => `<button data-nav="${v}" class="${st.screen === v ? "on" : ""}">${l}</button>`).join("");
   $("scanSim").innerHTML = PRODUCTS.map((p, i) => `<button data-sim="${i}">${p.name.split(" ").slice(0, 2).join(" ")}</button>`).join("");
@@ -878,12 +902,24 @@ function fit() {
   $("scaler").style.width = 1080 * sc + "px"; $("scaler").style.height = 1920 * sc + "px";
 }
 
+// 번호별 쿠폰함과 적립 회원(시연용, 페이지를 닫으면 초기화). 실제로는 CRM DB에 번호 기준으로 저장한다.
+const WALLET = { "01012345678": [{ id: 1, label: "1,000원 할인 쿠폰", amount: 1000, from: "지난 방문 혜택으로 받은 쿠폰" }] };
+const MEMBERS = new Set(["01012345678"]);
+// 번호 확인 후: 쿠폰이 있으면 쿠폰 고르기, 없으면 기존 회원은 적립만, 처음 온 번호는 첫 구매 할인
+function afterPhone() {
+  const cs = WALLET[st.phone] || [];
+  if (cs.length) { st.couponSel = cs[0].id; st.screen = "coupon"; return; }
+  st.customer = MEMBERS.has(st.phone) ? { discount: 0, label: "적립" } : { discount: 500, label: "첫 구매 할인" };
+  st.screen = "method";
+}
+
 // 다음 방문 혜택 카드. 체크 상태는 st.benefit에 둔다(완료 화면은 카운트다운 때문에 1초마다 다시 그려진다).
 function benefitBox(r) {
   const b = st.benefit;
   if (b.done) {
     const got = [b.coupon && "1,000원 쿠폰", b.card && "카드 연결"].filter(Boolean).join(" · ");
-    return `<div class="benefit"><b>다음 방문 혜택</b><span class="done">${got} 받기 완료 ✓</span></div>`;
+    return `<div class="benefit"><b>다음 방문 혜택</b><span class="done">${got} 받기 완료 ✓
+      ${b.coupon ? `<small>쿠폰은 ${r.phone} 번호에 저장됐어요. 다음 결제 때 번호를 입력하면 바로 쓸 수 있어요</small>` : ""}</span></div>`;
   }
   const canCard = r.method !== "현금";
   const row = (key, title, sub) => `<button class="chk ${b[key] ? "on" : ""}" data-act="bToggle" data-k="${key}" aria-pressed="${b[key]}">
@@ -901,6 +937,12 @@ function finishPay(change = 0) {
   // 번호를 건너뛴 결제는 완료 화면에서 키오스크로 번호를 받아 같은 결제 기록에 붙인다(결제 후 적립, 할인은 다음 구매부터).
   st.receipt = { ...T, change, custLabel: st.customer?.label, method: { card: "카드", easy: "간편결제", cash: "현금" }[st.screen],
     phone: st.mode !== "delivery" && st.customer && st.phone ? fmtPhone(st.phone) : "" };
+  if (st.receipt.phone) {
+    st.receipt.rawPhone = st.phone;
+    MEMBERS.add(st.phone);
+    // 쓴 쿠폰은 쿠폰함에서 뺀다
+    if (st.customer.couponId) WALLET[st.phone] = (WALLET[st.phone] || []).filter((c) => c.id !== st.customer.couponId);
+  }
   if (st.mode === "delivery") {
     Object.assign(st.receipt, {
       delivery: true, addr: addrText(), phone: fmtPhone(st.dPhone),
@@ -932,7 +974,10 @@ document.addEventListener("click", (e) => {
     if (v === "idle") resetAll();
     else {
       if (v.startsWith("d") && v !== "done") seedDelivery();
-      else { seedDemo(); if (["phone", "receive", "done"].includes(v)) st.mode = "pickup"; }
+      else {
+        seedDemo(); if (["phone", "coupon", "receive", "done"].includes(v)) st.mode = "pickup";
+        if (v === "coupon") { st.phone = "01012345678"; st.couponSel = (WALLET[st.phone] || [])[0]?.id; }
+      }
       if (v === "done" || v === "ddone") { st.screen = "card"; finishPay(); }
       else { st.screen = v; st.inserted = 0; st.paying = false; }
     }
@@ -950,6 +995,7 @@ document.addEventListener("click", (e) => {
   else if (d.dec) { const it = st.cart.find((i) => i.p.name === d.dec); it.qty--; if (!it.qty) st.cart = st.cart.filter((i) => i !== it); }
   else if (d.del) st.cart = st.cart.filter((i) => i.p.name !== d.del);
   else if (d.go) st.screen = d.go;
+  else if (d.cpn) st.couponSel = +d.cpn;
   else if (d.key) {
     // 숫자 패드는 화면마다 채우는 칸이 다르다(할인용 번호 / 배송 연락처 / 동·호수).
     const target = st.screen === "dphone" ? "dPhone" : st.screen === "ddetail" ? st.field : "phone";
@@ -981,17 +1027,23 @@ document.addEventListener("click", (e) => {
       case "board": st.board = !st.board; break;
       case "reset": resetAll(); break;
       case "skipPhone": st.customer = null; st.phone = ""; st.screen = "method"; break;
-      case "phoneOk": st.customer = st.phone === "01012345678" ? { discount: 1000, label: "보유 쿠폰 할인" } : { discount: 500, label: "첫 구매 할인" }; st.screen = "method"; break;
+      case "phoneOk": afterPhone(); break;
+      case "cpnUse": { const c = (WALLET[st.phone] || []).find((x) => x.id === st.couponSel);
+        if (c) { st.customer = { discount: c.amount, label: c.label, couponId: c.id }; st.screen = "method"; } break; }
+      case "cpnSkip": st.customer = { discount: 0, label: "적립" }; st.screen = "method"; break;
       case "approve": st.paying = true; render(); setTimeout(() => { finishPay(); render(); }, 1200); return;
       case "cashCancel": st.inserted = 0; st.screen = "method"; break;
       case "optin": el.textContent = "완료 ✓"; el.disabled = true; return;
       case "bToggle": st.benefit[d.k] = !st.benefit[d.k]; break;
       case "bGet":
         if (st.receipt.method === "현금") st.benefit.card = false;
+        // 쿠폰은 받는 즉시 이 번호의 쿠폰함에 넣어 다음 결제 때 번호만 넣으면 보이게 한다
+        if (st.benefit.coupon) (WALLET[st.receipt.rawPhone] ||= []).push({ id: Date.now(), label: "1,000원 할인 쿠폰", amount: 1000, from: "지난 방문 혜택으로 받은 쿠폰" });
         st.benefit.done = true; break;
       case "lateOpen": st.phone = ""; st.lateOpen = true; break;
       case "lateCancel": st.phone = ""; st.lateOpen = false; st.count = 15; break;
-      case "lateOk": st.receipt.phone = fmtPhone(st.phone); st.receipt.lateSaved = true; st.lateOpen = false; st.count = 15; break;
+      case "lateOk": st.receipt.phone = fmtPhone(st.phone); st.receipt.rawPhone = st.phone; MEMBERS.add(st.phone);
+        st.receipt.lateSaved = true; st.lateOpen = false; st.count = 15; break;
       case "finish": resetAll(); break;
       case "toast": st.toast = true; break;
       case "toastClose": st.toast = false; break;
