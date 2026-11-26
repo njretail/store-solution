@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireProfile, getCurrentStore } from "@/lib/session";
 import { optInMarketing as optInMarketingForStore, MARKETING_COUPON_VALUE } from "@/lib/marketing-optin";
+import type { PointSummary } from "@/lib/points";
 
 export type SellState = { error: string | null; success: string | null };
 
@@ -16,7 +17,9 @@ export async function checkout(
   const payment_method = String(formData.get("payment_method") ?? "cash");
   const coupon_code = String(formData.get("coupon_code") ?? "").trim() || null;
   const discount_amount = Number(formData.get("discount_amount") ?? 0) || 0;
-  const customer_phone = String(formData.get("customer_phone") ?? "").trim() || null;
+  const customer_phone = String(formData.get("customer_phone") ?? "").replace(/[^0-9]/g, "") || null;
+  const use_points = Math.max(0, Math.floor(Number(formData.get("use_points") ?? 0) || 0));
+  const point_token = String(formData.get("point_token") ?? "") || null;
 
   let items: Array<{ product_id: string; quantity: number }>;
   try {
@@ -35,6 +38,8 @@ export async function checkout(
     p_coupon_code: coupon_code,
     p_discount_amount: discount_amount,
     p_customer_phone: customer_phone,
+    p_use_points: use_points,
+    p_point_token: point_token,
   });
 
   if (error) {
@@ -46,11 +51,19 @@ export async function checkout(
   revalidatePath("/dashboard");
   revalidatePath("/customers");
 
-  const sale = data as { total_amount: number; discount_amount: number; customer_id: string | null } | null;
+  const sale = data as {
+    total_amount: number;
+    discount_amount: number;
+    customer_id: string | null;
+    points_used?: number;
+    points_earned?: number;
+  } | null;
   const total = sale?.total_amount ?? 0;
   const discount = sale?.discount_amount ?? 0;
   const discountNote = discount > 0 ? ` (할인 ${discount.toLocaleString()}원 적용)` : "";
-  const customerNote = customer_phone ? " · 고객 적립됨" : "";
+  const usedNote = sale?.points_used ? ` · 포인트 ${sale.points_used.toLocaleString()}점 사용` : "";
+  const earnedNote = sale?.points_earned ? ` · ${sale.points_earned.toLocaleString()}점 적립` : customer_phone ? " · 고객 등록됨" : "";
+  const customerNote = usedNote + earnedNote;
   return {
     error: null,
     success: `결제 완료 (총 ${total.toLocaleString()}원)${discountNote}${customerNote}`,
@@ -89,4 +102,39 @@ export async function optInMarketing(
     error: null,
     success: `감사합니다! ${MARKETING_COUPON_VALUE.toLocaleString()}원 쿠폰이 발급됐어요 — 다음 결제 시 전화번호를 입력하면 자동 적용됩니다.`,
   };
+}
+
+// ── 포인트 (판매 화면·키오스크 세로 화면) ─────────────────────────
+// 조회는 번호만, 사용은 포인트 비밀번호 확인 후 받은 5분짜리 1회용 토큰으로 결제한다(0042_points.sql).
+
+function cleanPhone(raw: string) {
+  const digits = raw.replace(/[^0-9]/g, "");
+  return /^01d{8,9}$/.test(digits) ? digits : null;
+}
+
+export async function lookupPoints(phoneRaw: string): Promise<{ error: string | null; summary: PointSummary | null }> {
+  const { supabase, profile } = await requireProfile();
+  const store = await getCurrentStore(supabase, profile);
+  if (!store) return { error: "매장을 먼저 선택하세요.", summary: null };
+  const phone = cleanPhone(phoneRaw);
+  if (!phone) return { error: "휴대폰 번호를 확인하세요.", summary: null };
+  const { data, error } = await supabase.rpc("point_summary", { p_store_id: store.id, p_phone: phone });
+  if (error) return { error: "포인트를 불러오지 못했어요.", summary: null };
+  return { error: null, summary: data as PointSummary };
+}
+
+export async function verifyPointPin(
+  phoneRaw: string,
+  pin: string
+): Promise<{ error: string | null; token: string | null; createdPin: boolean }> {
+  const { supabase, profile } = await requireProfile();
+  const store = await getCurrentStore(supabase, profile);
+  if (!store) return { error: "매장을 먼저 선택하세요.", token: null, createdPin: false };
+  const phone = cleanPhone(phoneRaw);
+  if (!phone) return { error: "휴대폰 번호를 확인하세요.", token: null, createdPin: false };
+  const { data, error } = await supabase.rpc("verify_point_pin", { p_store_id: store.id, p_phone: phone, p_pin: pin });
+  if (error) return { error: "비밀번호를 확인하지 못했어요.", token: null, createdPin: false };
+  const r = data as { ok: boolean; token?: string; created_pin?: boolean; error?: string };
+  if (!r.ok) return { error: r.error ?? "비밀번호가 맞지 않아요.", token: null, createdPin: false };
+  return { error: null, token: r.token ?? null, createdPin: Boolean(r.created_pin) };
 }

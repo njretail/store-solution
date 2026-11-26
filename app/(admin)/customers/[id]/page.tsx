@@ -3,6 +3,9 @@ import { requireAdmin, getCurrentStore } from "@/lib/session";
 import { computeCustomerSegments, TAG_LABELS } from "@/lib/customer-segments";
 import { CAMPAIGN_TYPE_LABELS } from "@/lib/types";
 import IssueCouponForm from "../IssueCouponForm";
+import AdjustPointsForm from "../../points/AdjustPointsForm";
+import ResetPinForm from "../../points/ResetPinForm";
+import { POINT_KIND_LABELS, type PointLedgerRow, type PointSummary } from "@/lib/points";
 
 export default async function CustomerDetailPage({
   params,
@@ -29,6 +32,23 @@ export default async function CustomerDetailPage({
   ]);
 
   if (!customer) return null;
+
+  // 포인트 (0042_points.sql 실행 전이면 조용히 숨김)
+  const [{ data: pointSummaryData }, { data: pointLedgerData }] = await Promise.all([
+    supabase.rpc("point_summary", { p_store_id: customer.store_id, p_phone: customer.phone }),
+    supabase
+      .from("point_ledger")
+      .select("id, sale_id, kind, amount, memo, created_at, expires_at")
+      .eq("customer_id", id)
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
+  const pointSummary = pointSummaryData as PointSummary | null;
+  // 비밀번호 초기화 기록 (누가·언제)
+  const resetBy = customer.point_pin_reset_by
+    ? (await supabase.from("profiles").select("name, email").eq("id", customer.point_pin_reset_by).maybeSingle()).data
+    : null;
+  const pointLedger = (pointLedgerData ?? []) as Pick<PointLedgerRow, "id" | "sale_id" | "kind" | "amount" | "memo" | "created_at" | "expires_at">[];
 
   const sales = salesData ?? [];
   const saleIds = sales.map((s) => s.id);
@@ -96,6 +116,56 @@ export default async function CustomerDetailPage({
               {segment.isOverdue && <span className="ml-1 font-medium text-amber-600">(뜸해짐)</span>}
             </span>
           </div>
+        </div>
+      )}
+
+      {pointSummary && (
+        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white px-5 py-4">
+          <div className="flex flex-wrap items-center gap-6">
+            <h2 className="text-sm font-medium text-zinc-700">포인트</h2>
+            <span className="text-xl font-semibold text-[#C8075F]">{pointSummary.balance.toLocaleString()}점</span>
+            {pointSummary.pending > 0 && <span className="text-sm text-zinc-500">사용 대기 {pointSummary.pending.toLocaleString()}점</span>}
+            {pointSummary.expiring_30d > 0 && <span className="text-sm text-amber-600">30일 내 소멸 {pointSummary.expiring_30d.toLocaleString()}점</span>}
+            <span className="text-sm text-zinc-500">
+              비밀번호 {pointSummary.locked ? "잠김(10분)" : pointSummary.has_pin ? "등록됨" : "미등록 (첫 사용 때 등록)"}
+            </span>
+          </div>
+          {customer.point_pin_reset_at && (
+            <p className="text-xs text-zinc-500">
+              마지막 비밀번호 초기화: {new Date(customer.point_pin_reset_at).toLocaleString("ko-KR")}
+              {resetBy && ` · ${resetBy.name ?? resetBy.email ?? "관리자"}`}
+            </p>
+          )}
+          {(pointSummary.has_pin || pointSummary.locked) && (
+            <details className="w-fit rounded border border-zinc-200 px-3 py-2">
+              <summary className="cursor-pointer text-xs text-zinc-600">비밀번호 분실 — 초기화하기</summary>
+              <div className="mt-2 w-72">
+                <ResetPinForm customerId={id} compact />
+              </div>
+            </details>
+          )}
+          {!pointSummary.enabled && <p className="text-xs text-zinc-400">이 매장은 포인트가 꺼져 있어요. 포인트관리에서 켤 수 있어요.</p>}
+          {pointLedger.length > 0 && (
+            <div className="max-h-60 overflow-y-auto">
+              <table className="w-full whitespace-nowrap text-sm">
+                <tbody>
+                  {pointLedger.map((r) => (
+                    <tr key={r.id} className="border-t border-zinc-100">
+                      <td className="py-1.5 pr-3 text-zinc-500">{new Date(r.created_at).toLocaleString("ko-KR")}</td>
+                      <td className="py-1.5 pr-3">{POINT_KIND_LABELS[r.kind]}</td>
+                      <td className={`py-1.5 pr-3 text-right font-medium ${r.amount >= 0 ? "text-green-700" : "text-red-600"}`}>
+                        {r.amount >= 0 ? "+" : ""}{r.amount.toLocaleString()}
+                      </td>
+                      <td className="py-1.5 text-zinc-500">
+                        {r.memo}
+                        {r.amount > 0 && r.expires_at && <span className="ml-2 text-xs text-zinc-400">~{new Date(r.expires_at).toLocaleDateString("ko-KR")}</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -179,7 +249,10 @@ export default async function CustomerDetailPage({
           </div>
         </div>
 
-        <IssueCouponForm customerId={id} />
+        <div className="flex flex-col gap-6">
+          <IssueCouponForm customerId={id} />
+          {pointSummary && <AdjustPointsForm customerId={id} />}
+        </div>
       </div>
     </div>
   );

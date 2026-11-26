@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
 import MarketingOptIn from "./MarketingOptIn";
+import PointsPanel, { type PointUse } from "./PointsPanel";
 import { checkout, type SellState } from "./actions";
 import { createDeliveryOrder, type DeliveryOrderState } from "../deliveries/actions";
 import { PAYMENT_METHODS, type CartItem, type Product } from "@/lib/types";
@@ -29,6 +30,7 @@ export default function SellPos({
   const [couponCode, setCouponCode] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
   const [customerPhone, setCustomerPhone] = useState("");
+  const [pointUse, setPointUse] = useState<PointUse>({ points: 0, token: null });
   const [state, formAction, pending] = useActionState(checkout, initialState);
   const [showOptIn, setShowOptIn] = useState(false);
   const [optInPhone, setOptInPhone] = useState("");
@@ -72,6 +74,7 @@ export default function SellPos({
       setDiscountAmount(0);
       setOptInPhone(customerPhone);
       setCustomerPhone("");
+      setPointUse({ points: 0, token: null });
       setShowOptIn(true);
     }
   }
@@ -326,14 +329,24 @@ export default function SellPos({
           <div>
             <input
               value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              placeholder="고객 전화번호 (선택, 적립/쿠폰 자동적용)"
+              onChange={(e) => {
+                setCustomerPhone(e.target.value);
+                setPointUse({ points: 0, token: null });
+              }}
+              inputMode="numeric"
+              placeholder="고객 전화번호 (선택, 포인트 적립·쿠폰 자동적용)"
               className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm"
             />
             <p className="mt-1 text-xs text-zinc-400">
-              번호를 입력하면 신규 고객은 500원 즉시 할인, 기존 고객은 보유 쿠폰이 있으면 자동 적용됩니다.
+              번호를 입력하면 신규 고객은 500원 즉시 할인, 기존 고객은 보유 쿠폰이 있으면 자동 적용되고 포인트가 적립됩니다.
             </p>
           </div>
+          <PointsPanel
+            phone={customerPhone}
+            payAmount={Math.max(total - discountAmount, 0)}
+            value={pointUse}
+            onChange={setPointUse}
+          />
           <div className="flex items-center gap-2">
             <input
               value={couponCode}
@@ -360,6 +373,12 @@ export default function SellPos({
           <div className="flex items-center justify-between text-sm font-medium text-zinc-900">
             <span>상품 합계</span>
             <span>{total.toLocaleString()}원</span>
+          </div>
+        )}
+        {!isDelivery && pointUse.points > 0 && (
+          <div className="flex items-center justify-between text-sm text-[#C8075F]">
+            <span>포인트 사용</span>
+            <span>−{pointUse.points.toLocaleString()}원</span>
           </div>
         )}
 
@@ -401,6 +420,8 @@ export default function SellPos({
           <input type="hidden" name="coupon_code" value={couponCode} />
           <input type="hidden" name="discount_amount" value={discountAmount} />
           <input type="hidden" name="customer_phone" value={customerPhone} />
+          <input type="hidden" name="use_points" value={pointUse.points} />
+          <input type="hidden" name="point_token" value={pointUse.token ?? ""} />
           <select
             name="payment_method"
             value={paymentMethod}

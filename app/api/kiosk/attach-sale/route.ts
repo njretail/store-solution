@@ -7,7 +7,7 @@ import { normalizeKioskPhone, rejectUnlessKiosk } from "@/lib/kiosk-webhook";
 // 고객이 없는 판매, 결제 후 30분 이내만 가능하다(DB 함수 attach_customer_to_sale에서 검사).
 //
 // 요청: POST { "store_id": "<stores.id>", "sale_id": "<sales.id>", "phone": "01012345678" }
-// 응답: { "sale_id": "...", "customer_id": "..." }
+// 응답: { "sale_id": "...", "customer_id": "...", "points_earned": 0 }  (포인트가 켜진 매장이면 이때 적립된다)
 export async function POST(request: NextRequest) {
   const denied = rejectUnlessKiosk(request);
   if (denied) return denied;
@@ -30,6 +30,6 @@ export async function POST(request: NextRequest) {
     // DB 함수가 손님에게 보여 줄 수 있는 문구로 막는다(이미 적립됨, 30분 지남 등)
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
-  const sale = data as { id: string; customer_id: string };
-  return NextResponse.json({ sale_id: sale.id, customer_id: sale.customer_id });
+  const sale = data as { id: string; customer_id: string; points_earned?: number };
+  return NextResponse.json({ sale_id: sale.id, customer_id: sale.customer_id, points_earned: sale.points_earned ?? 0 });
 }

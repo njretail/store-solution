@@ -49,10 +49,17 @@ const ADMIN_LINKS: NavItem[] = [
       { href: "/statistics/products", label: "상품통계" },
     ],
   },
-  { href: "/customers", label: "고객관리" },
+  {
+    label: "고객관리",
+    children: [
+      { href: "/customers", label: "고객 목록" },
+      { href: "/coupons", label: "쿠폰관리" },
+      // 매장 구매 금액의 N% 적립 — 키오스크·판매 화면과 연동 (0042_points.sql)
+      { href: "/points", label: "포인트관리" },
+    ],
+  },
   // 키오스크에서 고객이 남긴 원하는 상품 요청·불편 사항
   { href: "/customer-voice", label: "고객의 소리" },
-  { href: "/coupons", label: "쿠폰관리" },
   {
     label: "현금관리",
     children: [
